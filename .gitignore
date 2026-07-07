@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Backend secrets
+backend/.env
+*.log
+
+# Expo / mobile
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.kotlin/
+mobile/*.orig.*
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/.metro-health-check*
+mobile/npm-debug.*
+mobile/yarn-debug.*
+mobile/yarn-error.*
+mobile/*.tsbuildinfo
+mobile/ios/
+mobile/android/
+
+# OS
+.DS_Store
