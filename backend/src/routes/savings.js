@@ -78,7 +78,7 @@ router.post('/', async (req, res) => {
     action: 'create',
     entityType: 'savings',
     entityId: entry._id.toString(),
-    details: { type: entry.type, direction: entry.direction, amount: entry.amount, currency: entry.currency },
+    details: { type: entry.type, direction: entry.direction, amount: entry.amount, currency: entry.currency, description: entry.description },
   });
 
   res.status(201).json({ entry });
@@ -138,7 +138,7 @@ router.delete('/:id', async (req, res) => {
     action: 'delete',
     entityType: 'savings',
     entityId: entry._id.toString(),
-    details: { type: entry.type, direction: entry.direction, amount: entry.amount, currency: entry.currency },
+    details: { type: entry.type, direction: entry.direction, amount: entry.amount, currency: entry.currency, description: entry.description },
   });
 
   await entry.deleteOne();

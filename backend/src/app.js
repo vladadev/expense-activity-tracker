@@ -11,6 +11,7 @@ const categoryRoutes = require('./routes/categories');
 const savingsRoutes = require('./routes/savings');
 const wishlistRoutes = require('./routes/wishlist');
 const incomeRoutes = require('./routes/income');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/savings', savingsRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/income', incomeRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

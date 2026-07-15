@@ -4,13 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import NotificationBell from './NotificationBell';
 
 // Replaces React Navigation's native stack header everywhere in the app.
 // The native header wasn't reserving space for the status bar correctly on
 // this device/Android setup (overlapping content on every pushed screen,
 // not just stack roots) — this JS-rendered header lives inside the same
 // SafeAreaView we already confirmed works, so it can't have that problem.
-export default function Screen({ title, children, showBack }) {
+export default function Screen({ title, children, showBack, showBell = true }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
   const displayBack = showBack !== undefined ? showBack : navigation.canGoBack();
@@ -31,6 +32,7 @@ export default function Screen({ title, children, showBack }) {
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
             {title}
           </Text>
+          {showBell && <NotificationBell />}
         </View>
       )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
