@@ -68,7 +68,7 @@ router.post('/', async (req, res) => {
     action: 'create',
     entityType: 'expense',
     entityId: expense._id.toString(),
-    details: { amount: expense.amount, currency: expense.currency, category: expense.category, type: expense.type },
+    details: { amount: expense.amount, currency: expense.currency, category: expense.category, type: expense.type, description: expense.description },
   });
 
   res.status(201).json({ expense });

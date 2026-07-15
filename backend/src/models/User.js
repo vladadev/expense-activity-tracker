@@ -6,6 +6,9 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     expoPushToken: { type: String, default: null },
+    // When this user last opened the notification bell — used to compute
+    // their unread count. Null means "never opened it" (everything unread).
+    notificationsSeenAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

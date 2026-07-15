@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { CategoriesProvider } from '../context/CategoriesContext';
+import { NotificationsProvider } from '../context/NotificationsContext';
 import { registerForPushNotifications } from '../utils/notifications';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -28,6 +29,7 @@ import IncomeFormScreen from '../screens/IncomeFormScreen';
 import WishlistScreen from '../screens/WishlistScreen';
 import WishlistFolderScreen from '../screens/WishlistFolderScreen';
 import WishlistItemFormScreen from '../screens/WishlistItemFormScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -94,24 +96,39 @@ function MainTabs() {
   const { t } = useSettings();
   const { theme } = useTheme();
   return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border },
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name={TAB_ICONS[route.name]} size={size} color={color} />
+        ),
+      })}
+    >
+      <Tab.Screen name="Calendar" component={CalendarStack} options={{ tabBarLabel: t('nav.calendar') }} />
+      <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: t('nav.stats') }} />
+      <Tab.Screen name="Finances" component={FinancesStack} options={{ tabBarLabel: t('nav.finances') }} />
+      <Tab.Screen name="Wishlist" component={WishlistStack} options={{ tabBarLabel: t('nav.wishlist') }} />
+      <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarLabel: t('nav.settings') }} />
+    </Tab.Navigator>
+  );
+}
+
+// Wraps the tab navigator so the notification bell (rendered inside every
+// screen's shared header) can navigate to "Notifications" from anywhere —
+// React Navigation resolves that route by bubbling up to this outer stack,
+// regardless of which tab/nested-stack the bell was tapped from.
+function AppStack() {
+  return (
     <CategoriesProvider>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarActiveTintColor: theme.primary,
-          tabBarInactiveTintColor: theme.textSecondary,
-          tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border },
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={TAB_ICONS[route.name]} size={size} color={color} />
-          ),
-        })}
-      >
-        <Tab.Screen name="Calendar" component={CalendarStack} options={{ tabBarLabel: t('nav.calendar') }} />
-        <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: t('nav.stats') }} />
-        <Tab.Screen name="Finances" component={FinancesStack} options={{ tabBarLabel: t('nav.finances') }} />
-        <Tab.Screen name="Wishlist" component={WishlistStack} options={{ tabBarLabel: t('nav.wishlist') }} />
-        <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarLabel: t('nav.settings') }} />
-      </Tab.Navigator>
+      <NotificationsProvider>
+        <Stack.Navigator screenOptions={NO_HEADER}>
+          <Stack.Screen name="Tabs" component={MainTabs} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        </Stack.Navigator>
+      </NotificationsProvider>
     </CategoriesProvider>
   );
 }
@@ -147,6 +164,6 @@ export default function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navigationTheme}>{user ? <MainTabs /> : <LoginScreen />}</NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>{user ? <AppStack /> : <LoginScreen />}</NavigationContainer>
   );
 }
