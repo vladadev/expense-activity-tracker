@@ -23,13 +23,18 @@ async function checkReminders() {
 
   for (const event of dueEvents) {
     const token = event.owner?.expoPushToken;
-    if (token) {
-      try {
-        await sendExpoPush(token, event.title, event.notes || 'Reminder');
-      } catch (err) {
-        console.error(`Failed to send push for event ${event._id}:`, err.message);
-        continue;
-      }
+    if (!token) {
+      // No push token registered for this device yet — leave reminderSent
+      // false so it's retried automatically once one is registered, instead
+      // of silently marking a reminder "sent" that was never delivered.
+      console.log(`Skipping reminder for event ${event._id} — owner has no registered push token`);
+      continue;
+    }
+    try {
+      await sendExpoPush(token, event.title, event.notes || 'Reminder');
+    } catch (err) {
+      console.error(`Failed to send push for event ${event._id}:`, err.message);
+      continue;
     }
     event.reminderSent = true;
     await event.save();
