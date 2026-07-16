@@ -19,23 +19,32 @@ async function checkReminders() {
     reminderEnabled: true,
     reminderSent: false,
     reminderAt: { $lte: now },
-  }).populate('owner');
+  });
+  if (dueEvents.length === 0) return;
+
+  // Reminders are a shared household feature — every registered device gets
+  // every reminder, regardless of who created the event.
+  const users = await User.find({ expoPushToken: { $nin: [null, ''] } }).select('name expoPushToken');
+  const tokens = users.map((u) => u.expoPushToken);
 
   for (const event of dueEvents) {
-    const token = event.owner?.expoPushToken;
-    if (!token) {
-      // No push token registered for this device yet — leave reminderSent
-      // false so it's retried automatically once one is registered, instead
-      // of silently marking a reminder "sent" that was never delivered.
-      console.log(`Skipping reminder for event ${event._id} — owner has no registered push token`);
+    if (tokens.length === 0) {
+      // Nobody has a push token yet — leave reminderSent false so it's
+      // retried automatically once a device registers, instead of silently
+      // marking a reminder "sent" that was never delivered.
+      console.log(`Skipping reminder for event ${event._id} — no registered push tokens`);
       continue;
     }
-    try {
-      await sendExpoPush(token, event.title, event.notes || 'Reminder');
-    } catch (err) {
-      console.error(`Failed to send push for event ${event._id}:`, err.message);
-      continue;
+    let delivered = 0;
+    for (const token of tokens) {
+      try {
+        await sendExpoPush(token, event.title, event.notes || 'Reminder');
+        delivered++;
+      } catch (err) {
+        console.error(`Failed to send push for event ${event._id}:`, err.message);
+      }
     }
+    if (delivered === 0) continue;
     event.reminderSent = true;
     await event.save();
   }
