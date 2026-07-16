@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { formatLongDate } from '../i18n/dateFormat';
 
 export default function SavingsFormScreen({ route, navigation }) {
   const { entry } = route.params || {};
   const isEditing = !!entry;
-  const { t, currency: defaultCurrency } = useSettings();
+  const { t, language, currency: defaultCurrency } = useSettings();
   const { user } = useAuth();
   const { theme } = useTheme();
   const styles = createStyles(theme);
@@ -22,6 +24,8 @@ export default function SavingsFormScreen({ route, navigation }) {
   const [amount, setAmount] = useState(entry ? String(entry.amount) : '');
   const [currency, setCurrency] = useState(entry?.currency || defaultCurrency);
   const [description, setDescription] = useState(entry?.description || '');
+  const [date, setDate] = useState(entry?.date ? new Date(entry.date) : new Date());
+  const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -37,7 +41,15 @@ export default function SavingsFormScreen({ route, navigation }) {
 
     setSubmitting(true);
     try {
-      const payload = { type, owner: type === 'personal' ? owner : undefined, direction, amount: parsedAmount, currency, description };
+      const payload = {
+        type,
+        owner: type === 'personal' ? owner : undefined,
+        direction,
+        amount: parsedAmount,
+        currency,
+        description,
+        date: date.toISOString(),
+      };
       if (isEditing) {
         await client.put(`/savings/${entry._id}`, payload);
       } else {
@@ -102,6 +114,22 @@ export default function SavingsFormScreen({ route, navigation }) {
           <Text style={[styles.chipText, direction === 'withdrawal' && styles.chipTextActive]}>{t('savings.withdrawal')}</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.label}>{t('finance.date')}</Text>
+      <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>
+        <Text style={{ color: theme.text }}>{formatLongDate(date.toISOString().slice(0, 10), language)}</Text>
+      </TouchableOpacity>
+      {showPicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, selected) => {
+            setShowPicker(false);
+            if (selected) setDate(selected);
+          }}
+        />
+      )}
 
       <Text style={styles.label}>{t('savings.amount')}</Text>
       <TextInput
