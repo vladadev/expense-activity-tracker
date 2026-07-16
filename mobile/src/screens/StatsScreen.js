@@ -28,11 +28,18 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Format a LOCAL date as YYYY-MM-DD. toISOString() must not be used here —
+// it converts to UTC, which for UTC+ timezones shifts the window a day back
+// (e.g. "July" would become Jun 30 – Jul 30 and drop entries on Jul 31).
+function localDateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function monthRange(offset = 0) {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const to = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: localDateString(from), to: localDateString(to) };
 }
 
 function yearRange(offset = 0) {
@@ -72,6 +79,7 @@ export default function StatsScreen({ navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
   const styles = createStyles(theme);
+  const [dataType, setDataType] = useState('expenses'); // 'expenses' | 'income' | 'savings'
   const [periodMode, setPeriodMode] = useState('month'); // 'month' | 'year'
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset, setYearOffset] = useState(0);
@@ -80,6 +88,8 @@ export default function StatsScreen({ navigation }) {
   // Raw expenses from the range endpoint; null while the deployed backend
   // predates the field (person filtering is hidden in that case).
   const [expenses, setExpenses] = useState(null);
+  // Income/savings entries when one of those data types is selected.
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
   const [typeFilter, setTypeFilter] = useState('all');
@@ -108,16 +118,24 @@ export default function StatsScreen({ navigation }) {
     setLoading(true);
     const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
     try {
-      const res = await client.get(`/stats/range/${from}/${to}`);
-      setByDay(res.data.byDay);
-      setByCurrency(res.data.byCurrency);
-      setExpenses(res.data.expenses || null);
+      if (dataType === 'expenses') {
+        const res = await client.get(`/stats/range/${from}/${to}`);
+        setByDay(res.data.byDay);
+        setByCurrency(res.data.byCurrency);
+        setExpenses(res.data.expenses || null);
+      } else if (dataType === 'income') {
+        const res = await client.get('/income', { params: { from, to } });
+        setEntries(res.data.entries);
+      } else {
+        const res = await client.get('/savings', { params: { from, to } });
+        setEntries(res.data.entries);
+      }
     } catch (err) {
       console.log('Failed to load stats:', err.message);
     } finally {
       setLoading(false);
     }
-  }, [periodMode, monthOffset, yearOffset]);
+  }, [dataType, periodMode, monthOffset, yearOffset]);
 
   useFocusEffect(
     useCallback(() => {
@@ -145,6 +163,42 @@ export default function StatsScreen({ navigation }) {
   const personExpenses =
     expenses && personFilter !== 'all' ? expenses.filter((e) => e.owner?.name === personFilter) : expenses;
 
+  // Income/savings modes work off the raw entry lists.
+  const entryPersons = [...new Set(entries.map((e) => e.owner?.name).filter(Boolean))].sort();
+  const personEntries = personFilter === 'all' ? entries : entries.filter((e) => e.owner?.name === personFilter);
+  const chipPersons = dataType === 'expenses' ? (expenses ? persons : []) : entryPersons;
+  // Savings withdrawals count as negative so charts/totals show the net flow.
+  const signedAmount = (e) => (dataType === 'savings' && e.direction === 'withdrawal' ? -e.amount : e.amount);
+
+  function entryBarData(list) {
+    if (periodMode === 'year') {
+      const monthTotals = Array(12).fill(0);
+      for (const e of list) monthTotals[parseInt(e.date.slice(5, 7), 10) - 1] += signedAmount(e);
+      const labels = MONTHS_SHORT[language] || MONTHS_SHORT.en;
+      return monthTotals.map((value, i) => ({ label: labels[i], value, date: i }));
+    }
+    const dayTotals = {};
+    for (const e of list) {
+      const day = e.date.slice(0, 10);
+      dayTotals[day] = (dayTotals[day] || 0) + signedAmount(e);
+    }
+    return Object.keys(dayTotals)
+      .sort()
+      .slice(-10)
+      .map((d) => ({ label: d.slice(8, 10), value: dayTotals[d], date: d }));
+  }
+
+  const groupedEntries = {};
+  if (dataType !== 'expenses') {
+    for (const e of personEntries) {
+      if (!groupedEntries[e.currency]) groupedEntries[e.currency] = [];
+      groupedEntries[e.currency].push(e);
+    }
+  }
+  const entryCurrencies = Object.keys(groupedEntries).sort(
+    (a, b) => CURRENCY_ORDER.indexOf(a) - CURRENCY_ORDER.indexOf(b)
+  );
+
   // Currency sections: computed client-side when raw expenses exist, otherwise
   // straight from the server aggregates (old backend fallback).
   let currencySections;
@@ -166,7 +220,12 @@ export default function StatsScreen({ navigation }) {
   }
 
   const days = Object.keys(byDay).sort();
-  const hasData = personExpenses ? personExpenses.length > 0 : days.length > 0;
+  const hasData =
+    dataType === 'expenses'
+      ? personExpenses
+        ? personExpenses.length > 0
+        : days.length > 0
+      : personEntries.length > 0;
 
   function barDataFor(section) {
     const { currency, list } = section;
@@ -210,6 +269,8 @@ export default function StatsScreen({ navigation }) {
 
   function handleBarPress(date) {
     if (periodMode === 'month') {
+      // A per-day detail screen only exists for expenses.
+      if (dataType !== 'expenses') return;
       navigation.navigate('ExpenseStats', { date, person: personFilter !== 'all' ? personFilter : undefined });
       return;
     }
@@ -225,6 +286,29 @@ export default function StatsScreen({ navigation }) {
   return (
     <Screen title={t('nav.stats')} showBack={false}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <View style={styles.segmentRow}>
+          {[
+            { key: 'expenses', label: t('finance.expenses') },
+            { key: 'income', label: t('finance.incomeSection') },
+            { key: 'savings', label: t('finance.savings') },
+          ].map((seg) => (
+            <TouchableOpacity
+              key={seg.key}
+              style={[styles.segment, dataType === seg.key && { backgroundColor: theme.primary }]}
+              onPress={() => {
+                if (dataType !== seg.key) {
+                  setDataType(seg.key);
+                  setTypeFilter('all');
+                  animateContent();
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.segmentText, dataType === seg.key && styles.segmentTextActive]}>{seg.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <View style={styles.segmentRow}>
           {[
             { key: 'month', label: t('stats.monthly') },
@@ -260,7 +344,7 @@ export default function StatsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {expenses !== null && persons.length > 0 && (
+        {chipPersons.length > 0 && (
           <View style={styles.personRow}>
             <TouchableOpacity
               style={[
@@ -274,7 +358,7 @@ export default function StatsScreen({ navigation }) {
                 {t('stats.everyone')}
               </Text>
             </TouchableOpacity>
-            {persons.map((name) => {
+            {chipPersons.map((name) => {
               const color = getPersonColor(name);
               const active = personFilter === name;
               return (
@@ -292,7 +376,168 @@ export default function StatsScreen({ navigation }) {
           </View>
         )}
 
-        {currencySections.map((section) => {
+        {dataType !== 'expenses' &&
+          entryCurrencies.map((currency) => {
+            const list = groupedEntries[currency];
+            let total = 0;
+            let personalTotal = 0;
+            let togetherTotal = 0;
+            for (const e of list) {
+              const v = signedAmount(e);
+              total += v;
+              if (dataType === 'savings') {
+                if (e.type === 'personal') personalTotal += v;
+                else togetherTotal += v;
+              }
+            }
+
+            const typeFilteredList =
+              dataType === 'savings' && typeFilter !== 'all' ? list.filter((e) => e.type === typeFilter) : list;
+            const filteredTotal = typeFilteredList.reduce((sum, e) => sum + signedAmount(e), 0);
+            const barData = entryBarData(typeFilteredList);
+            const hasBars = barData.some((d) => d.value > 0);
+
+            const byOwner = {};
+            for (const e of typeFilteredList) {
+              const name = e.owner?.name || '?';
+              if (!byOwner[name]) byOwner[name] = { total: 0, personal: 0, together: 0 };
+              const v = signedAmount(e);
+              byOwner[name].total += v;
+              if (dataType === 'savings') byOwner[name][e.type] += v;
+            }
+            const personPie = Object.entries(byOwner)
+              .filter(([, b]) => b.total > 0)
+              .sort((a, b) => b[1].total - a[1].total)
+              .map(([name, b]) => ({
+                name,
+                amount: b.total,
+                color: getPersonColor(name),
+                valueLabel: formatAmount(b.total, currency),
+              }));
+            const pieTotal = personPie.reduce((sum, d) => sum + d.amount, 0);
+
+            return (
+              <View key={currency} style={{ marginBottom: 28 }}>
+                <View style={styles.currencyBadge}>
+                  <Text style={styles.currencyBadgeText}>{currency}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  {dataType === 'income' ? (
+                    <SummaryBox
+                      styles={styles}
+                      theme={theme}
+                      label={t('expenseStats.total')}
+                      value={total}
+                      currency={currency}
+                      formatAmount={formatAmount}
+                      active
+                      onPress={() => {}}
+                    />
+                  ) : (
+                    <>
+                      <SummaryBox
+                        styles={styles}
+                        theme={theme}
+                        label={t('expenseStats.total')}
+                        value={total}
+                        currency={currency}
+                        formatAmount={formatAmount}
+                        active={typeFilter === 'all'}
+                        onPress={() => changeTypeFilter('all')}
+                      />
+                      <SummaryBox
+                        styles={styles}
+                        theme={theme}
+                        label={t('expenseStats.personal')}
+                        value={personalTotal}
+                        currency={currency}
+                        formatAmount={formatAmount}
+                        active={typeFilter === 'personal'}
+                        onPress={() => changeTypeFilter('personal')}
+                      />
+                      <SummaryBox
+                        styles={styles}
+                        theme={theme}
+                        label={t('expenseStats.together')}
+                        value={togetherTotal}
+                        currency={currency}
+                        formatAmount={formatAmount}
+                        active={typeFilter === 'together'}
+                        onPress={() => changeTypeFilter('together')}
+                      />
+                    </>
+                  )}
+                </View>
+
+                <Animated.View style={{ opacity: fade }}>
+                  {!loading && hasBars && (
+                    <View style={styles.chartCard}>
+                      <DayBarChart
+                        data={barData}
+                        width={Dimensions.get('window').width - 64}
+                        theme={theme}
+                        formatAmount={formatAmount}
+                        currency={currency}
+                        onBarPress={handleBarPress}
+                      />
+                    </View>
+                  )}
+
+                  {personFilter === 'all' && personPie.length > 0 && (
+                    <View style={styles.sectionWrap}>
+                      <Text style={styles.sectionTitle}>
+                        {t('stats.byPerson')}
+                        {typeFilter !== 'all' && dataType === 'savings' ? ` · ${typeFilterLabel}` : ''}
+                      </Text>
+                      <DonutChart
+                        data={personPie}
+                        total={pieTotal}
+                        centerCaption={t('expenseStats.total')}
+                        centerValue={formatAmount(filteredTotal, currency)}
+                        theme={theme}
+                      />
+                    </View>
+                  )}
+
+                  {dataType === 'savings' && personFilter === 'all' && Object.keys(byOwner).length > 0 && (
+                    <View style={styles.sectionWrap}>
+                      {Object.entries(byOwner).map(([name, breakdown]) => {
+                        const color = getPersonColor(name);
+                        return (
+                          <View key={name} style={[styles.ownerCard, { borderLeftColor: color }]}>
+                            <View style={styles.ownerHeader}>
+                              <View style={[styles.ownerDot, { backgroundColor: color }]} />
+                              <Text style={styles.ownerName}>{name}</Text>
+                              <Text style={styles.ownerTotal}>{formatAmount(breakdown.total, currency)}</Text>
+                            </View>
+                            {typeFilter === 'all' && (
+                              <View style={styles.ownerBreakdownRow}>
+                                <View style={styles.ownerBreakdownCol}>
+                                  <Text style={styles.ownerBreakdownLabel}>{t('expenseStats.personal')}</Text>
+                                  <Text style={styles.ownerBreakdownValue}>
+                                    {formatAmount(breakdown.personal, currency)}
+                                  </Text>
+                                </View>
+                                <View style={styles.ownerBreakdownDivider} />
+                                <View style={styles.ownerBreakdownCol}>
+                                  <Text style={styles.ownerBreakdownLabel}>{t('stats.toTogether')}</Text>
+                                  <Text style={styles.ownerBreakdownValue}>
+                                    {formatAmount(breakdown.together, currency)}
+                                  </Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </Animated.View>
+              </View>
+            );
+          })}
+
+        {dataType === 'expenses' && currencySections.map((section) => {
           const { currency, summary } = section;
           const barData = barDataFor(section);
           const hasBars = barData.some((d) => d.value > 0);
