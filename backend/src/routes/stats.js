@@ -6,7 +6,17 @@ const router = express.Router();
 router.use(requireAuth);
 
 function emptyCurrencyBucket() {
-  return { total: 0, personalTotal: 0, togetherTotal: 0, byCategory: {}, byOwner: {} };
+  return {
+    total: 0,
+    personalTotal: 0,
+    togetherTotal: 0,
+    byCategory: {},
+    // Same category rollup split by expense type, so clients can filter
+    // charts to personal/together without refetching raw expenses.
+    byCategoryPersonal: {},
+    byCategoryTogether: {},
+    byOwner: {},
+  };
 }
 
 // GET /api/stats/:date  (YYYY-MM-DD) — full breakdown for one day, grouped by currency.
@@ -67,6 +77,8 @@ router.get('/range/:from/:to', async (req, res) => {
     if (e.type === 'personal') bucket.personalTotal += e.amount;
     else bucket.togetherTotal += e.amount;
     bucket.byCategory[e.category] = (bucket.byCategory[e.category] || 0) + e.amount;
+    const typeCats = e.type === 'personal' ? bucket.byCategoryPersonal : bucket.byCategoryTogether;
+    typeCats[e.category] = (typeCats[e.category] || 0) + e.amount;
 
     const ownerName = e.owner?.name || 'Unknown';
     if (!bucket.byOwner[ownerName]) bucket.byOwner[ownerName] = { total: 0, personal: 0, together: 0 };
