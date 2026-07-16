@@ -53,6 +53,16 @@ function CalendarStack() {
   );
 }
 
+function StatsStack() {
+  return (
+    <Stack.Navigator screenOptions={NO_HEADER}>
+      <Stack.Screen name="StatsHome" component={StatsScreen} />
+      <Stack.Screen name="ExpenseStats" component={ExpenseStatsScreen} />
+      <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} />
+    </Stack.Navigator>
+  );
+}
+
 function FinancesStack() {
   return (
     <Stack.Navigator screenOptions={NO_HEADER}>
@@ -108,7 +118,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Calendar" component={CalendarStack} options={{ tabBarLabel: t('nav.calendar') }} />
-      <Tab.Screen name="Stats" component={StatsScreen} options={{ tabBarLabel: t('nav.stats') }} />
+      <Tab.Screen name="Stats" component={StatsStack} options={{ tabBarLabel: t('nav.stats') }} />
       <Tab.Screen name="Finances" component={FinancesStack} options={{ tabBarLabel: t('nav.finances') }} />
       <Tab.Screen name="Wishlist" component={WishlistStack} options={{ tabBarLabel: t('nav.wishlist') }} />
       <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarLabel: t('nav.settings') }} />
