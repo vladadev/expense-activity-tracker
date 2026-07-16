@@ -7,8 +7,14 @@ import { useTheme } from '../context/ThemeContext';
 import { applyCalendarLocale } from '../i18n/calendarLocale';
 import Screen from '../components/Screen';
 
+// LOCAL date as YYYY-MM-DD — toISOString() converts to UTC, which between
+// midnight and ~2am (UTC+ timezones) would mark YESTERDAY as "today".
+function localDateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString(new Date());
 }
 
 export default function CalendarScreen({ navigation }) {
@@ -23,8 +29,8 @@ export default function CalendarScreen({ navigation }) {
   // at a glance before drilling into a specific date.
   const loadMarkedDates = useCallback(async () => {
     const now = new Date();
-    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-    const to = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().slice(0, 10);
+    const from = localDateString(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const to = localDateString(new Date(now.getFullYear(), now.getMonth() + 2, 0));
 
     try {
       const [expensesRes, eventsRes] = await Promise.all([
