@@ -11,6 +11,8 @@ import PersonTag from '../components/PersonTag';
 import { getPersonColor } from '../utils/personColor';
 import { formatMonthYear } from '../i18n/dateFormat';
 
+const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
+
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
   const bigint = parseInt(clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean, 16);
@@ -20,15 +22,56 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Format a LOCAL date as YYYY-MM-DD. toISOString() must not be used here —
+// it converts to UTC, which for UTC+ timezones shifts the window a day back
+// (e.g. "July" would become Jun 30 – Jul 30 and drop entries on Jul 31).
+function localDateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function monthRange(offset = 0) {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const to = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: localDateString(from), to: localDateString(to) };
 }
 
 function emptyBucket() {
   return { income: 0, expenses: 0, netSavings: 0 };
+}
+
+// Accumulates income/savings entry lists + an expense stats byCurrency rollup
+// into { byCurrency: {cur: bucket}, byOwner: {cur: {name: bucket}} }.
+function buildBuckets(incomeList, savingsList, statsByCurrency) {
+  const byCurrency = {};
+  const byOwner = {};
+  const ensure = (c) => {
+    if (!byCurrency[c]) byCurrency[c] = emptyBucket();
+    return byCurrency[c];
+  };
+  const ensureOwner = (c, name) => {
+    if (!name) return emptyBucket();
+    if (!byOwner[c]) byOwner[c] = {};
+    if (!byOwner[c][name]) byOwner[c][name] = emptyBucket();
+    return byOwner[c][name];
+  };
+
+  for (const e of incomeList) {
+    ensure(e.currency).income += e.amount;
+    ensureOwner(e.currency, e.owner?.name).income += e.amount;
+  }
+  for (const s of savingsList) {
+    const delta = s.direction === 'withdrawal' ? -s.amount : s.amount;
+    ensure(s.currency).netSavings += delta;
+    ensureOwner(s.currency, s.owner?.name).netSavings += delta;
+  }
+  for (const [currency, summary] of Object.entries(statsByCurrency)) {
+    ensure(currency).expenses += summary.total;
+    for (const [ownerName, ownerBreakdown] of Object.entries(summary.byOwner || {})) {
+      ensureOwner(currency, ownerName).expenses += ownerBreakdown.total;
+    }
+  }
+  return { byCurrency, byOwner };
 }
 
 export default function FinancesScreen({ navigation }) {
@@ -37,71 +80,58 @@ export default function FinancesScreen({ navigation }) {
   const { user } = useAuth();
   const styles = createStyles(theme);
   const [incomeEntries, setIncomeEntries] = useState([]);
-  const [overview, setOverview] = useState({});
-  const [perOwner, setPerOwner] = useState({});
+  const [monthData, setMonthData] = useState({ byCurrency: {}, byOwner: {} });
+  const [allData, setAllData] = useState({ byCurrency: {}, byOwner: {} });
   const [partner, setPartner] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  // 'combined' | 'mine' | 'partner' — which slice of the household the
-  // overview shows. Visible tabs instead of a swipe carousel so first-time
-  // users can actually discover the per-person views.
+  const [selectedCurrency, setSelectedCurrency] = useState('RSD');
+  // 'combined' | 'mine' | 'partner' — visible tabs instead of a swipe carousel.
   const [viewTab, setViewTab] = useState('combined');
   const fade = useRef(new Animated.Value(1)).current;
 
-  function changeTab(next) {
-    if (next === viewTab) return;
-    setViewTab(next);
+  function animateContent() {
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }
 
+  function changeTab(next) {
+    if (next === viewTab) return;
+    setViewTab(next);
+    animateContent();
+  }
+
+  function changeCurrency(next) {
+    if (next === selectedCurrency) return;
+    setSelectedCurrency(next);
+    animateContent();
+  }
+
   const load = useCallback(async () => {
     const { from, to } = monthRange(0);
+    const today = localDateString(new Date());
     try {
-      const [incomeRes, savingsRes, statsRes, usersRes] = await Promise.all([
-        client.get('/income', { params: { from, to } }),
-        client.get('/savings', { params: { from, to } }),
+      // All-time income/savings lists (filtered to the month client-side),
+      // plus expense rollups for the month and for all time.
+      const [incomeRes, savingsRes, statsMonthRes, statsAllRes, usersRes] = await Promise.all([
+        client.get('/income'),
+        client.get('/savings'),
         client.get(`/stats/range/${from}/${to}`),
+        client.get(`/stats/range/2000-01-01/${today}`),
         client.get('/auth/users'),
       ]);
 
-      setIncomeEntries(incomeRes.data.entries);
       setPartner(usersRes.data.users.find((u) => u._id !== user.id) || null);
 
-      // Combine independent sources into a per-currency overview:
-      // Remaining = Income - Expenses - (Savings deposits - Savings withdrawals).
-      // Nothing is physically transferred — this is a live computed snapshot.
-      const byCurrency = {};
-      const byOwner = {}; // { [currency]: { [ownerName]: bucket } }
-
-      const ensure = (c) => {
-        if (!byCurrency[c]) byCurrency[c] = emptyBucket();
-        return byCurrency[c];
+      const inMonth = (entry) => {
+        const d = (entry.date || '').slice(0, 10);
+        return d >= from && d <= to;
       };
-      const ensureOwner = (c, name) => {
-        if (!name) return emptyBucket();
-        if (!byOwner[c]) byOwner[c] = {};
-        if (!byOwner[c][name]) byOwner[c][name] = emptyBucket();
-        return byOwner[c][name];
-      };
+      const monthIncome = incomeRes.data.entries.filter(inMonth);
+      const monthSavings = savingsRes.data.entries.filter(inMonth);
 
-      for (const e of incomeRes.data.entries) {
-        ensure(e.currency).income += e.amount;
-        ensureOwner(e.currency, e.owner?.name).income += e.amount;
-      }
-      for (const s of savingsRes.data.entries) {
-        const delta = s.direction === 'withdrawal' ? -s.amount : s.amount;
-        ensure(s.currency).netSavings += delta;
-        ensureOwner(s.currency, s.owner?.name).netSavings += delta;
-      }
-      for (const [currency, summary] of Object.entries(statsRes.data.byCurrency)) {
-        ensure(currency).expenses += summary.total;
-        for (const [ownerName, ownerBreakdown] of Object.entries(summary.byOwner || {})) {
-          ensureOwner(currency, ownerName).expenses += ownerBreakdown.total;
-        }
-      }
-
-      setOverview(byCurrency);
-      setPerOwner(byOwner);
+      setIncomeEntries(monthIncome);
+      setMonthData(buildBuckets(monthIncome, monthSavings, statsMonthRes.data.byCurrency));
+      setAllData(buildBuckets(incomeRes.data.entries, savingsRes.data.entries, statsAllRes.data.byCurrency));
     } catch (err) {
       console.log('Failed to load finances overview:', err.message);
     }
@@ -133,14 +163,25 @@ export default function FinancesScreen({ navigation }) {
     ]);
   }
 
-  const currencies = Object.keys(overview);
+  const currencies = [...new Set([...Object.keys(allData.byCurrency), ...Object.keys(monthData.byCurrency)])].sort(
+    (a, b) => CURRENCY_ORDER.indexOf(a) - CURRENCY_ORDER.indexOf(b)
+  );
+  const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0];
+
   const myColor = getPersonColor(user.name);
   const partnerColor = partner ? getPersonColor(partner.name) : theme.primary;
-
   const activeName = viewTab === 'mine' ? user.name : viewTab === 'partner' ? partner?.name : null;
-  const activeData = activeName
-    ? Object.fromEntries(currencies.map((c) => [c, perOwner[c]?.[activeName] || emptyBucket()]))
-    : overview;
+
+  function bucketFor(data) {
+    if (!currency) return emptyBucket();
+    if (activeName) return data.byOwner[currency]?.[activeName] || emptyBucket();
+    return data.byCurrency[currency] || emptyBucket();
+  }
+
+  const month = bucketFor(monthData);
+  const all = bucketFor(allData);
+  const remainingMonth = month.income - month.expenses - month.netSavings;
+  const available = all.income - all.expenses - all.netSavings;
 
   const tabs = [
     { key: 'combined', label: t('finance.tabCombined'), color: theme.primary, dot: false },
@@ -171,52 +212,88 @@ export default function FinancesScreen({ navigation }) {
           })}
         </View>
 
-        <Animated.View style={{ opacity: fade }}>
-          {currencies.length === 0 ? (
-            <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>
-          ) : (
-            currencies.map((currency) => {
-              const { income, expenses, netSavings } = activeData[currency] || emptyBucket();
-              const remaining = income - expenses - netSavings;
-              return (
-                <View key={currency} style={{ marginBottom: 16 }}>
-                  <View style={styles.heroCard}>
-                    <View style={styles.heroHeader}>
-                      <Text style={styles.heroLabel}>{t('finance.remainingThisMonth')}</Text>
-                      <View style={styles.currencyBadge}>
-                        <Text style={styles.currencyBadgeText}>{currency}</Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.heroValue, { color: remaining >= 0 ? theme.success : theme.danger }]}>
-                      {formatAmount(remaining, currency)}
-                    </Text>
-                    <Text style={styles.heroMonth}>{formatMonthYear(new Date(), language)}</Text>
-                  </View>
+        {currencies.length === 0 ? (
+          <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>
+        ) : (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {t('stats.thisMonth')} · {formatMonthYear(new Date(), language)}
+              </Text>
+              {currencies.length > 1 && (
+                <View style={styles.currencyPills}>
+                  {currencies.map((c) => {
+                    const active = c === currency;
+                    return (
+                      <TouchableOpacity
+                        key={c}
+                        style={[styles.currencyPill, active && { backgroundColor: theme.primary }]}
+                        onPress={() => changeCurrency(c)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.currencyPillText, active && { color: '#fff', fontWeight: '700' }]}>{c}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
 
-                  <View style={styles.metricsRow}>
-                    <View style={styles.metricBox}>
-                      <Ionicons name="arrow-down-outline" size={16} color={theme.success} />
-                      <Text style={styles.metricLabel}>{t('finance.income')}</Text>
-                      <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(income, currency)}</Text>
-                    </View>
-                    <View style={styles.metricBox}>
-                      <Ionicons name="arrow-up-outline" size={16} color={theme.danger} />
-                      <Text style={styles.metricLabel}>{t('finance.expenses')}</Text>
-                      <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(expenses, currency)}</Text>
-                    </View>
-                    <View style={styles.metricBox}>
-                      <Ionicons name="wallet-outline" size={16} color={theme.primary} />
-                      <Text style={styles.metricLabel}>
-                        {netSavings >= 0 ? t('finance.toSavings') : t('finance.fromSavings')}
-                      </Text>
-                      <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(Math.abs(netSavings), currency)}</Text>
-                    </View>
+            <Animated.View style={{ opacity: fade }}>
+              <View style={styles.heroCard}>
+                <View style={styles.heroHeader}>
+                  <Text style={styles.heroLabel}>{t('finance.remainingThisMonth')}</Text>
+                  <View style={styles.currencyBadge}>
+                    <Text style={styles.currencyBadgeText}>{currency}</Text>
                   </View>
                 </View>
-              );
-            })
-          )}
-        </Animated.View>
+                <Text style={[styles.heroValue, { color: remainingMonth >= 0 ? theme.success : theme.danger }]}>
+                  {formatAmount(remainingMonth, currency)}
+                </Text>
+              </View>
+
+              <View style={styles.metricsRow}>
+                <View style={styles.metricBox}>
+                  <Ionicons name="arrow-down-outline" size={16} color={theme.success} />
+                  <Text style={styles.metricLabel}>{t('finance.income')}</Text>
+                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(month.income, currency)}</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Ionicons name="arrow-up-outline" size={16} color={theme.danger} />
+                  <Text style={styles.metricLabel}>{t('finance.expenses')}</Text>
+                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(month.expenses, currency)}</Text>
+                </View>
+                <View style={styles.metricBox}>
+                  <Ionicons name="wallet-outline" size={16} color={theme.primary} />
+                  <Text style={styles.metricLabel}>
+                    {month.netSavings >= 0 ? t('finance.toSavings') : t('finance.fromSavings')}
+                  </Text>
+                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(Math.abs(month.netSavings), currency)}</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{t('finance.totalState')}</Text>
+              <View style={styles.totalsCard}>
+                <View style={styles.totalsRow}>
+                  <View style={styles.totalsLabelWrap}>
+                    <Ionicons name="cash-outline" size={17} color={theme.primary} />
+                    <Text style={styles.totalsLabel}>{t('finance.available')}</Text>
+                  </View>
+                  <Text style={[styles.totalsValue, { color: available >= 0 ? theme.success : theme.danger }]}>
+                    {formatAmount(available, currency)}
+                  </Text>
+                </View>
+                <View style={[styles.totalsRow, styles.totalsRowDivider]}>
+                  <View style={styles.totalsLabelWrap}>
+                    <Ionicons name="wallet-outline" size={17} color={theme.primary} />
+                    <Text style={styles.totalsLabel}>{t('finance.totalSavings')}</Text>
+                  </View>
+                  <Text style={styles.totalsValue}>{formatAmount(all.netSavings, currency)}</Text>
+                </View>
+              </View>
+            </Animated.View>
+          </>
+        )}
 
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.actionPrimary} onPress={() => navigation.navigate('IncomeForm')} activeOpacity={0.8}>
@@ -273,6 +350,29 @@ function createStyles(theme) {
     },
     personChipDot: { width: 8, height: 8, borderRadius: 4 },
     personChipText: { fontSize: 13, color: theme.textSecondary },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 10,
+    },
+    currencyPills: {
+      flexDirection: 'row',
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 3,
+      marginBottom: 10,
+    },
+    currencyPill: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12 },
+    currencyPillText: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
     heroCard: {
       backgroundColor: theme.surface,
       borderRadius: 14,
@@ -289,7 +389,6 @@ function createStyles(theme) {
     },
     currencyBadgeText: { fontSize: 12, fontWeight: '700', color: theme.primary },
     heroValue: { fontSize: 32, fontWeight: '700' },
-    heroMonth: { fontSize: 12, color: theme.textSecondary, marginTop: 4 },
     metricsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
     metricBox: {
       flex: 1,
@@ -301,7 +400,23 @@ function createStyles(theme) {
     },
     metricLabel: { fontSize: 11, color: theme.textSecondary, marginTop: 4 },
     metricValue: { fontSize: 13, fontWeight: '700', color: theme.text, marginTop: 2 },
-    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+    totalsCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 4,
+    },
+    totalsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+    },
+    totalsRowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
+    totalsLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    totalsLabel: { fontSize: 14, color: theme.textSecondary },
+    totalsValue: { fontSize: 16, fontWeight: '700', color: theme.text },
+    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
     actionPrimary: {
       flex: 1,
       flexDirection: 'row',
@@ -331,14 +446,6 @@ function createStyles(theme) {
       paddingTop: 16,
       borderTopWidth: 1,
       borderTopColor: theme.border,
-    },
-    sectionTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.textSecondary,
-      marginBottom: 12,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
     },
     cardSubtext: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
     emptyText: { color: theme.textSecondary, marginBottom: 8 },
