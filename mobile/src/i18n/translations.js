@@ -78,6 +78,8 @@ export const translations = {
     'finance.totalState': 'Overall balance',
     'finance.available': 'Available',
     'finance.totalSavings': 'Total savings',
+    'finance.pastMonth': 'Viewing a past month',
+    'finance.remainingInMonth': 'Remaining',
 
     'dayDetail.expenses': '💰 Expenses',
     'dayDetail.total': 'total',
@@ -283,6 +285,8 @@ export const translations = {
     'finance.totalState': 'Ukupno stanje',
     'finance.available': 'Raspoloživo',
     'finance.totalSavings': 'Ukupna ušteđevina',
+    'finance.pastMonth': 'Pregled prošlog meseca',
+    'finance.remainingInMonth': 'Preostalo',
 
     'dayDetail.expenses': '💰 Troškovi',
     'dayDetail.total': 'ukupno',

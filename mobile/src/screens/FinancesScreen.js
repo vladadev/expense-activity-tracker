@@ -87,6 +87,9 @@ export default function FinancesScreen({ navigation }) {
   const [selectedCurrency, setSelectedCurrency] = useState('RSD');
   // 'combined' | 'mine' | 'partner' — visible tabs instead of a swipe carousel.
   const [viewTab, setViewTab] = useState('combined');
+  // 0 = current month; negative values browse past months (entries from past
+  // months become visible and editable). "Ukupno stanje" ignores this.
+  const [monthOffset, setMonthOffset] = useState(0);
   const fade = useRef(new Animated.Value(1)).current;
 
   function animateContent() {
@@ -106,8 +109,13 @@ export default function FinancesScreen({ navigation }) {
     animateContent();
   }
 
+  function changeMonth(delta) {
+    setMonthOffset((o) => Math.min(o + delta, 0));
+    animateContent();
+  }
+
   const load = useCallback(async () => {
-    const { from, to } = monthRange(0);
+    const { from, to } = monthRange(monthOffset);
     const today = localDateString(new Date());
     try {
       // All-time income/savings lists (filtered to the month client-side),
@@ -135,7 +143,7 @@ export default function FinancesScreen({ navigation }) {
     } catch (err) {
       console.log('Failed to load finances overview:', err.message);
     }
-  }, [user.id]);
+  }, [user.id, monthOffset]);
 
   useFocusEffect(
     useCallback(() => {
@@ -189,6 +197,10 @@ export default function FinancesScreen({ navigation }) {
     ...(partner ? [{ key: 'partner', label: partner.name, color: partnerColor, dot: true }] : []),
   ];
 
+  const now = new Date();
+  const shownMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const isCurrentMonth = monthOffset === 0;
+
   return (
     <Screen title={t('nav.finances')} showBack={false}>
       <ScrollView
@@ -216,11 +228,25 @@ export default function FinancesScreen({ navigation }) {
           <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>
         ) : (
           <>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>
-                {t('stats.thisMonth')} · {formatMonthYear(new Date(), language)}
-              </Text>
-              {currencies.length > 1 && (
+            <View style={styles.monthNavRow}>
+              <TouchableOpacity onPress={() => changeMonth(-1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="chevron-back" size={24} color={theme.primary} />
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.monthHeading}>{formatMonthYear(shownMonth, language)}</Text>
+                {!isCurrentMonth && <Text style={styles.pastMonthNote}>{t('finance.pastMonth')}</Text>}
+              </View>
+              <TouchableOpacity
+                onPress={() => changeMonth(1)}
+                disabled={isCurrentMonth}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-forward" size={24} color={isCurrentMonth ? theme.border : theme.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {currencies.length > 1 && (
+              <View style={styles.currencyPillsRow}>
                 <View style={styles.currencyPills}>
                   {currencies.map((c) => {
                     const active = c === currency;
@@ -236,13 +262,17 @@ export default function FinancesScreen({ navigation }) {
                     );
                   })}
                 </View>
-              )}
-            </View>
+              </View>
+            )}
 
             <Animated.View style={{ opacity: fade }}>
               <View style={styles.heroCard}>
                 <View style={styles.heroHeader}>
-                  <Text style={styles.heroLabel}>{t('finance.remainingThisMonth')}</Text>
+                  <Text style={styles.heroLabel}>
+                    {isCurrentMonth
+                      ? t('finance.remainingThisMonth')
+                      : `${t('finance.remainingInMonth')} · ${formatMonthYear(shownMonth, language)}`}
+                  </Text>
                   <View style={styles.currencyBadge}>
                     <Text style={styles.currencyBadgeText}>{currency}</Text>
                   </View>
@@ -307,7 +337,9 @@ export default function FinancesScreen({ navigation }) {
         </View>
 
         <View style={styles.sectionWrap}>
-          <Text style={styles.sectionTitle}>{t('finance.incomeSection')}</Text>
+          <Text style={styles.sectionTitle}>
+            {t('finance.incomeSection')} · {formatMonthYear(shownMonth, language)}
+          </Text>
           {incomeEntries.length === 0 ? (
             <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>
           ) : (
@@ -350,12 +382,15 @@ function createStyles(theme) {
     },
     personChipDot: { width: 8, height: 8, borderRadius: 4 },
     personChipText: { fontSize: 13, color: theme.textSecondary },
-    sectionHeaderRow: {
+    monthNavRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: 12,
     },
+    monthHeading: { fontSize: 16, fontWeight: '700', color: theme.text },
+    pastMonthNote: { fontSize: 11, color: theme.warning || '#BA7517', marginTop: 2 },
+    currencyPillsRow: { flexDirection: 'row', justifyContent: 'flex-end' },
     sectionTitle: {
       fontSize: 13,
       fontWeight: '700',
