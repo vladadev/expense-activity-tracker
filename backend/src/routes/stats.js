@@ -59,7 +59,9 @@ router.get('/range/:from/:to', async (req, res) => {
   const end = new Date(req.params.to);
   end.setDate(end.getDate() + 1);
 
-  const expenses = await Expense.find({ date: { $gte: start, $lt: end } }).populate('owner', 'name');
+  const expenses = await Expense.find({ date: { $gte: start, $lt: end } })
+    .select('date amount currency type category owner')
+    .populate('owner', 'name');
 
   const byDay = {};
   const byCurrency = {};
@@ -86,7 +88,9 @@ router.get('/range/:from/:to', async (req, res) => {
     bucket.byOwner[ownerName][e.type] += e.amount;
   }
 
-  res.json({ from: req.params.from, to: req.params.to, byDay, byCurrency });
+  // Raw (trimmed) expense list lets the client compute per-person filtered
+  // views without a refetch; the aggregates above stay for older app builds.
+  res.json({ from: req.params.from, to: req.params.to, byDay, byCurrency, expenses });
 });
 
 module.exports = router;
