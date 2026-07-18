@@ -49,7 +49,7 @@ function animateLayout() {
 export default function WishlistFolderScreen({ route, navigation }) {
   const { folder } = route.params;
   const { t, formatAmount } = useSettings();
-  const { wishlistCategories, addCategory, deleteCategory } = useCategories();
+  const { wishlistCategories, todoCategories, addCategory, deleteCategory } = useCategories();
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const [items, setItems] = useState([]);
@@ -68,7 +68,10 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const dragMetaRef = useRef(null); // { id, startIndex, hover }
   const finishDragRef = useRef(() => {});
 
-  const subfolders = wishlistCategories.filter((c) => c.parent === folder._id);
+  // To-Do folders reuse this whole screen; only labels differ.
+  const isTodo = folder.scope === 'todo';
+  const siblingSource = isTodo ? todoCategories : wishlistCategories;
+  const subfolders = siblingSource.filter((c) => c.parent === folder._id);
 
   const load = useCallback(async () => {
     try {
@@ -205,7 +208,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
     const name = subfolderName.trim();
     if (!name) return;
     try {
-      await addCategory('wishlist', name, folder._id);
+      await addCategory(folder.scope || 'wishlist', name, folder._id);
       setSubfolderName('');
       setShowSubfolderInput(false);
     } catch (err) {
@@ -216,7 +219,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   function handleDeleteSubfolder(sub) {
     Alert.alert(t('wishlist.deleteFolderConfirmTitle'), t('wishlist.deleteFolderConfirmMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(sub._id, 'wishlist') },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(sub._id, folder.scope || 'wishlist') },
     ]);
   }
 
@@ -304,7 +307,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
             <View style={styles.progressCard}>
               <View style={styles.progressTextRow}>
                 <Text style={styles.progressLabel}>
-                  {t('wishlist.progressLabel', { purchased: doneCount, total })}
+                  {t(isTodo ? 'todo.progressLabel' : 'wishlist.progressLabel', { purchased: doneCount, total })}
                 </Text>
                 <Text style={styles.progressPct}>{Math.round(progress * 100)}%</Text>
               </View>
@@ -362,7 +365,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
           )}
 
           {total === 0 && subfolders.length === 0 && (
-            <Text style={styles.emptyText}>{t('wishlist.emptyFolder')}</Text>
+            <Text style={styles.emptyText}>{t(isTodo ? 'todo.emptyFolder' : 'wishlist.emptyFolder')}</Text>
           )}
 
           <View>{unchecked.map((item) => renderRow(item, false))}</View>
@@ -371,7 +374,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
             <>
               <View style={styles.purchasedHeader}>
                 <Text style={styles.purchasedHeaderText}>
-                  {t('wishlist.purchasedSection')} · {purchased.length}
+                  {t(isTodo ? 'todo.doneSection' : 'wishlist.purchasedSection')} · {purchased.length}
                 </Text>
                 <View style={styles.purchasedHeaderLine} />
               </View>
@@ -381,7 +384,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
         </ScrollView>
 
         <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('WishlistItemForm', { folder })}>
-          <Text style={styles.addButtonText}>{t('wishlist.addItem')}</Text>
+          <Text style={styles.addButtonText}>{t(isTodo ? 'todo.addItem' : 'wishlist.addItem')}</Text>
         </TouchableOpacity>
       </View>
     </Screen>

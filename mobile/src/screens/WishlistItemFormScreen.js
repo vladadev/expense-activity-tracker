@@ -9,6 +9,8 @@ import Screen from '../components/Screen';
 export default function WishlistItemFormScreen({ route, navigation }) {
   const { folder, item } = route.params;
   const isEditing = !!item;
+  // To-Do tasks don't have prices or shop links — only a title and notes.
+  const isTodo = folder.scope === 'todo';
   const { t, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
   const styles = createStyles(theme);
@@ -50,47 +52,51 @@ export default function WishlistItemFormScreen({ route, navigation }) {
   }
 
   return (
-    <Screen title={isEditing ? t('expenseForm.saveChanges') : t('wishlist.addItem')}>
+    <Screen title={isEditing ? t('expenseForm.saveChanges') : t(isTodo ? 'todo.addItem' : 'wishlist.addItem')}>
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.label}>{t('wishlist.itemTitle')}</Text>
       <TextInput
         style={styles.input}
-        placeholder={t('wishlist.itemTitlePlaceholder')}
+        placeholder={t(isTodo ? 'todo.itemTitlePlaceholder' : 'wishlist.itemTitlePlaceholder')}
         placeholderTextColor={theme.textSecondary}
         value={title}
         onChangeText={setTitle}
       />
 
-      <Text style={styles.label}>{t('wishlist.price')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="0.00"
-        placeholderTextColor={theme.textSecondary}
-        keyboardType="decimal-pad"
-        value={price}
-        onChangeText={setPrice}
-      />
+      {!isTodo && (
+        <>
+          <Text style={styles.label}>{t('wishlist.price')}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="0.00"
+            placeholderTextColor={theme.textSecondary}
+            keyboardType="decimal-pad"
+            value={price}
+            onChangeText={setPrice}
+          />
 
-      {!!price && (
-        <View style={styles.chipRow}>
-          {CURRENCIES.map((c) => (
-            <TouchableOpacity key={c} style={[styles.chip, currency === c && styles.chipActive]} onPress={() => setCurrency(c)}>
-              <Text style={[styles.chipText, currency === c && styles.chipTextActive]}>{c}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+          {!!price && (
+            <View style={styles.chipRow}>
+              {CURRENCIES.map((c) => (
+                <TouchableOpacity key={c} style={[styles.chip, currency === c && styles.chipActive]} onPress={() => setCurrency(c)}>
+                  <Text style={[styles.chipText, currency === c && styles.chipTextActive]}>{c}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <Text style={styles.label}>{t('wishlist.link')}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="https://..."
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="none"
+            keyboardType="url"
+            value={link}
+            onChangeText={setLink}
+          />
+        </>
       )}
-
-      <Text style={styles.label}>{t('wishlist.link')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="https://..."
-        placeholderTextColor={theme.textSecondary}
-        autoCapitalize="none"
-        keyboardType="url"
-        value={link}
-        onChangeText={setLink}
-      />
 
       <Text style={styles.label}>{t('wishlist.notes')}</Text>
       <TextInput

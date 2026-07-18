@@ -2,10 +2,10 @@ import React, { createContext, useContext, useCallback, useEffect, useState } fr
 import client from '../api/client';
 
 const CategoriesContext = createContext(null);
-const SCOPES = ['expense', 'event', 'wishlist'];
+const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
 
 export function CategoriesProvider({ children }) {
-  const [byScope, setByScope] = useState({ expense: [], event: [], wishlist: [] });
+  const [byScope, setByScope] = useState({ expense: [], event: [], wishlist: [], todo: [] });
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async (scope) => {
@@ -47,17 +47,39 @@ export function CategoriesProvider({ children }) {
     await refresh(scope);
   }
 
+  // Optimistic: reorders locally right away, then persists; reverts via
+  // refresh if the server rejects it.
+  async function reorderCategories(scope, ids) {
+    const orderById = {};
+    ids.forEach((id, i) => {
+      orderById[id] = i;
+    });
+    setByScope((prev) => {
+      const next = prev[scope].map((c) => (orderById[c._id] != null ? { ...c, order: orderById[c._id] } : c));
+      next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return { ...prev, [scope]: next };
+    });
+    try {
+      await client.put('/categories/reorder', { ids });
+    } catch (err) {
+      await refresh(scope);
+      throw err;
+    }
+  }
+
   return (
     <CategoriesContext.Provider
       value={{
         expenseCategories: byScope.expense,
         eventCategories: byScope.event,
         wishlistCategories: byScope.wishlist,
+        todoCategories: byScope.todo,
         loading,
         refresh,
         addCategory,
         renameCategory,
         deleteCategory,
+        reorderCategories,
       }}
     >
       {children}
