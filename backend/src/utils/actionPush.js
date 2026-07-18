@@ -7,12 +7,12 @@ const NOTIFIABLE_ENTITIES = ['expense', 'event', 'savings', 'income', 'wishlistI
 // Keep undelivered pushes queued by FCM for up to 4 weeks, so a phone that
 // was offline gets everything the moment it reconnects (WhatsApp-style).
 const PUSH_TTL_SECONDS = 2419200;
-// List check-offs are batched: wait this long after the LAST toggle, then
-// send one aggregated push instead of one per grocery item.
-const TOGGLE_FLUSH_MS = 5 * 60 * 1000;
+// List activity (adding items, checking them off) is batched: wait this long
+// after the LAST action, then send one aggregated push instead of one per item.
+const LIST_FLUSH_MS = 10 * 60 * 1000;
 
-// userId -> { userName, checkedTitles: [], uncheckedTitles: [], timer }
-const pendingToggles = new Map();
+// userId -> { userName, addedTitles: [], checkedTitles: [], uncheckedTitles: [], timer }
+const pendingListActivity = new Map();
 
 function formatAmount(amount, currency) {
   if (amount == null) return '';
@@ -64,29 +64,33 @@ function isPurchaseFlip(action, entityType, details) {
   );
 }
 
-function queueToggle({ userId, userName, details }) {
+// kind: 'added' | 'checked' | 'unchecked'
+function queueListActivity({ userId, userName, kind, title }) {
   const key = String(userId);
-  let pending = pendingToggles.get(key);
+  let pending = pendingListActivity.get(key);
   if (!pending) {
-    pending = { userName, checkedTitles: [], uncheckedTitles: [], timer: null };
-    pendingToggles.set(key, pending);
+    pending = { userName, addedTitles: [], checkedTitles: [], uncheckedTitles: [], timer: null };
+    pendingListActivity.set(key, pending);
   }
-  const title = details.after.title || '?';
-  if (details.after.purchased) pending.checkedTitles.push(title);
-  else pending.uncheckedTitles.push(title);
+  if (kind === 'added') pending.addedTitles.push(title || '?');
+  else if (kind === 'checked') pending.checkedTitles.push(title || '?');
+  else pending.uncheckedTitles.push(title || '?');
 
   if (pending.timer) clearTimeout(pending.timer);
   pending.timer = setTimeout(() => {
-    flushToggles(key).catch((err) => console.error('Failed to flush toggle push:', err.message));
-  }, TOGGLE_FLUSH_MS);
+    flushListActivity(key).catch((err) => console.error('Failed to flush list push:', err.message));
+  }, LIST_FLUSH_MS);
 }
 
-async function flushToggles(key) {
-  const pending = pendingToggles.get(key);
-  pendingToggles.delete(key);
+async function flushListActivity(key) {
+  const pending = pendingListActivity.get(key);
+  pendingListActivity.delete(key);
   if (!pending) return;
 
   const parts = [];
+  if (pending.addedTitles.length > 0) {
+    parts.push(`Dodato ${pending.addedTitles.length} ${itemsWord(pending.addedTitles.length)} na listu`);
+  }
   if (pending.checkedTitles.length > 0) {
     parts.push(`Čekirano ${pending.checkedTitles.length} ${itemsWord(pending.checkedTitles.length)} ✓`);
   }
@@ -95,7 +99,7 @@ async function flushToggles(key) {
   }
   if (parts.length === 0) return;
 
-  const names = [...pending.checkedTitles, ...pending.uncheckedTitles];
+  const names = [...pending.addedTitles, ...pending.checkedTitles, ...pending.uncheckedTitles];
   const body = names.slice(0, 5).join(', ') + (names.length > 5 ? '…' : '');
   await sendToOthers(key, `${pending.userName} · ${parts.join(' · ')}`, body);
 }
@@ -141,8 +145,19 @@ function buildMessage(action, entityType, details = {}) {
 async function pushActionToPartner({ userId, userName, action, entityType, details }) {
   if (!NOTIFIABLE_ENTITIES.includes(entityType)) return;
 
+  // List item adds and check-off toggles are batched into one digest push
+  // (adding a whole shopping list must not fire one push per item).
+  if (entityType === 'wishlistItem' && action === 'create') {
+    queueListActivity({ userId, userName, kind: 'added', title: details?.title });
+    return;
+  }
   if (isPurchaseFlip(action, entityType, details)) {
-    queueToggle({ userId, userName, details });
+    queueListActivity({
+      userId,
+      userName,
+      kind: details.after.purchased ? 'checked' : 'unchecked',
+      title: details.after.title,
+    });
     return;
   }
 
