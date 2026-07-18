@@ -4,6 +4,15 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 // Same allowlist as the in-app bell feed — money/planning entities only,
 // no logins or category housekeeping.
 const NOTIFIABLE_ENTITIES = ['expense', 'event', 'savings', 'income', 'wishlistItem'];
+// Keep undelivered pushes queued by FCM for up to 4 weeks, so a phone that
+// was offline gets everything the moment it reconnects (WhatsApp-style).
+const PUSH_TTL_SECONDS = 2419200;
+// List check-offs are batched: wait this long after the LAST toggle, then
+// send one aggregated push instead of one per grocery item.
+const TOGGLE_FLUSH_MS = 2 * 60 * 1000;
+
+// userId -> { userName, checkedTitles: [], uncheckedTitles: [], timer }
+const pendingToggles = new Map();
 
 function formatAmount(amount, currency) {
   if (amount == null) return '';
@@ -14,6 +23,81 @@ function formatAmount(amount, currency) {
     formatted = String(amount);
   }
   return currency ? `${formatted} ${currency}` : formatted;
+}
+
+function itemsWord(n) {
+  if (n === 1) return 'stavka';
+  if (n >= 2 && n <= 4) return 'stavke';
+  return 'stavki';
+}
+
+async function sendToOthers(userId, title, body) {
+  const recipients = await User.find({ _id: { $ne: userId }, expoPushToken: { $nin: [null, ''] } }).select(
+    'expoPushToken'
+  );
+  await Promise.all(
+    recipients.map((r) =>
+      fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: r.expoPushToken,
+          title,
+          body: body || undefined,
+          sound: 'default',
+          priority: 'high',
+          ttl: PUSH_TTL_SECONDS,
+        }),
+      })
+    )
+  );
+}
+
+function isPurchaseFlip(action, entityType, details) {
+  return (
+    entityType === 'wishlistItem' &&
+    action === 'update' &&
+    details &&
+    details.before &&
+    details.after &&
+    details.before.purchased !== details.after.purchased
+  );
+}
+
+function queueToggle({ userId, userName, details }) {
+  const key = String(userId);
+  let pending = pendingToggles.get(key);
+  if (!pending) {
+    pending = { userName, checkedTitles: [], uncheckedTitles: [], timer: null };
+    pendingToggles.set(key, pending);
+  }
+  const title = details.after.title || '?';
+  if (details.after.purchased) pending.checkedTitles.push(title);
+  else pending.uncheckedTitles.push(title);
+
+  if (pending.timer) clearTimeout(pending.timer);
+  pending.timer = setTimeout(() => {
+    flushToggles(key).catch((err) => console.error('Failed to flush toggle push:', err.message));
+  }, TOGGLE_FLUSH_MS);
+}
+
+async function flushToggles(key) {
+  const pending = pendingToggles.get(key);
+  pendingToggles.delete(key);
+  if (!pending) return;
+
+  const parts = [];
+  if (pending.checkedTitles.length > 0) {
+    parts.push(`Čekirano ${pending.checkedTitles.length} ${itemsWord(pending.checkedTitles.length)} ✓`);
+  }
+  if (pending.uncheckedTitles.length > 0) {
+    parts.push(`Vraćeno ${pending.uncheckedTitles.length} ${itemsWord(pending.uncheckedTitles.length)}`);
+  }
+  if (parts.length === 0) return;
+
+  const names = [...pending.checkedTitles, ...pending.uncheckedTitles];
+  const body = names.slice(0, 5).join(', ') + (names.length > 5 ? '…' : '');
+  await sendToOthers(key, `${pending.userName} · ${parts.join(' · ')}`, body);
 }
 
 // Serbian copy — both household accounts run the app in Serbian.
@@ -41,13 +125,6 @@ function buildMessage(action, entityType, details = {}) {
       return { title: titles[action], body };
     }
     case 'wishlistItem': {
-      // A purchased-flag flip is the most common list action — give it
-      // friendlier wording than a generic "updated item".
-      if (action === 'update' && details.before && details.after && details.before.purchased !== details.after.purchased) {
-        return details.after.purchased
-          ? { title: 'Čekirano na listi ✓', body: details.after.title || '' }
-          : { title: 'Vraćeno na listu', body: details.after.title || '' };
-      }
       const titles = { create: 'Nova stavka na listi', update: 'Izmenjena stavka na listi', delete: 'Obrisana stavka sa liste' };
       const body = [d.title, d.folder].filter(Boolean).join(' · ');
       return { title: titles[action], body };
@@ -59,29 +136,19 @@ function buildMessage(action, entityType, details = {}) {
 
 // Mirror of the in-app bell feed as real phone notifications: whatever one
 // household member does, the OTHER member's phone gets pinged. The actor
-// never gets a push for their own action.
+// never gets a push for their own action. Check-off toggles are debounced
+// into one aggregated push; everything else goes out immediately.
 async function pushActionToPartner({ userId, userName, action, entityType, details }) {
   if (!NOTIFIABLE_ENTITIES.includes(entityType)) return;
+
+  if (isPurchaseFlip(action, entityType, details)) {
+    queueToggle({ userId, userName, details });
+    return;
+  }
+
   const message = buildMessage(action, entityType, details);
   if (!message || !message.title) return;
-
-  const recipients = await User.find({ _id: { $ne: userId }, expoPushToken: { $nin: [null, ''] } }).select(
-    'expoPushToken'
-  );
-  await Promise.all(
-    recipients.map((r) =>
-      fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: r.expoPushToken,
-          title: `${userName} · ${message.title}`,
-          body: message.body || undefined,
-          sound: 'default',
-        }),
-      })
-    )
-  );
+  await sendToOthers(userId, `${userName} · ${message.title}`, message.body);
 }
 
 module.exports = { pushActionToPartner };
