@@ -33,7 +33,7 @@ router.post('/items', async (req, res) => {
   if (!category || !title) {
     return res.status(400).json({ error: 'category and title are required' });
   }
-  const folder = await Category.findOne({ _id: category, scope: 'wishlist' });
+  const folder = await Category.findOne({ _id: category, scope: { $in: ['wishlist', 'todo'] } });
   if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });
   if (currency && !CURRENCIES.includes(currency)) {
     return res.status(400).json({ error: `currency must be one of ${CURRENCIES.join(', ')}` });
@@ -95,7 +95,7 @@ router.put('/items/:id', async (req, res) => {
     }
   }
   if (category) {
-    const folder = await Category.findOne({ _id: category, scope: 'wishlist' });
+    const folder = await Category.findOne({ _id: category, scope: { $in: ['wishlist', 'todo'] } });
     if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });
     item.category = category;
   }

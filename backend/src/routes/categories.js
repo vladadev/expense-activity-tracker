@@ -4,7 +4,9 @@ const WishlistItem = require('../models/WishlistItem');
 const requireAuth = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
 
-const SCOPES = ['expense', 'event', 'wishlist'];
+const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
+// Scopes whose folders behave like checkable lists (nesting + cascade delete).
+const LIST_SCOPES = ['wishlist', 'todo'];
 
 const router = express.Router();
 router.use(requireAuth);
@@ -17,8 +19,19 @@ router.get('/', async (req, res) => {
     if (!SCOPES.includes(scope)) return res.status(400).json({ error: `scope must be one of ${SCOPES.join(', ')}` });
     query.scope = scope;
   }
-  const categories = await Category.find(query).sort({ name: 1 });
+  const categories = await Category.find(query).sort({ order: 1, name: 1 });
   res.json({ categories });
+});
+
+// PUT /reorder — bulk-persist a manual folder order. Registered before /:id
+// so "reorder" isn't parsed as a category id.
+router.put('/reorder', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required' });
+  }
+  await Promise.all(ids.map((id, index) => Category.updateOne({ _id: id }, { order: index })));
+  res.json({ ok: true });
 });
 
 router.post('/', async (req, res) => {
@@ -26,11 +39,11 @@ router.post('/', async (req, res) => {
   if (!name || !scope) return res.status(400).json({ error: 'name and scope are required' });
   if (!SCOPES.includes(scope)) return res.status(400).json({ error: `scope must be one of ${SCOPES.join(', ')}` });
 
-  // Subfolders are a wishlist-only concept.
+  // Subfolders exist only for list-type scopes (wishlist/todo).
   let parentId = null;
   if (parent) {
-    if (scope !== 'wishlist') return res.status(400).json({ error: 'Only wishlist folders can have a parent' });
-    const parentFolder = await Category.findOne({ _id: parent, scope: 'wishlist' });
+    if (!LIST_SCOPES.includes(scope)) return res.status(400).json({ error: 'Only list folders can have a parent' });
+    const parentFolder = await Category.findOne({ _id: parent, scope });
     if (!parentFolder) return res.status(400).json({ error: 'Unknown parent folder' });
     parentId = parentFolder._id;
   }
@@ -38,7 +51,15 @@ router.post('/', async (req, res) => {
   const existing = await Category.findOne({ scope, parent: parentId, name: name.trim() });
   if (existing) return res.status(409).json({ error: 'A category with this name already exists' });
 
-  const category = await Category.create({ name: name.trim(), scope, parent: parentId, createdBy: req.userId });
+  // New folders go to the end of their sibling group.
+  const lastSibling = await Category.findOne({ scope, parent: parentId }).sort({ order: -1 }).select('order');
+  const category = await Category.create({
+    name: name.trim(),
+    scope,
+    parent: parentId,
+    order: (lastSibling?.order ?? -1) + 1,
+    createdBy: req.userId,
+  });
 
   logAction({
     userId: req.userId,
@@ -88,9 +109,9 @@ router.delete('/:id', async (req, res) => {
     details: { name: category.name, scope: category.scope },
   });
 
-  // Wishlist folders cascade-delete their items and subfolders recursively
-  // (unlike expense/event categories, which just stop being selectable).
-  if (category.scope === 'wishlist') {
+  // List folders (wishlist/todo) cascade-delete their items and subfolders
+  // recursively (unlike expense/event categories, which just stop being selectable).
+  if (LIST_SCOPES.includes(category.scope)) {
     const toDelete = [category._id];
     let frontier = [category._id];
     while (frontier.length > 0) {

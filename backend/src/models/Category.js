@@ -7,10 +7,14 @@ const mongoose = require('mongoose');
 const categorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    scope: { type: String, enum: ['expense', 'event', 'wishlist'], required: true },
-    // Wishlist folders can nest one level (or more) via parent; null = root.
+    // 'todo' folders power the To-Do half of the Lists tab — same mechanics
+    // as wishlist folders, just without prices/links on their items.
+    scope: { type: String, enum: ['expense', 'event', 'wishlist', 'todo'], required: true },
+    // Wishlist/todo folders can nest via parent; null = root.
     // Other scopes never set this.
     parent: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null },
+    // Manual sort position among sibling folders.
+    order: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
