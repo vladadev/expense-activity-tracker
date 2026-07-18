@@ -32,8 +32,8 @@ export function CategoriesProvider({ children }) {
     })();
   }, [refresh]);
 
-  async function addCategory(scope, name) {
-    await client.post('/categories', { scope, name });
+  async function addCategory(scope, name, parent) {
+    await client.post('/categories', { scope, name, parent: parent || undefined });
     await refresh(scope);
   }
 
