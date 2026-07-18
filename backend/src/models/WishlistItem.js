@@ -11,6 +11,10 @@ const wishlistItemSchema = new mongoose.Schema(
     link: { type: String, default: '' },
     notes: { type: String, default: '' },
     purchased: { type: Boolean, default: false },
+    // When the item was checked off — purchased items sort newest-first.
+    purchasedAt: { type: Date, default: null },
+    // Manual sort position among unpurchased items in the same folder.
+    order: { type: Number, default: 0 },
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
