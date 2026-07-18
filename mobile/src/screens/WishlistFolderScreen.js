@@ -21,7 +21,7 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { getPersonColor } from '../utils/personColor';
 
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT = 58;
 const ROW_GAP = 8;
 const STEP = ROW_HEIGHT + ROW_GAP;
 
@@ -55,11 +55,18 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const [items, setItems] = useState([]);
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
-  // Drag state: { index, hover } while a row is being dragged, else null.
-  const [dragState, setDragState] = useState(null);
-  const dragRef = useRef(null);
-  const uncheckedCountRef = useRef(0);
+
+  // ---- drag machinery ----------------------------------------------------
+  // The drag is driven entirely by refs + Animated values: NO re-render
+  // happens while the finger moves. Re-creating PanResponders or setting
+  // state mid-gesture resets the responder and makes the row glitch/stick.
+  const [activeId, setActiveId] = useState(null); // re-render only on grant/release
   const dragY = useRef(new Animated.Value(0)).current;
+  const respondersRef = useRef({});
+  const shiftsRef = useRef({});
+  const uncheckedIdsRef = useRef([]);
+  const dragMetaRef = useRef(null); // { id, startIndex, hover }
+  const finishDragRef = useRef(() => {});
 
   const subfolders = wishlistCategories.filter((c) => c.parent === folder._id);
 
@@ -82,11 +89,78 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const purchased = items
     .filter((i) => i.purchased)
     .sort((a, b) => new Date(b.purchasedAt || b.updatedAt || 0) - new Date(a.purchasedAt || a.updatedAt || 0));
-  uncheckedCountRef.current = unchecked.length;
+  uncheckedIdsRef.current = unchecked.map((i) => i._id);
 
   const total = items.length;
   const doneCount = purchased.length;
   const progress = total > 0 ? doneCount / total : 0;
+
+  function shiftFor(id) {
+    if (!shiftsRef.current[id]) shiftsRef.current[id] = new Animated.Value(0);
+    return shiftsRef.current[id];
+  }
+
+  finishDragRef.current = () => {
+    const meta = dragMetaRef.current;
+    dragMetaRef.current = null;
+    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+    dragY.setValue(0);
+    setActiveId(null);
+    if (!meta || meta.hover === meta.startIndex) return;
+    const ids = [...uncheckedIdsRef.current];
+    const [moved] = ids.splice(meta.startIndex, 1);
+    ids.splice(meta.hover, 0, moved);
+    const orderById = {};
+    ids.forEach((id, i) => {
+      orderById[id] = i;
+    });
+    setItems((prev) => prev.map((i) => (orderById[i._id] != null ? { ...i, order: orderById[i._id] } : i)));
+    client.put('/wishlist/items/reorder', { ids }).catch(() => {
+      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+      load();
+    });
+  };
+
+  function responderFor(id) {
+    if (!respondersRef.current[id]) {
+      respondersRef.current[id] = PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        // Never let the surrounding ScrollView steal the gesture mid-drag.
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => {
+          const ids = uncheckedIdsRef.current;
+          const startIndex = ids.indexOf(id);
+          if (startIndex === -1) return;
+          dragMetaRef.current = { id, startIndex, hover: startIndex };
+          dragY.setValue(0);
+          setActiveId(id);
+        },
+        onPanResponderMove: (_, gesture) => {
+          const meta = dragMetaRef.current;
+          if (!meta) return;
+          dragY.setValue(gesture.dy);
+          const ids = uncheckedIdsRef.current;
+          // Clamped to the unchecked section — dragging into "purchased"
+          // territory just snaps back to the last unchecked position.
+          const hover = clamp(meta.startIndex + Math.round(gesture.dy / STEP), 0, ids.length - 1);
+          if (hover === meta.hover) return;
+          meta.hover = hover;
+          ids.forEach((otherId, position) => {
+            if (otherId === meta.id) return;
+            let target = 0;
+            if (position > meta.startIndex && position <= hover) target = -STEP;
+            else if (position < meta.startIndex && position >= hover) target = STEP;
+            Animated.timing(shiftFor(otherId), { toValue: target, duration: 120, useNativeDriver: false }).start();
+          });
+        },
+        onPanResponderRelease: () => finishDragRef.current(),
+        onPanResponderTerminate: () => finishDragRef.current(),
+      });
+    }
+    return respondersRef.current[id];
+  }
 
   // ---- optimistic toggle -------------------------------------------------
   function togglePurchased(item) {
@@ -104,55 +178,6 @@ export default function WishlistFolderScreen({ route, navigation }) {
       animateLayout();
       setItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: !next } : i)));
       Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-    });
-  }
-
-  // ---- drag to reorder ---------------------------------------------------
-  function finishDrag() {
-    const d = dragRef.current;
-    dragRef.current = null;
-    dragY.setValue(0);
-    setDragState(null);
-    if (!d || d.hover === d.index) return;
-    const arr = [...unchecked];
-    const [moved] = arr.splice(d.index, 1);
-    arr.splice(d.hover, 0, moved);
-    const orderById = {};
-    arr.forEach((it, i) => {
-      orderById[it._id] = i;
-    });
-    setItems((prev) => prev.map((i) => (orderById[i._id] != null ? { ...i, order: orderById[i._id] } : i)));
-    client.put('/wishlist/items/reorder', { ids: arr.map((i) => i._id) }).catch(() => {
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-      load();
-    });
-  }
-
-  function makePanResponder(index) {
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      // Never let the surrounding ScrollView steal the gesture mid-drag.
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: () => {
-        dragRef.current = { index, hover: index };
-        dragY.setValue(0);
-        setDragState({ index, hover: index });
-      },
-      onPanResponderMove: (_, gesture) => {
-        dragY.setValue(gesture.dy);
-        const d = dragRef.current;
-        if (!d) return;
-        // Clamped to the unchecked section — dragging into "purchased"
-        // territory just snaps back to the last unchecked position.
-        const hover = clamp(d.index + Math.round(gesture.dy / STEP), 0, uncheckedCountRef.current - 1);
-        if (hover !== d.hover) {
-          d.hover = hover;
-          setDragState({ index: d.index, hover });
-        }
-      },
-      onPanResponderRelease: finishDrag,
-      onPanResponderTerminate: finishDrag,
     });
   }
 
@@ -196,14 +221,15 @@ export default function WishlistFolderScreen({ route, navigation }) {
   }
 
   // ---- row renderer ------------------------------------------------------
-  function renderRow(item, index, isPurchasedRow) {
+  function renderRow(item, isPurchasedRow) {
     const personColor = getPersonColor(item.addedBy?.name);
-    const isActive = !isPurchasedRow && dragState && index === dragState.index;
-    let shift = 0;
-    if (!isPurchasedRow && dragState && !isActive) {
-      if (index > dragState.index && index <= dragState.hover) shift = -STEP;
-      else if (index < dragState.index && index >= dragState.hover) shift = STEP;
-    }
+    const isActive = !isPurchasedRow && activeId === item._id;
+    const hasSubtitle = item.price != null || !!item.notes;
+
+    let transform;
+    if (isActive) transform = [{ translateY: dragY }, { scale: 1.03 }];
+    else if (!isPurchasedRow) transform = [{ translateY: shiftFor(item._id) }];
+    else transform = [];
 
     return (
       <Animated.View
@@ -212,17 +238,15 @@ export default function WishlistFolderScreen({ route, navigation }) {
           styles.row,
           { borderLeftColor: personColor },
           isPurchasedRow && styles.rowPurchased,
-          isActive
-            ? {
-                transform: [{ translateY: dragY }, { scale: 1.03 }],
-                zIndex: 10,
-                elevation: 8,
-                shadowColor: '#000',
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                shadowOffset: { width: 0, height: 4 },
-              }
-            : { transform: [{ translateY: shift }] },
+          { transform },
+          isActive && {
+            zIndex: 10,
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+          },
         ]}
       >
         <TouchableOpacity
@@ -239,9 +263,13 @@ export default function WishlistFolderScreen({ route, navigation }) {
             <Text style={[styles.itemTitle, item.purchased && styles.itemTitlePurchased]} numberOfLines={1}>
               {item.title}
             </Text>
-            {item.price != null && (
-              <Text style={styles.itemPrice} numberOfLines={1}>
-                {formatAmount(item.price, item.currency)}
+            {hasSubtitle && (
+              <Text style={styles.itemSub} numberOfLines={1}>
+                {item.price != null && (
+                  <Text style={styles.itemPrice}>{formatAmount(item.price, item.currency)}</Text>
+                )}
+                {item.price != null && item.notes ? '  ·  ' : ''}
+                {item.notes || ''}
               </Text>
             )}
           </View>
@@ -260,7 +288,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
           <Ionicons name="pencil-outline" size={18} color={theme.textSecondary} />
         </TouchableOpacity>
         {!isPurchasedRow && (
-          <View {...makePanResponder(index).panHandlers} style={styles.dragHandle}>
+          <View {...responderFor(item._id).panHandlers} style={styles.dragHandle}>
             <Ionicons name="reorder-three-outline" size={24} color={theme.textSecondary} />
           </View>
         )}
@@ -271,7 +299,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   return (
     <Screen title={folder.name}>
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} scrollEnabled={!dragState}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} scrollEnabled={!activeId}>
           {total > 0 && (
             <View style={styles.progressCard}>
               <View style={styles.progressTextRow}>
@@ -286,7 +314,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
             </View>
           )}
 
-          {(subfolders.length > 0 || showSubfolderInput) && (
+          {subfolders.length > 0 && (
             <View style={styles.subfolderWrap}>
               {subfolders.map((sub) => (
                 <TouchableOpacity
@@ -337,7 +365,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
             <Text style={styles.emptyText}>{t('wishlist.emptyFolder')}</Text>
           )}
 
-          <View>{unchecked.map((item, index) => renderRow(item, index, false))}</View>
+          <View>{unchecked.map((item) => renderRow(item, false))}</View>
 
           {purchased.length > 0 && (
             <>
@@ -347,7 +375,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
                 </Text>
                 <View style={styles.purchasedHeaderLine} />
               </View>
-              <View>{purchased.map((item, index) => renderRow(item, index, true))}</View>
+              <View>{purchased.map((item) => renderRow(item, true))}</View>
             </>
           )}
         </ScrollView>
@@ -450,7 +478,8 @@ function createStyles(theme) {
     },
     itemTitle: { fontSize: 15, fontWeight: '600', color: theme.text },
     itemTitlePurchased: { textDecorationLine: 'line-through', color: theme.textSecondary, fontWeight: '400' },
-    itemPrice: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },
+    itemSub: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },
+    itemPrice: { fontSize: 12, color: theme.primary, fontWeight: '600' },
     iconButton: { padding: 8 },
     dragHandle: { paddingVertical: 8, paddingHorizontal: 10 },
     purchasedHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 10 },
@@ -465,15 +494,12 @@ function createStyles(theme) {
     purchasedHeaderLine: { flex: 1, height: 1, backgroundColor: theme.border },
     emptyText: { color: theme.textSecondary, textAlign: 'center', marginTop: 40 },
     addButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
       backgroundColor: theme.primary,
       borderRadius: 12,
       padding: 15,
       margin: 16,
       marginTop: 8,
+      alignItems: 'center',
     },
     addButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   });
