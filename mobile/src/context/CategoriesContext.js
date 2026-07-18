@@ -10,11 +10,15 @@ export function CategoriesProvider({ children }) {
 
   const refresh = useCallback(async (scope) => {
     const scopesToLoad = scope ? [scope] : SCOPES;
-    const results = await Promise.all(scopesToLoad.map((s) => client.get('/categories', { params: { scope: s } })));
+    // allSettled: one scope failing (e.g. a backend that doesn't know a newly
+    // added scope yet) must never blank out every other category list.
+    const results = await Promise.allSettled(
+      scopesToLoad.map((s) => client.get('/categories', { params: { scope: s } }))
+    );
     setByScope((prev) => {
       const next = { ...prev };
       scopesToLoad.forEach((s, i) => {
-        next[s] = results[i].data.categories;
+        if (results[i].status === 'fulfilled') next[s] = results[i].value.data.categories;
       });
       return next;
     });
