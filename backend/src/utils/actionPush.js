@@ -9,7 +9,7 @@ const NOTIFIABLE_ENTITIES = ['expense', 'event', 'savings', 'income', 'wishlistI
 const PUSH_TTL_SECONDS = 2419200;
 // List check-offs are batched: wait this long after the LAST toggle, then
 // send one aggregated push instead of one per grocery item.
-const TOGGLE_FLUSH_MS = 2 * 60 * 1000;
+const TOGGLE_FLUSH_MS = 5 * 60 * 1000;
 
 // userId -> { userName, checkedTitles: [], uncheckedTitles: [], timer }
 const pendingToggles = new Map();
