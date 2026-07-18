@@ -13,8 +13,19 @@ router.get('/items', async (req, res) => {
   const { category } = req.query;
   const query = {};
   if (category) query.category = category;
-  const items = await WishlistItem.find(query).populate('addedBy', 'name').sort({ createdAt: -1 });
+  const items = await WishlistItem.find(query).populate('addedBy', 'name').sort({ order: 1, createdAt: -1 });
   res.json({ items });
+});
+
+// PUT /items/reorder — bulk-persist a manual sort order. Must be registered
+// before /items/:id so "reorder" isn't parsed as an item id.
+router.put('/items/reorder', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required' });
+  }
+  await Promise.all(ids.map((id, index) => WishlistItem.updateOne({ _id: id }, { order: index })));
+  res.json({ ok: true });
 });
 
 router.post('/items', async (req, res) => {
@@ -28,6 +39,8 @@ router.post('/items', async (req, res) => {
     return res.status(400).json({ error: `currency must be one of ${CURRENCIES.join(', ')}` });
   }
 
+  // New items go to the end of the unpurchased list.
+  const last = await WishlistItem.findOne({ category }).sort({ order: -1 }).select('order');
   const item = await WishlistItem.create({
     category,
     title,
@@ -35,6 +48,7 @@ router.post('/items', async (req, res) => {
     currency: currency || null,
     link: link || '',
     notes: notes || '',
+    order: (last?.order ?? -1) + 1,
     addedBy: req.userId,
   });
 
@@ -67,7 +81,19 @@ router.put('/items/:id', async (req, res) => {
   }
   if (link != null) item.link = link;
   if (notes != null) item.notes = notes;
-  if (purchased != null) item.purchased = purchased;
+  if (purchased != null && purchased !== item.purchased) {
+    item.purchased = purchased;
+    if (purchased) {
+      item.purchasedAt = new Date();
+    } else {
+      // Un-checking puts the item back at the end of the unpurchased list.
+      item.purchasedAt = null;
+      const last = await WishlistItem.findOne({ category: item.category, purchased: false })
+        .sort({ order: -1 })
+        .select('order');
+      item.order = (last?.order ?? -1) + 1;
+    }
+  }
   if (category) {
     const folder = await Category.findOne({ _id: category, scope: 'wishlist' });
     if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });

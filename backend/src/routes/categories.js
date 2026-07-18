@@ -22,14 +22,23 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { name, scope } = req.body;
+  const { name, scope, parent } = req.body;
   if (!name || !scope) return res.status(400).json({ error: 'name and scope are required' });
   if (!SCOPES.includes(scope)) return res.status(400).json({ error: `scope must be one of ${SCOPES.join(', ')}` });
 
-  const existing = await Category.findOne({ scope, name: name.trim() });
+  // Subfolders are a wishlist-only concept.
+  let parentId = null;
+  if (parent) {
+    if (scope !== 'wishlist') return res.status(400).json({ error: 'Only wishlist folders can have a parent' });
+    const parentFolder = await Category.findOne({ _id: parent, scope: 'wishlist' });
+    if (!parentFolder) return res.status(400).json({ error: 'Unknown parent folder' });
+    parentId = parentFolder._id;
+  }
+
+  const existing = await Category.findOne({ scope, parent: parentId, name: name.trim() });
   if (existing) return res.status(409).json({ error: 'A category with this name already exists' });
 
-  const category = await Category.create({ name: name.trim(), scope, createdBy: req.userId });
+  const category = await Category.create({ name: name.trim(), scope, parent: parentId, createdBy: req.userId });
 
   logAction({
     userId: req.userId,
@@ -79,10 +88,19 @@ router.delete('/:id', async (req, res) => {
     details: { name: category.name, scope: category.scope },
   });
 
-  // Wishlist folders cascade-delete their items (unlike expense/event categories,
-  // which just stop being selectable — a folder with no items doesn't make sense).
+  // Wishlist folders cascade-delete their items and subfolders recursively
+  // (unlike expense/event categories, which just stop being selectable).
   if (category.scope === 'wishlist') {
-    await WishlistItem.deleteMany({ category: category._id });
+    const toDelete = [category._id];
+    let frontier = [category._id];
+    while (frontier.length > 0) {
+      const children = await Category.find({ parent: { $in: frontier } }).select('_id');
+      frontier = children.map((c) => c._id);
+      toDelete.push(...frontier);
+    }
+    await WishlistItem.deleteMany({ category: { $in: toDelete } });
+    await Category.deleteMany({ _id: { $in: toDelete } });
+    return res.json({ ok: true });
   }
 
   await category.deleteOne();
