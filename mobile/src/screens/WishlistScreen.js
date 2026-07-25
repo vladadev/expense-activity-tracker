@@ -17,6 +17,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
@@ -43,8 +44,10 @@ export default function WishlistScreen({ navigation }) {
   // 'wishlist' | 'todo' — which list type the tab shows.
   const [listType, setListType] = useState('wishlist');
   const [newName, setNewName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [allItems, setAllItems] = useState([]);
+  const nameInputRef = useRef(null);
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
   const [activeId, setActiveId] = useState(null);
@@ -157,13 +160,21 @@ export default function WishlistScreen({ navigation }) {
   }
 
   async function handleAdd() {
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      // Inline, next to the field it's about — a popup here would hide the
+      // very input the user needs to fix.
+      setNameError(t('validation.folderNameRequired'));
+      nameInputRef.current?.focus();
+      return;
+    }
+    setNameError('');
     setSubmitting(true);
     try {
       await addCategory(listType, newName.trim());
       setNewName('');
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('manageCategories.duplicateError'));
+      setNameError(err.response?.data?.error || t('manageCategories.duplicateError'));
+      nameInputRef.current?.focus();
     } finally {
       setSubmitting(false);
     }
@@ -199,18 +210,26 @@ export default function WishlistScreen({ navigation }) {
           ))}
         </View>
 
-        <View style={styles.addRow}>
-          <TextInput
-            style={styles.input}
-            placeholder={listType === 'wishlist' ? t('wishlist.folderNamePlaceholder') : t('todo.folderNamePlaceholder')}
-            placeholderTextColor={theme.textSecondary}
-            value={newName}
-            onChangeText={setNewName}
-            onSubmitEditing={handleAdd}
-          />
-          <TouchableOpacity style={styles.addButton} onPress={handleAdd} disabled={submitting}>
-            <Ionicons name="add" size={22} color="#fff" />
-          </TouchableOpacity>
+        <View style={styles.addSection}>
+          <View style={styles.addRow}>
+            <TextInput
+              ref={nameInputRef}
+              style={[styles.input, !!nameError && styles.inputError]}
+              placeholder={listType === 'wishlist' ? t('wishlist.folderNamePlaceholder') : t('todo.folderNamePlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              value={newName}
+              onChangeText={(v) => {
+                setNewName(v);
+                if (nameError) setNameError('');
+              }}
+              onSubmitEditing={handleAdd}
+              returnKeyType="done"
+            />
+            <TouchableOpacity style={styles.addButton} onPress={handleAdd} disabled={submitting}>
+              <Ionicons name="add" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <FormError message={nameError} />
         </View>
 
         <ScrollView
@@ -296,7 +315,9 @@ function createStyles(theme) {
     },
     segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
     segmentTextActive: { color: '#fff' },
-    addRow: { flexDirection: 'row', padding: 16, gap: 8 },
+    addSection: { padding: 16 },
+    addRow: { flexDirection: 'row', gap: 8 },
+    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     input: {
       borderWidth: 1,
       borderColor: theme.border,
