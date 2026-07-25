@@ -19,7 +19,9 @@ import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 import { getPersonColor } from '../utils/personColor';
+import { formatShortDateTime } from '../i18n/dateFormat';
 
 const ROW_HEIGHT = 58;
 const ROW_GAP = 8;
@@ -48,13 +50,15 @@ function animateLayout() {
 
 export default function WishlistFolderScreen({ route, navigation }) {
   const { folder } = route.params;
-  const { t, formatAmount } = useSettings();
+  const { t, language, formatAmount } = useSettings();
   const { wishlistCategories, todoCategories, addCategory, deleteCategory } = useCategories();
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const [items, setItems] = useState([]);
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
+  const [subfolderError, setSubfolderError] = useState('');
+  const subfolderInputRef = useRef(null);
 
   // ---- drag machinery ----------------------------------------------------
   // The drag is driven entirely by refs + Animated values: NO re-render
@@ -206,13 +210,19 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   async function handleAddSubfolder() {
     const name = subfolderName.trim();
-    if (!name) return;
+    if (!name) {
+      setSubfolderError(t('validation.folderNameRequired'));
+      subfolderInputRef.current?.focus();
+      return;
+    }
+    setSubfolderError('');
     try {
       await addCategory(folder.scope || 'wishlist', name, folder._id);
       setSubfolderName('');
       setShowSubfolderInput(false);
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('manageCategories.duplicateError'));
+      setSubfolderError(err.response?.data?.error || t('manageCategories.duplicateError'));
+      subfolderInputRef.current?.focus();
     }
   }
 
@@ -223,11 +233,16 @@ export default function WishlistFolderScreen({ route, navigation }) {
     ]);
   }
 
+  function reminderText(item) {
+    if (!item.reminderEnabled || !item.reminderAt) return '';
+    return formatShortDateTime(new Date(item.reminderAt), language);
+  }
+
   // ---- row renderer ------------------------------------------------------
   function renderRow(item, isPurchasedRow) {
     const personColor = getPersonColor(item.addedBy?.name);
     const isActive = !isPurchasedRow && activeId === item._id;
-    const hasSubtitle = item.price != null || !!item.notes;
+    const hasSubtitle = item.price != null || !!item.notes || !!reminderText(item);
 
     let transform;
     if (isActive) transform = [{ translateY: dragY }, { scale: 1.03 }];
@@ -267,13 +282,20 @@ export default function WishlistFolderScreen({ route, navigation }) {
               {item.title}
             </Text>
             {hasSubtitle && (
-              <Text style={styles.itemSub} numberOfLines={1}>
-                {item.price != null && (
-                  <Text style={styles.itemPrice}>{formatAmount(item.price, item.currency)}</Text>
+              <View style={styles.subRow}>
+                {item.reminderEnabled && item.reminderAt && (
+                  <Ionicons name="alarm-outline" size={12} color={theme.primary} style={{ marginRight: 4 }} />
                 )}
-                {item.price != null && item.notes ? '  ·  ' : ''}
-                {item.notes || ''}
-              </Text>
+                <Text style={styles.itemSub} numberOfLines={1}>
+                  {item.price != null && (
+                    <Text style={styles.itemPrice}>{formatAmount(item.price, item.currency)}</Text>
+                  )}
+                  {item.price != null && (item.notes || reminderText(item)) ? '  ·  ' : ''}
+                  {reminderText(item)}
+                  {reminderText(item) && item.notes ? '  ·  ' : ''}
+                  {item.notes || ''}
+                </Text>
+              </View>
             )}
           </View>
         </TouchableOpacity>
@@ -334,28 +356,37 @@ export default function WishlistFolderScreen({ route, navigation }) {
           )}
 
           {showSubfolderInput ? (
-            <View style={styles.subfolderInputRow}>
-              <TextInput
-                style={styles.subfolderInput}
-                placeholder={t('wishlist.subfolderNamePlaceholder')}
-                placeholderTextColor={theme.textSecondary}
-                value={subfolderName}
-                onChangeText={setSubfolderName}
-                autoFocus
-                onSubmitEditing={handleAddSubfolder}
-              />
-              <TouchableOpacity style={styles.subfolderAddButton} onPress={handleAddSubfolder}>
-                <Ionicons name="checkmark" size={20} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.subfolderCancelButton}
-                onPress={() => {
-                  setShowSubfolderInput(false);
-                  setSubfolderName('');
-                }}
-              >
-                <Ionicons name="close" size={20} color={theme.textSecondary} />
-              </TouchableOpacity>
+            <View style={{ marginBottom: 12 }}>
+              <View style={styles.subfolderInputRow}>
+                <TextInput
+                  ref={subfolderInputRef}
+                  style={[styles.subfolderInput, !!subfolderError && styles.inputError]}
+                  placeholder={t('wishlist.subfolderNamePlaceholder')}
+                  placeholderTextColor={theme.textSecondary}
+                  value={subfolderName}
+                  onChangeText={(v) => {
+                    setSubfolderName(v);
+                    if (subfolderError) setSubfolderError('');
+                  }}
+                  autoFocus
+                  onSubmitEditing={handleAddSubfolder}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity style={styles.subfolderAddButton} onPress={handleAddSubfolder}>
+                  <Ionicons name="checkmark" size={20} color="#fff" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.subfolderCancelButton}
+                  onPress={() => {
+                    setShowSubfolderInput(false);
+                    setSubfolderName('');
+                    setSubfolderError('');
+                  }}
+                >
+                  <Ionicons name="close" size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <FormError message={subfolderError} />
             </View>
           ) : (
             <TouchableOpacity style={styles.addSubfolderLink} onPress={() => setShowSubfolderInput(true)}>
@@ -433,7 +464,8 @@ function createStyles(theme) {
       marginBottom: 10,
     },
     addSubfolderText: { fontSize: 13, color: theme.primary, fontWeight: '600' },
-    subfolderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    subfolderInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     subfolderInput: {
       flex: 1,
       borderWidth: 1,
@@ -481,7 +513,8 @@ function createStyles(theme) {
     },
     itemTitle: { fontSize: 15, fontWeight: '600', color: theme.text },
     itemTitlePurchased: { textDecorationLine: 'line-through', color: theme.textSecondary, fontWeight: '400' },
-    itemSub: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },
+    subRow: { flexDirection: 'row', alignItems: 'center', marginTop: 1 },
+    itemSub: { flex: 1, fontSize: 12, color: theme.textSecondary },
     itemPrice: { fontSize: 12, color: theme.primary, fontWeight: '600' },
     iconButton: { padding: 8 },
     dragHandle: { paddingVertical: 8, paddingHorizontal: 10 },
