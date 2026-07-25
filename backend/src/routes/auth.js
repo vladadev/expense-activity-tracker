@@ -9,7 +9,9 @@ const router = express.Router();
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
+  // Type check, not just truthiness: a JSON body can smuggle an object like
+  // {"$ne": null} here, which Mongo would happily treat as a query operator.
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
