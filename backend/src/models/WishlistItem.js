@@ -15,11 +15,17 @@ const wishlistItemSchema = new mongoose.Schema(
     purchasedAt: { type: Date, default: null },
     // Manual sort position among unpurchased items in the same folder.
     order: { type: Number, default: 0 },
+    // Optional push reminder, same mechanics as Event reminders. Mainly for
+    // To-Do tasks ("call the landlord at 5pm") but available on any item.
+    reminderEnabled: { type: Boolean, default: false },
+    reminderAt: { type: Date, default: null },
+    reminderSent: { type: Boolean, default: false },
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
 );
 
 wishlistItemSchema.index({ category: 1 });
+wishlistItemSchema.index({ reminderAt: 1, reminderSent: 1 });
 
 module.exports = mongoose.model('WishlistItem', wishlistItemSchema);

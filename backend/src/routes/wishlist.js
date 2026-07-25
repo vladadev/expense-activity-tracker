@@ -29,7 +29,7 @@ router.put('/items/reorder', async (req, res) => {
 });
 
 router.post('/items', async (req, res) => {
-  const { category, title, price, currency, link, notes } = req.body;
+  const { category, title, price, currency, link, notes, reminderEnabled, reminderAt } = req.body;
   if (!category || !title) {
     return res.status(400).json({ error: 'category and title are required' });
   }
@@ -49,6 +49,8 @@ router.post('/items', async (req, res) => {
     link: link || '',
     notes: notes || '',
     order: (last?.order ?? -1) + 1,
+    reminderEnabled: !!reminderEnabled,
+    reminderAt: reminderEnabled && reminderAt ? new Date(reminderAt) : null,
     addedBy: req.userId,
   });
 
@@ -65,7 +67,7 @@ router.post('/items', async (req, res) => {
 });
 
 router.put('/items/:id', async (req, res) => {
-  const { title, price, currency, link, notes, purchased, category } = req.body;
+  const { title, price, currency, link, notes, purchased, category, reminderEnabled, reminderAt } = req.body;
   const item = await WishlistItem.findById(req.params.id);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
@@ -98,6 +100,16 @@ router.put('/items/:id', async (req, res) => {
     const folder = await Category.findOne({ _id: category, scope: { $in: ['wishlist', 'todo'] } });
     if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });
     item.category = category;
+  }
+  if (reminderEnabled != null) {
+    item.reminderEnabled = !!reminderEnabled;
+    if (!reminderEnabled) item.reminderAt = null;
+  }
+  if (reminderAt !== undefined) {
+    const nextAt = reminderAt ? new Date(reminderAt) : null;
+    // Rescheduling to a new time re-arms an already-delivered reminder.
+    if (String(nextAt) !== String(item.reminderAt)) item.reminderSent = false;
+    item.reminderAt = nextAt;
   }
 
   await item.save();
