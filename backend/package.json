@@ -9,7 +9,9 @@
     "start": "node src/server.js",
     "seed": "node src/utils/seedUsers.js",
     "seed:categories": "node src/utils/seedCategories.js",
-    "reset:data": "node src/utils/resetTransactionData.js"
+    "reset:data": "node src/utils/resetTransactionData.js",
+    "backup": "node src/utils/backup.js",
+    "restore": "node src/utils/restore.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

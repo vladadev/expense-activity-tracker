@@ -5,6 +5,11 @@ node_modules/
 backend/.env
 *.log
 
+# Database backups — contain every record plus password hashes, must never
+# be pushed to a remote. Keep them on disk / in synced cloud storage only.
+backend/backups/
+backups/
+
 # Expo / mobile
 mobile/.expo/
 mobile/dist/
