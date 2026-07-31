@@ -27,8 +27,21 @@ router.get('/', async (req, res) => {
     if (to) query.date.$lte = new Date(to);
   }
 
-  const events = await Event.find(query).populate('owner', 'name').sort({ date: 1 });
+  // All-day entries (startTime null) sort above timed ones within the same
+  // day, ordered by their manual `order`; timed entries follow by clock time.
+  const events = await Event.find(query).populate('owner', 'name').sort({ date: 1, startTime: 1, order: 1 });
   res.json({ events });
+});
+
+// PUT /reorder — manual ordering of all-day entries. Registered before /:id
+// so "reorder" isn't parsed as an event id.
+router.put('/reorder', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required' });
+  }
+  await Promise.all(ids.map((id, index) => Event.updateOne({ _id: id }, { order: index })));
+  res.json({ ok: true });
 });
 
 router.get('/:id', async (req, res) => {
@@ -38,7 +51,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, type, notes, date, reminderEnabled, reminderAt } = req.body;
+  const { title, type, notes, date, startTime, reminderEnabled, reminderAt } = req.body;
 
   if (!title || !type) {
     return res.status(400).json({ error: 'title and type are required' });
@@ -47,12 +60,26 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: `Unknown category: ${type}` });
   }
 
+  // New all-day entries go to the end of that day's all-day group.
+  const eventDate = date ? new Date(date) : new Date();
+  let order = 0;
+  if (!startTime) {
+    const dayEnd = new Date(eventDate);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const last = await Event.findOne({ date: { $gte: eventDate, $lt: dayEnd }, startTime: null })
+      .sort({ order: -1 })
+      .select('order');
+    order = (last?.order ?? -1) + 1;
+  }
+
   const event = await Event.create({
     owner: req.userId,
-    date: date ? new Date(date) : new Date(),
+    date: eventDate,
     type,
     title,
     notes: notes || '',
+    startTime: startTime || null,
+    order,
     reminderEnabled: !!reminderEnabled,
     reminderAt: reminderAt ? new Date(reminderAt) : null,
   });
@@ -70,7 +97,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { title, type, notes, date, reminderEnabled, reminderAt } = req.body;
+  const { title, type, notes, date, startTime, reminderEnabled, reminderAt } = req.body;
   const event = await Event.findById(req.params.id);
   if (!event) return res.status(404).json({ error: 'Event not found' });
 
@@ -85,6 +112,7 @@ router.put('/:id', async (req, res) => {
   }
   if (notes != null) event.notes = notes;
   if (date) event.date = new Date(date);
+  if (startTime !== undefined) event.startTime = startTime || null;
   if (reminderEnabled != null) event.reminderEnabled = reminderEnabled;
   if (reminderAt !== undefined) {
     event.reminderAt = reminderAt ? new Date(reminderAt) : null;
