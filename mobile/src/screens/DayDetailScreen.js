@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
@@ -8,6 +9,15 @@ import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
 import { getPersonColor } from '../utils/personColor';
+
+function hexToRgba(hex, alpha) {
+  const clean = hex.replace('#', '');
+  const bigint = parseInt(clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export default function DayDetailScreen({ route, navigation }) {
   const { date } = route.params;
@@ -45,124 +55,203 @@ export default function DayDetailScreen({ route, navigation }) {
     setRefreshing(false);
   }
 
-  function formatDateHeading(dateString) {
-    return formatLongDate(dateString, language);
-  }
-
   const currencies = Object.keys(byCurrency);
+  const sortedEvents = [...events].sort((a, b) => {
+    if (!a.startTime && !b.startTime) return (a.order ?? 0) - (b.order ?? 0);
+    if (!a.startTime) return -1;
+    if (!b.startTime) return 1;
+    return a.startTime.localeCompare(b.startTime);
+  });
 
   return (
-    <Screen title={formatDateHeading(date)}>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingTop: 16 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => navigation.navigate('ExpenseStats', { date })}
+    <Screen title={formatLongDate(date, language)}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <Text style={styles.cardTitle}>{t('dayDetail.expenses')}</Text>
-        {!loaded ? (
-          <Text style={styles.cardSubtext}>{t('dayDetail.loading')}</Text>
-        ) : currencies.length === 0 ? (
-          <Text style={styles.cardSubtext}>{formatAmount(0)} {t('dayDetail.total')}</Text>
-        ) : (
-          currencies.map((currency) => (
-            <View key={currency} style={{ marginBottom: 4 }}>
-              <Text style={styles.cardTotal}>
-                {formatAmount(byCurrency[currency].total, currency)} {t('dayDetail.total')}
-              </Text>
-              <Text style={styles.cardSubtext}>
-                {t('dayDetail.personal')}: {formatAmount(byCurrency[currency].personalTotal, currency)} ·{' '}
-                {t('dayDetail.together')}: {formatAmount(byCurrency[currency].togetherTotal, currency)}
-              </Text>
+        {/* Expenses. The card header navigates to the breakdown; the add
+            button is a sibling, not a child — nesting it inside the card's
+            touchable made one tap fire both actions. */}
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.cardHeader}
+            onPress={() => navigation.navigate('ExpenseStats', { date })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.cardIcon, { backgroundColor: hexToRgba(theme.primary, 0.12) }]}>
+              <Ionicons name="wallet-outline" size={19} color={theme.primary} />
             </View>
-          ))
-        )}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('ExpenseForm', { date })}
-        >
-          <Text style={styles.addButtonText}>{t('dayDetail.addExpense')}</Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
+            <Text style={styles.cardTitle}>{t('nav.expenses')}</Text>
+            <Ionicons name="chevron-forward" size={19} color={theme.textSecondary} />
+          </TouchableOpacity>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t('dayDetail.activities')}</Text>
-        {events.length === 0 ? (
-          <Text style={styles.cardSubtext}>{t('dayDetail.nothingPlanned')}</Text>
-        ) : (
-          events.map((e) => (
-            <TouchableOpacity
-              key={e._id}
-              style={[styles.eventRow, { borderLeftWidth: 4, borderLeftColor: getPersonColor(e.owner?.name), paddingLeft: 8 }]}
-              onPress={() => navigation.navigate('EventForm', { date, eventId: e._id })}
-            >
-              <View style={styles.eventTitleRow}>
-                <Text style={[styles.eventTitle, { flex: 1 }]}>
-                  {e.startTime ? `${e.startTime}  ` : ''}
-                  {eventTypeIcon(e.type)} {e.title}
-                </Text>
-                {e.reminderEnabled && e.reminderAt ? (
-                  <Text style={styles.eventTime}>🔔 {formatTime(new Date(e.reminderAt))}</Text>
-                ) : null}
-              </View>
-              {e.notes ? <Text style={styles.cardSubtext}>{e.notes}</Text> : null}
-              <PersonTag name={e.owner?.name} />
-            </TouchableOpacity>
-          ))
-        )}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('EventForm', { date })}
-        >
-          <Text style={styles.addButtonText}>{t('dayDetail.addActivity')}</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <View style={styles.cardBody}>
+            {!loaded ? (
+              <Text style={styles.subtext}>{t('dayDetail.loading')}</Text>
+            ) : currencies.length === 0 ? (
+              <Text style={styles.subtext}>{t('expenseStats.noneYet')}</Text>
+            ) : (
+              currencies.map((currency) => (
+                <View key={currency} style={styles.totalBlock}>
+                  <Text style={styles.totalValue}>{formatAmount(byCurrency[currency].total, currency)}</Text>
+                  <View style={styles.splitRow}>
+                    <View style={styles.splitItem}>
+                      <Text style={styles.splitLabel}>{t('dayDetail.personal')}</Text>
+                      <Text style={styles.splitValue}>
+                        {formatAmount(byCurrency[currency].personalTotal, currency)}
+                      </Text>
+                    </View>
+                    <View style={styles.splitDivider} />
+                    <View style={styles.splitItem}>
+                      <Text style={styles.splitLabel}>{t('dayDetail.together')}</Text>
+                      <Text style={styles.splitValue}>
+                        {formatAmount(byCurrency[currency].togetherTotal, currency)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('ExpenseForm', { date })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={17} color={theme.primary} />
+            <Text style={styles.addButtonText}>{t('nav.addExpense')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Activities */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardIcon, { backgroundColor: hexToRgba('#F59E0B', 0.14) }]}>
+              <Ionicons name="calendar-outline" size={19} color="#F59E0B" />
+            </View>
+            <Text style={styles.cardTitle}>{t('dayDetail.activities')}</Text>
+            {sortedEvents.length > 0 && <Text style={styles.countBadge}>{sortedEvents.length}</Text>}
+          </View>
+
+          <View style={styles.cardBody}>
+            {sortedEvents.length === 0 ? (
+              <Text style={styles.subtext}>{t('dayDetail.nothingPlanned')}</Text>
+            ) : (
+              sortedEvents.map((e) => (
+                <TouchableOpacity
+                  key={e._id}
+                  style={[styles.eventRow, { borderLeftColor: getPersonColor(e.owner?.name) }]}
+                  onPress={() => navigation.navigate('EventForm', { date, eventId: e._id })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eventTime}>{e.startTime || t('agenda.allDayShort')}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eventTitle} numberOfLines={1}>{e.title}</Text>
+                    <View style={styles.eventMetaRow}>
+                      <Text style={styles.eventMeta} numberOfLines={1}>{e.type}</Text>
+                      {e.notes ? <Text style={styles.eventMeta} numberOfLines={1}> · {e.notes}</Text> : null}
+                    </View>
+                    <PersonTag name={e.owner?.name} />
+                  </View>
+                  {e.reminderEnabled && e.reminderAt && (
+                    <View style={styles.reminderPill}>
+                      <Ionicons name="notifications-outline" size={11} color={theme.primary} />
+                      <Text style={styles.reminderText}>{formatTime(new Date(e.reminderAt))}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('EventForm', { date })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={17} color={theme.primary} />
+            <Text style={styles.addButtonText}>{t('nav.activityPlan')}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </Screen>
   );
-}
-
-function eventTypeIcon(type) {
-  switch (type) {
-    case 'birthday': return '🎂';
-    case 'plan': return '📌';
-    case 'reminder': return '⏰';
-    default: return '📝';
-  }
 }
 
 function createStyles(theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    heading: { fontSize: 20, fontWeight: '700', margin: 16, color: theme.text },
     card: {
       backgroundColor: theme.surface,
-      borderRadius: 14,
-      padding: 16,
-      marginHorizontal: 16,
-      marginBottom: 16,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 14,
     },
-    cardTitle: { fontSize: 17, fontWeight: '600', marginBottom: 6, color: theme.text },
-    cardTotal: { fontSize: 22, fontWeight: '700', color: theme.text },
-    cardSubtext: { fontSize: 14, color: theme.textSecondary, marginTop: 2 },
-    addButton: {
-      marginTop: 12,
-      backgroundColor: theme.primaryLight,
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    cardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.text },
+    countBadge: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      backgroundColor: hexToRgba(theme.textSecondary, 0.12),
       borderRadius: 10,
-      padding: 12,
-      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      overflow: 'hidden',
     },
-    addButtonText: { color: theme.primary, fontWeight: '600' },
+    cardBody: { marginTop: 12 },
+    subtext: { fontSize: 13, color: theme.textSecondary, paddingVertical: 4 },
+    totalBlock: { marginBottom: 4 },
+    totalValue: { fontSize: 26, fontWeight: '700', color: theme.text },
+    splitRow: {
+      flexDirection: 'row',
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    splitItem: { flex: 1, alignItems: 'center' },
+    splitDivider: { width: 1, backgroundColor: theme.border },
+    splitLabel: { fontSize: 11, color: theme.textSecondary },
+    splitValue: { fontSize: 14, fontWeight: '700', color: theme.text, marginTop: 2 },
     eventRow: {
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 10,
+      backgroundColor: theme.background,
+      borderRadius: 10,
+      borderLeftWidth: 3,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginBottom: 8,
     },
-    eventTitleRow: { flexDirection: 'row', alignItems: 'center' },
-    eventTitle: { fontSize: 15, fontWeight: '500', color: theme.text },
-    eventTime: { fontSize: 13, fontWeight: '600', color: theme.primary, marginLeft: 8 },
+    eventTime: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, minWidth: 44, paddingTop: 1 },
+    eventTitle: { fontSize: 15, fontWeight: '600', color: theme.text },
+    eventMetaRow: { flexDirection: 'row', marginTop: 1 },
+    eventMeta: { fontSize: 12, color: theme.textSecondary },
+    reminderPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      backgroundColor: hexToRgba(theme.primary, 0.12),
+      borderRadius: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+    },
+    reminderText: { fontSize: 11, fontWeight: '700', color: theme.primary },
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginTop: 12,
+      backgroundColor: hexToRgba(theme.primary, 0.12),
+      borderRadius: 12,
+      paddingVertical: 12,
+    },
+    addButtonText: { color: theme.primary, fontSize: 14, fontWeight: '700' },
   });
 }

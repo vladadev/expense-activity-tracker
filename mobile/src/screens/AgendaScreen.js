@@ -285,7 +285,8 @@ export default function AgendaScreen({ navigation }) {
 function createStyles(theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+    // Sits directly under the Calendar/List segment, so no extra top padding.
+    filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
     filterChip: {
       flex: 1,
       alignItems: 'center',
