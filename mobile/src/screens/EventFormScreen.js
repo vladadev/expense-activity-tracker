@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 
 export default function EventFormScreen({ route, navigation }) {
   const { date, eventId } = route.params;
@@ -19,6 +21,12 @@ export default function EventFormScreen({ route, navigation }) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState(eventCategories[0]?.name || '');
   const [notes, setNotes] = useState('');
+  // startTime is a literal "HH:MM" string, or null for an all-day entry.
+  const [startTime, setStartTime] = useState(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [titleError, setTitleError] = useState('');
+  const [formError, setFormError] = useState('');
+  const titleRef = useRef(null);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderAt, setReminderAt] = useState(new Date(date + 'T09:00:00'));
   // Android's native picker only supports a single date OR time widget at a
@@ -35,6 +43,7 @@ export default function EventFormScreen({ route, navigation }) {
       setTitle(e.title);
       setType(e.type);
       setNotes(e.notes || '');
+      setStartTime(e.startTime || null);
       setReminderEnabled(e.reminderEnabled);
       if (e.reminderAt) setReminderAt(new Date(e.reminderAt));
       setLoading(false);
@@ -43,9 +52,12 @@ export default function EventFormScreen({ route, navigation }) {
 
   async function handleSave() {
     if (!title.trim()) {
-      Alert.alert(t('eventForm.missingTitleTitle'), t('eventForm.missingTitleMessage'));
+      setTitleError(t('validation.titleRequired'));
+      titleRef.current?.focus();
       return;
     }
+    setTitleError('');
+    setFormError('');
 
     setSubmitting(true);
     try {
@@ -54,6 +66,7 @@ export default function EventFormScreen({ route, navigation }) {
         type,
         notes,
         date,
+        startTime,
         reminderEnabled,
         reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
       };
@@ -64,7 +77,7 @@ export default function EventFormScreen({ route, navigation }) {
       }
       navigation.goBack();
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('eventForm.saveError'));
+      setFormError(err.response?.data?.error || t('eventForm.saveError'));
     } finally {
       setSubmitting(false);
     }
@@ -101,12 +114,66 @@ export default function EventFormScreen({ route, navigation }) {
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.label}>{t('eventForm.titleLabel')}</Text>
       <TextInput
-        style={styles.input}
+        ref={titleRef}
+        style={[styles.input, !!titleError && styles.inputError]}
         placeholder={t('eventForm.titlePlaceholder')}
         placeholderTextColor={theme.textSecondary}
         value={title}
-        onChangeText={setTitle}
+        onChangeText={(v) => {
+          setTitle(v);
+          if (titleError) setTitleError('');
+        }}
       />
+      <FormError message={titleError} />
+
+      <Text style={styles.label}>{t('eventForm.time')}</Text>
+      <View style={styles.timeRow}>
+        <TouchableOpacity
+          style={[styles.timeOption, !startTime && styles.timeOptionActive]}
+          onPress={() => setStartTime(null)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="sunny-outline" size={15} color={!startTime ? '#fff' : theme.textSecondary} />
+          <Text style={[styles.timeOptionText, !startTime && styles.timeOptionTextActive]}>
+            {t('eventForm.allDay')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.timeOption, !!startTime && styles.timeOptionActive]}
+          onPress={() => setShowTimePicker(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="time-outline" size={15} color={startTime ? '#fff' : theme.textSecondary} />
+          <Text style={[styles.timeOptionText, !!startTime && styles.timeOptionTextActive]}>
+            {startTime || t('eventForm.pickTime')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={(() => {
+            const d = new Date();
+            if (startTime) {
+              const [h, m] = startTime.split(':').map(Number);
+              d.setHours(h, m, 0, 0);
+            } else {
+              d.setHours(9, 0, 0, 0);
+            }
+            return d;
+          })()}
+          mode="time"
+          is24Hour
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, selected) => {
+            setShowTimePicker(false);
+            if (event.type === 'dismissed' || !selected) return;
+            const hh = String(selected.getHours()).padStart(2, '0');
+            const mm = String(selected.getMinutes()).padStart(2, '0');
+            setStartTime(`${hh}:${mm}`);
+          }}
+        />
+      )}
 
       <Text style={styles.label}>{t('eventForm.category')}</Text>
       <View style={styles.chipRow}>
@@ -176,6 +243,8 @@ export default function EventFormScreen({ route, navigation }) {
         />
       )}
 
+      <FormError message={formError} style={{ marginTop: 20 }} />
+
       <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={submitting}>
         <Text style={styles.saveButtonText}>
           {submitting ? t('eventForm.saving') : isEditing ? t('eventForm.saveChanges') : t('eventForm.add')}
@@ -205,6 +274,23 @@ function createStyles(theme) {
       color: theme.text,
       backgroundColor: theme.surface,
     },
+    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
+    timeRow: { flexDirection: 'row', gap: 8 },
+    timeOption: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    timeOptionActive: { backgroundColor: theme.primary, borderColor: theme.primary },
+    timeOptionText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
+    timeOptionTextActive: { color: '#fff' },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
     chip: {
       borderWidth: 1,
