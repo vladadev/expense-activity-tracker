@@ -3,6 +3,7 @@ const { CURRENCIES } = require('../config/categories');
 
 const wishlistItemSchema = new mongoose.Schema(
   {
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     // Folders are Category documents with scope: 'wishlist' (e.g. "Temu", "Groceries").
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     title: { type: String, required: true },
@@ -25,7 +26,7 @@ const wishlistItemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-wishlistItemSchema.index({ category: 1 });
+wishlistItemSchema.index({ household: 1, category: 1 });
 wishlistItemSchema.index({ reminderAt: 1, reminderSent: 1 });
 
 module.exports = mongoose.model('WishlistItem', wishlistItemSchema);

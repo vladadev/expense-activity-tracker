@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema(
   {
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     date: { type: Date, required: true },
     // Free-form now — validated against the user-managed Category collection
@@ -31,7 +32,8 @@ const eventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-eventSchema.index({ date: 1 });
+eventSchema.index({ household: 1, date: 1 });
+// The reminder cron scans across all households, so this one stays global.
 eventSchema.index({ reminderAt: 1, reminderSent: 1 });
 
 module.exports = mongoose.model('Event', eventSchema);

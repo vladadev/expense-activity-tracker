@@ -1,17 +1,19 @@
 const express = require('express');
 const Income = require('../models/Income');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 const { CURRENCIES, DEFAULT_CURRENCY } = require('../config/categories');
 const { logAction } = require('../utils/audit');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 // Shared household view — both users see all income entries, same
 // transparency model as expenses/savings/events.
 router.get('/', async (req, res) => {
   const { from, to } = req.query;
-  const query = {};
+  const query = { household: req.householdId };
   if (from || to) {
     query.date = {};
     if (from) query.date.$gte = new Date(from);
@@ -35,6 +37,7 @@ router.post('/', async (req, res) => {
   }
 
   const entry = await Income.create({
+    household: req.householdId,
     owner: req.userId,
     amount,
     currency: currency || DEFAULT_CURRENCY,
@@ -45,6 +48,7 @@ router.post('/', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'create',
     entityType: 'income',
     entityId: entry._id.toString(),
@@ -56,7 +60,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { amount, currency, description, date } = req.body;
-  const entry = await Income.findById(req.params.id);
+  const entry = await Income.findOne({ _id: req.params.id, household: req.householdId });
   if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
   const before = { amount: entry.amount, currency: entry.currency, description: entry.description };
@@ -76,6 +80,7 @@ router.put('/:id', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'update',
     entityType: 'income',
     entityId: entry._id.toString(),
@@ -86,12 +91,13 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const entry = await Income.findById(req.params.id);
+  const entry = await Income.findOne({ _id: req.params.id, household: req.householdId });
   if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'delete',
     entityType: 'income',
     entityId: entry._id.toString(),

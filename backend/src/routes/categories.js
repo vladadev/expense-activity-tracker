@@ -2,6 +2,7 @@ const express = require('express');
 const Category = require('../models/Category');
 const WishlistItem = require('../models/WishlistItem');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
 
 const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
@@ -10,11 +11,12 @@ const LIST_SCOPES = ['wishlist', 'todo'];
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 // GET /api/categories?scope=expense — shared household view, all categories visible to both users.
 router.get('/', async (req, res) => {
   const { scope } = req.query;
-  const query = {};
+  const query = { household: req.householdId };
   if (scope) {
     if (!SCOPES.includes(scope)) return res.status(400).json({ error: `scope must be one of ${SCOPES.join(', ')}` });
     query.scope = scope;
@@ -30,7 +32,7 @@ router.put('/reorder', async (req, res) => {
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array is required' });
   }
-  await Promise.all(ids.map((id, index) => Category.updateOne({ _id: id }, { order: index })));
+  await Promise.all(ids.map((id, index) => Category.updateOne({ _id: id, household: req.householdId }, { order: index })));
   res.json({ ok: true });
 });
 
@@ -43,17 +45,18 @@ router.post('/', async (req, res) => {
   let parentId = null;
   if (parent) {
     if (!LIST_SCOPES.includes(scope)) return res.status(400).json({ error: 'Only list folders can have a parent' });
-    const parentFolder = await Category.findOne({ _id: parent, scope });
+    const parentFolder = await Category.findOne({ _id: parent, scope, household: req.householdId });
     if (!parentFolder) return res.status(400).json({ error: 'Unknown parent folder' });
     parentId = parentFolder._id;
   }
 
-  const existing = await Category.findOne({ scope, parent: parentId, name: name.trim() });
+  const existing = await Category.findOne({ household: req.householdId, scope, parent: parentId, name: name.trim() });
   if (existing) return res.status(409).json({ error: 'A category with this name already exists' });
 
   // New folders go to the end of their sibling group.
-  const lastSibling = await Category.findOne({ scope, parent: parentId }).sort({ order: -1 }).select('order');
+  const lastSibling = await Category.findOne({ household: req.householdId, scope, parent: parentId }).sort({ order: -1 }).select('order');
   const category = await Category.create({
+    household: req.householdId,
     name: name.trim(),
     scope,
     parent: parentId,
@@ -64,6 +67,7 @@ router.post('/', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'create',
     entityType: 'category',
     entityId: category._id.toString(),
@@ -77,7 +81,7 @@ router.put('/:id', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findOne({ _id: req.params.id, household: req.householdId });
   if (!category) return res.status(404).json({ error: 'Category not found' });
 
   const before = category.name;
@@ -87,6 +91,7 @@ router.put('/:id', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'update',
     entityType: 'category',
     entityId: category._id.toString(),
@@ -97,12 +102,13 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findOne({ _id: req.params.id, household: req.householdId });
   if (!category) return res.status(404).json({ error: 'Category not found' });
 
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'delete',
     entityType: 'category',
     entityId: category._id.toString(),
@@ -115,7 +121,7 @@ router.delete('/:id', async (req, res) => {
     const toDelete = [category._id];
     let frontier = [category._id];
     while (frontier.length > 0) {
-      const children = await Category.find({ parent: { $in: frontier } }).select('_id');
+      const children = await Category.find({ household: req.householdId, parent: { $in: frontier } }).select('_id');
       frontier = children.map((c) => c._id);
       toDelete.push(...frontier);
     }

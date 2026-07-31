@@ -2,16 +2,18 @@ const express = require('express');
 const WishlistItem = require('../models/WishlistItem');
 const Category = require('../models/Category');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 const { CURRENCIES } = require('../config/categories');
 const { logAction } = require('../utils/audit');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 // Shared household view — both users see and can edit the full wishlist.
 router.get('/items', async (req, res) => {
   const { category } = req.query;
-  const query = {};
+  const query = { household: req.householdId };
   if (category) query.category = category;
   const items = await WishlistItem.find(query).populate('addedBy', 'name').sort({ order: 1, createdAt: -1 });
   res.json({ items });
@@ -24,7 +26,7 @@ router.put('/items/reorder', async (req, res) => {
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array is required' });
   }
-  await Promise.all(ids.map((id, index) => WishlistItem.updateOne({ _id: id }, { order: index })));
+  await Promise.all(ids.map((id, index) => WishlistItem.updateOne({ _id: id, household: req.householdId }, { order: index })));
   res.json({ ok: true });
 });
 
@@ -33,15 +35,16 @@ router.post('/items', async (req, res) => {
   if (!category || !title) {
     return res.status(400).json({ error: 'category and title are required' });
   }
-  const folder = await Category.findOne({ _id: category, scope: { $in: ['wishlist', 'todo'] } });
+  const folder = await Category.findOne({ _id: category, household: req.householdId, scope: { $in: ['wishlist', 'todo'] } });
   if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });
   if (currency && !CURRENCIES.includes(currency)) {
     return res.status(400).json({ error: `currency must be one of ${CURRENCIES.join(', ')}` });
   }
 
   // New items go to the end of the unpurchased list.
-  const last = await WishlistItem.findOne({ category }).sort({ order: -1 }).select('order');
+  const last = await WishlistItem.findOne({ household: req.householdId, category }).sort({ order: -1 }).select('order');
   const item = await WishlistItem.create({
+    household: req.householdId,
     category,
     title,
     price: price ?? null,
@@ -57,6 +60,7 @@ router.post('/items', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'create',
     entityType: 'wishlistItem',
     entityId: item._id.toString(),
@@ -68,7 +72,7 @@ router.post('/items', async (req, res) => {
 
 router.put('/items/:id', async (req, res) => {
   const { title, price, currency, link, notes, purchased, category, reminderEnabled, reminderAt } = req.body;
-  const item = await WishlistItem.findById(req.params.id);
+  const item = await WishlistItem.findOne({ _id: req.params.id, household: req.householdId });
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   const before = { title: item.title, purchased: item.purchased };
@@ -90,14 +94,14 @@ router.put('/items/:id', async (req, res) => {
     } else {
       // Un-checking puts the item back at the end of the unpurchased list.
       item.purchasedAt = null;
-      const last = await WishlistItem.findOne({ category: item.category, purchased: false })
+      const last = await WishlistItem.findOne({ household: req.householdId, category: item.category, purchased: false })
         .sort({ order: -1 })
         .select('order');
       item.order = (last?.order ?? -1) + 1;
     }
   }
   if (category) {
-    const folder = await Category.findOne({ _id: category, scope: { $in: ['wishlist', 'todo'] } });
+    const folder = await Category.findOne({ _id: category, household: req.householdId, scope: { $in: ['wishlist', 'todo'] } });
     if (!folder) return res.status(400).json({ error: 'Unknown wishlist folder' });
     item.category = category;
   }
@@ -117,6 +121,7 @@ router.put('/items/:id', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'update',
     entityType: 'wishlistItem',
     entityId: item._id.toString(),
@@ -127,12 +132,13 @@ router.put('/items/:id', async (req, res) => {
 });
 
 router.delete('/items/:id', async (req, res) => {
-  const item = await WishlistItem.findById(req.params.id);
+  const item = await WishlistItem.findOne({ _id: req.params.id, household: req.householdId });
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'delete',
     entityType: 'wishlistItem',
     entityId: item._id.toString(),

@@ -6,6 +6,7 @@ const savingsSchema = new mongoose.Schema(
     // "personal" entries belong to one owner's individual savings pool;
     // "together" entries belong to the shared/group pool (owner is who logged it,
     // but the balance is combined regardless of who added the entry).
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     type: { type: String, enum: ['personal', 'together'], required: true },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     direction: { type: String, enum: ['deposit', 'withdrawal'], required: true },
@@ -17,6 +18,6 @@ const savingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-savingsSchema.index({ date: -1 });
+savingsSchema.index({ household: 1, date: -1 });
 
 module.exports = mongoose.model('Savings', savingsSchema);

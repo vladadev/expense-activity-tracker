@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 // confused with an Expense's personal/together type, which stays fixed.
 const categorySchema = new mongoose.Schema(
   {
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     name: { type: String, required: true, trim: true },
     // 'todo' folders power the To-Do half of the Lists tab — same mechanics
     // as wishlist folders, just without prices/links on their items.
@@ -20,8 +21,9 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Names must be unique among siblings (same scope + same parent), so two
-// different folders can each have e.g. an "Ostalo" subfolder.
-categorySchema.index({ scope: 1, parent: 1, name: 1 }, { unique: true });
+// Names must be unique among siblings WITHIN a household (same scope + same
+// parent). Household must lead the key — without it, one household naming a
+// category "Groceries" would block every other household from doing the same.
+categorySchema.index({ household: 1, scope: 1, parent: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Category', categorySchema);

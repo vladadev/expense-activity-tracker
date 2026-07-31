@@ -5,6 +5,9 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
+    // Which household's data this account sees. Every signup creates one, so
+    // in practice this is never null after registration.
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', default: null, index: true },
     expoPushToken: { type: String, default: null },
     // When this user last opened the notification bell — used to compute
     // their unread count. Null means "never opened it" (everything unread).

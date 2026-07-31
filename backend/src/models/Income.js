@@ -5,6 +5,7 @@ const { CURRENCIES, DEFAULT_CURRENCY } = require('../config/categories');
 // entry was a mistake, just delete it rather than "withdrawing" income.
 const incomeSchema = new mongoose.Schema(
   {
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     amount: { type: Number, required: true, min: 0 },
     currency: { type: String, enum: CURRENCIES, default: DEFAULT_CURRENCY },
@@ -14,6 +15,6 @@ const incomeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-incomeSchema.index({ date: -1 });
+incomeSchema.index({ household: 1, date: -1 });
 
 module.exports = mongoose.model('Income', incomeSchema);

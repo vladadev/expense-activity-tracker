@@ -11,7 +11,8 @@
     "seed:categories": "node src/utils/seedCategories.js",
     "reset:data": "node src/utils/resetTransactionData.js",
     "backup": "node src/utils/backup.js",
-    "restore": "node src/utils/restore.js"
+    "restore": "node src/utils/restore.js",
+    "migrate:households": "node src/utils/migrateToHouseholds.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -40,17 +40,29 @@ async function checkReminders() {
   ];
   if (due.length === 0) return;
 
-  // Reminders are a shared household feature — every registered device gets
-  // every reminder, regardless of who created the event/task.
-  const users = await User.find({ expoPushToken: { $nin: [null, ''] } }).select('name expoPushToken');
-  const tokens = users.map((u) => u.expoPushToken);
+  // Tokens grouped BY HOUSEHOLD. Reminders are shared within a household, but
+  // must never cross between them — sending to every registered device would
+  // push one couple's plans onto a stranger's phone.
+  const householdIds = [...new Set(due.map(({ doc }) => String(doc.household)).filter(Boolean))];
+  const users = await User.find({
+    household: { $in: householdIds },
+    expoPushToken: { $nin: [null, ''] },
+  }).select('household expoPushToken');
+
+  const tokensByHousehold = {};
+  for (const u of users) {
+    const key = String(u.household);
+    if (!tokensByHousehold[key]) tokensByHousehold[key] = [];
+    tokensByHousehold[key].push(u.expoPushToken);
+  }
 
   for (const { doc, title, body } of due) {
+    const tokens = tokensByHousehold[String(doc.household)] || [];
     if (tokens.length === 0) {
-      // Nobody has a push token yet — leave reminderSent false so it's
-      // retried automatically once a device registers, instead of silently
-      // marking a reminder "sent" that was never delivered.
-      console.log(`Skipping reminder for ${doc._id} — no registered push tokens`);
+      // Nobody in that household has a push token yet — leave reminderSent
+      // false so it's retried automatically once a device registers, instead
+      // of silently marking a reminder "sent" that was never delivered.
+      console.log(`Skipping reminder for ${doc._id} — no registered push tokens in its household`);
       continue;
     }
     let delivered = 0;

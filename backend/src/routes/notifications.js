@@ -2,9 +2,11 @@ const express = require('express');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 // Only the "money & planning" entities are notification-worthy — logins,
 // category renames, and push-token registration are too noisy to surface
@@ -18,6 +20,7 @@ router.get('/', async (req, res) => {
   const me = await User.findById(req.userId).select('notificationsSeenAt');
 
   const logs = await AuditLog.find({
+    household: req.householdId,
     entityType: { $in: NOTIFIABLE_ENTITIES },
     user: { $ne: req.userId },
   })
@@ -38,6 +41,7 @@ router.get('/unread-count', async (req, res) => {
   const me = await User.findById(req.userId).select('notificationsSeenAt');
 
   const query = {
+    household: req.householdId,
     entityType: { $in: NOTIFIABLE_ENTITIES },
     user: { $ne: req.userId },
   };

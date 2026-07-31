@@ -1,9 +1,11 @@
 const express = require('express');
 const Expense = require('../models/Expense');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 function emptyCurrencyBucket() {
   return {
@@ -27,7 +29,7 @@ router.get('/:date', async (req, res) => {
   const end = new Date(req.params.date);
   end.setDate(end.getDate() + 1);
 
-  const expenses = await Expense.find({ date: { $gte: start, $lt: end } }).populate('owner', 'name');
+  const expenses = await Expense.find({ household: req.householdId, date: { $gte: start, $lt: end } }).populate('owner', 'name');
 
   const byCurrency = {};
 
@@ -59,7 +61,7 @@ router.get('/range/:from/:to', async (req, res) => {
   const end = new Date(req.params.to);
   end.setDate(end.getDate() + 1);
 
-  const expenses = await Expense.find({ date: { $gte: start, $lt: end } })
+  const expenses = await Expense.find({ household: req.householdId, date: { $gte: start, $lt: end } })
     .select('date amount currency type category owner')
     .populate('owner', 'name');
 
