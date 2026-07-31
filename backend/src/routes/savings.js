@@ -1,17 +1,19 @@
 const express = require('express');
 const Savings = require('../models/Savings');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 const { CURRENCIES, DEFAULT_CURRENCY } = require('../config/categories');
 const { logAction } = require('../utils/audit');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
 // Shared household view — both users see all savings entries (personal and together),
 // same transparency model as expenses/events.
 router.get('/', async (req, res) => {
   const { from, to } = req.query;
-  const query = {};
+  const query = { household: req.householdId };
   if (from || to) {
     query.date = {};
     if (from) query.date.$gte = new Date(from);
@@ -27,7 +29,7 @@ router.get('/', async (req, res) => {
 
 // GET /api/savings/summary — running balance per type/owner/currency.
 router.get('/summary', async (req, res) => {
-  const entries = await Savings.find().populate('owner', 'name');
+  const entries = await Savings.find({ household: req.householdId }).populate('owner', 'name');
 
   const personal = {}; // { [ownerName]: { [currency]: balance } }
   const together = {}; // { [currency]: balance }
@@ -63,6 +65,7 @@ router.post('/', async (req, res) => {
   }
 
   const entry = await Savings.create({
+    household: req.householdId,
     type,
     owner: type === 'personal' && owner ? owner : req.userId,
     direction,
@@ -75,6 +78,7 @@ router.post('/', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'create',
     entityType: 'savings',
     entityId: entry._id.toString(),
@@ -86,7 +90,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { type, owner, direction, amount, currency, description, date } = req.body;
-  const entry = await Savings.findById(req.params.id);
+  const entry = await Savings.findOne({ _id: req.params.id, household: req.householdId });
   if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
   const before = { type: entry.type, owner: entry.owner, direction: entry.direction, amount: entry.amount, currency: entry.currency, description: entry.description };
@@ -119,6 +123,7 @@ router.put('/:id', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'update',
     entityType: 'savings',
     entityId: entry._id.toString(),
@@ -129,12 +134,13 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const entry = await Savings.findById(req.params.id);
+  const entry = await Savings.findOne({ _id: req.params.id, household: req.householdId });
   if (!entry) return res.status(404).json({ error: 'Entry not found' });
 
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'delete',
     entityType: 'savings',
     entityId: entry._id.toString(),

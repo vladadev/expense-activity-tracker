@@ -4,8 +4,46 @@ const User = require('../models/User');
 const { signToken } = require('../utils/jwt');
 const requireAuth = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
+const { createHouseholdFor } = require('../utils/household');
 
 const router = express.Router();
+
+// POST /api/auth/register — creates the account AND its own household, so a
+// new user can start tracking immediately and invite a partner later.
+router.post('/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+  if (!name.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const existing = await User.findOne({ email: email.toLowerCase() });
+  if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await User.create({ name: name.trim(), email: email.toLowerCase(), passwordHash });
+  const household = await createHouseholdFor(user);
+
+  const token = signToken(user);
+  logAction({
+    userId: user._id,
+    userName: user.name,
+    householdId: household._id,
+    action: 'create',
+    entityType: 'auth',
+  });
+
+  res.status(201).json({
+    token,
+    user: { id: user._id, name: user.name, email: user.email, household: household._id },
+  });
+});
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -26,10 +64,16 @@ router.post('/login', async (req, res) => {
   }
 
   const token = signToken(user);
-  logAction({ userId: user._id, userName: user.name, action: 'login', entityType: 'auth' });
+  logAction({
+    userId: user._id,
+    userName: user.name,
+    householdId: user.household,
+    action: 'login',
+    entityType: 'auth',
+  });
   res.json({
     token,
-    user: { id: user._id, name: user.name, email: user.email },
+    user: { id: user._id, name: user.name, email: user.email, household: user.household },
   });
 });
 
@@ -37,22 +81,30 @@ router.post('/login', async (req, res) => {
 // so the client has a consistent call to make (and a hook point later if we
 // ever add refresh tokens / a denylist).
 router.post('/logout', requireAuth, (req, res) => {
-  logAction({ userId: req.userId, userName: req.userName, action: 'logout', entityType: 'auth' });
+  logAction({
+    userId: req.userId,
+    userName: req.userName,
+    householdId: req.householdId,
+    action: 'logout',
+    entityType: 'auth',
+  });
   res.json({ ok: true });
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  const user = await User.findById(req.userId).select('name email');
+  const user = await User.findById(req.userId).select('name email household');
   if (!user) return res.status(404).json({ error: 'User not found' });
   // Shaped the same as /login's response (id, not _id) so the client can
   // rely on user.id consistently whether it just logged in or restored
   // an existing session on app restart.
-  res.json({ user: { id: user._id, name: user.name, email: user.email } });
+  res.json({ user: { id: user._id, name: user.name, email: user.email, household: user.household } });
 });
 
-// Both household accounts — used to pick "whose personal savings" etc.
+// Members of the caller's household — used to pick "whose personal savings"
+// etc. Scoped: unscoped, this leaked every account on the server.
 router.get('/users', requireAuth, async (req, res) => {
-  const users = await User.find().select('name email');
+  if (!req.householdId) return res.json({ users: [] });
+  const users = await User.find({ household: req.householdId }).select('name email');
   res.json({ users });
 });
 

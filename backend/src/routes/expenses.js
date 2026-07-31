@@ -2,14 +2,16 @@ const express = require('express');
 const Expense = require('../models/Expense');
 const Category = require('../models/Category');
 const requireAuth = require('../middleware/auth');
+const { requireHousehold } = require('../middleware/auth');
 const { EXPENSE_TYPES, CURRENCIES, DEFAULT_CURRENCY } = require('../config/categories');
 const { logAction } = require('../utils/audit');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireHousehold);
 
-async function categoryExists(name) {
-  return Category.exists({ scope: 'expense', name });
+async function categoryExists(householdId, name) {
+  return Category.exists({ household: householdId, scope: 'expense', name });
 }
 
 // GET /api/expenses?date=YYYY-MM-DD or ?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -17,7 +19,7 @@ async function categoryExists(name) {
 // since "together" expenses and each other's spend are meant to be visible.
 router.get('/', async (req, res) => {
   const { date, from, to } = req.query;
-  const query = {};
+  const query = { household: req.householdId };
 
   if (date) {
     const start = new Date(date);
@@ -40,7 +42,7 @@ router.post('/', async (req, res) => {
   if (amount == null || !category || !type) {
     return res.status(400).json({ error: 'amount, category, and type are required' });
   }
-  if (!(await categoryExists(category))) {
+  if (!(await categoryExists(req.householdId, category))) {
     return res.status(400).json({ error: `Unknown category: ${category}` });
   }
   if (!EXPENSE_TYPES.includes(type)) {
@@ -53,6 +55,7 @@ router.post('/', async (req, res) => {
   // Defaults to "now" unless the client explicitly passes a date
   // (e.g. logging an expense while browsing a past date in the calendar).
   const expense = await Expense.create({
+    household: req.householdId,
     owner: req.userId,
     date: date ? new Date(date) : new Date(),
     amount,
@@ -65,6 +68,7 @@ router.post('/', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'create',
     entityType: 'expense',
     entityId: expense._id.toString(),
@@ -76,7 +80,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { amount, category, type, description, date, currency } = req.body;
-  const expense = await Expense.findById(req.params.id);
+  const expense = await Expense.findOne({ _id: req.params.id, household: req.householdId });
 
   if (!expense) return res.status(404).json({ error: 'Expense not found' });
   // Both accounts have full edit/delete privileges over all household data,
@@ -86,7 +90,7 @@ router.put('/:id', async (req, res) => {
 
   if (amount != null) expense.amount = amount;
   if (category) {
-    if (!(await categoryExists(category))) {
+    if (!(await categoryExists(req.householdId, category))) {
       return res.status(400).json({ error: `Unknown category: ${category}` });
     }
     expense.category = category;
@@ -111,6 +115,7 @@ router.put('/:id', async (req, res) => {
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'update',
     entityType: 'expense',
     entityId: expense._id.toString(),
@@ -121,12 +126,13 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  const expense = await Expense.findById(req.params.id);
+  const expense = await Expense.findOne({ _id: req.params.id, household: req.householdId });
   if (!expense) return res.status(404).json({ error: 'Expense not found' });
 
   logAction({
     userId: req.userId,
     userName: req.userName,
+    householdId: req.householdId,
     action: 'delete',
     entityType: 'expense',
     entityId: expense._id.toString(),

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema(
   {
+    household: { type: mongoose.Schema.Types.ObjectId, ref: 'Household', required: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     userName: { type: String, required: true }, // denormalized so history reads even if user is later removed
     action: {
@@ -20,7 +21,7 @@ const auditLogSchema = new mongoose.Schema(
   { timestamps: true } // createdAt IS the "when" for this action
 );
 
-auditLogSchema.index({ createdAt: -1 });
+auditLogSchema.index({ household: 1, createdAt: -1 });
 
 // Retention policy: audit logs are ~70% of all stored data and grow ~3x
 // faster than the records they describe, so they're the first thing that

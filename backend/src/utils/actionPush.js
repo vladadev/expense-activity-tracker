@@ -31,10 +31,15 @@ function itemsWord(n) {
   return 'stavki';
 }
 
-async function sendToOthers(userId, title, body) {
-  const recipients = await User.find({ _id: { $ne: userId }, expoPushToken: { $nin: [null, ''] } }).select(
-    'expoPushToken'
-  );
+async function sendToOthers(userId, householdId, title, body) {
+  // Scoped to the actor's household: without this filter, every household on
+  // the server would receive every other household's activity.
+  if (!householdId) return;
+  const recipients = await User.find({
+    _id: { $ne: userId },
+    household: householdId,
+    expoPushToken: { $nin: [null, ''] },
+  }).select('expoPushToken');
   await Promise.all(
     recipients.map((r) =>
       fetch(EXPO_PUSH_URL, {
@@ -65,13 +70,14 @@ function isPurchaseFlip(action, entityType, details) {
 }
 
 // kind: 'added' | 'checked' | 'unchecked'
-function queueListActivity({ userId, userName, kind, title }) {
+function queueListActivity({ userId, userName, householdId, kind, title }) {
   const key = String(userId);
   let pending = pendingListActivity.get(key);
   if (!pending) {
-    pending = { userName, addedTitles: [], checkedTitles: [], uncheckedTitles: [], timer: null };
+    pending = { userName, householdId, addedTitles: [], checkedTitles: [], uncheckedTitles: [], timer: null };
     pendingListActivity.set(key, pending);
   }
+  pending.householdId = householdId;
   if (kind === 'added') pending.addedTitles.push(title || '?');
   else if (kind === 'checked') pending.checkedTitles.push(title || '?');
   else pending.uncheckedTitles.push(title || '?');
@@ -101,7 +107,7 @@ async function flushListActivity(key) {
 
   const names = [...pending.addedTitles, ...pending.checkedTitles, ...pending.uncheckedTitles];
   const body = names.slice(0, 5).join(', ') + (names.length > 5 ? '…' : '');
-  await sendToOthers(key, `${pending.userName} · ${parts.join(' · ')}`, body);
+  await sendToOthers(key, pending.householdId, `${pending.userName} · ${parts.join(' · ')}`, body);
 }
 
 // Serbian copy — both household accounts run the app in Serbian.
@@ -142,19 +148,21 @@ function buildMessage(action, entityType, details = {}) {
 // household member does, the OTHER member's phone gets pinged. The actor
 // never gets a push for their own action. Check-off toggles are debounced
 // into one aggregated push; everything else goes out immediately.
-async function pushActionToPartner({ userId, userName, action, entityType, details }) {
+async function pushActionToPartner({ userId, userName, householdId, action, entityType, details }) {
   if (!NOTIFIABLE_ENTITIES.includes(entityType)) return;
+  if (!householdId) return;
 
   // List item adds and check-off toggles are batched into one digest push
   // (adding a whole shopping list must not fire one push per item).
   if (entityType === 'wishlistItem' && action === 'create') {
-    queueListActivity({ userId, userName, kind: 'added', title: details?.title });
+    queueListActivity({ userId, userName, householdId, kind: 'added', title: details?.title });
     return;
   }
   if (isPurchaseFlip(action, entityType, details)) {
     queueListActivity({
       userId,
       userName,
+      householdId,
       kind: details.after.purchased ? 'checked' : 'unchecked',
       title: details.after.title,
     });
@@ -163,7 +171,7 @@ async function pushActionToPartner({ userId, userName, action, entityType, detai
 
   const message = buildMessage(action, entityType, details);
   if (!message || !message.title) return;
-  await sendToOthers(userId, `${userName} · ${message.title}`, message.body);
+  await sendToOthers(userId, householdId, `${userName} · ${message.title}`, message.body);
 }
 
 module.exports = { pushActionToPartner };
