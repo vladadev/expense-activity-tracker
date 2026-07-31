@@ -100,9 +100,12 @@ export default function DayDetailScreen({ route, navigation }) {
               onPress={() => navigation.navigate('EventForm', { date, eventId: e._id })}
             >
               <View style={styles.eventTitleRow}>
-                <Text style={[styles.eventTitle, { flex: 1 }]}>{eventTypeIcon(e.type)} {e.title}</Text>
+                <Text style={[styles.eventTitle, { flex: 1 }]}>
+                  {e.startTime ? `${e.startTime}  ` : ''}
+                  {eventTypeIcon(e.type)} {e.title}
+                </Text>
                 {e.reminderEnabled && e.reminderAt ? (
-                  <Text style={styles.eventTime}>{formatTime(new Date(e.reminderAt))}</Text>
+                  <Text style={styles.eventTime}>🔔 {formatTime(new Date(e.reminderAt))}</Text>
                 ) : null}
               </View>
               {e.notes ? <Text style={styles.cardSubtext}>{e.notes}</Text> : null}
