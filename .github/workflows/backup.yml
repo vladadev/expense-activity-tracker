@@ -1,0 +1,75 @@
+name: Nightly database backup
+
+# Runs on GitHub's servers, not yours — backups keep happening whether or not
+# your PC is on. The dump is encrypted before it leaves the runner, so the
+# storage bucket never holds readable personal data.
+on:
+  schedule:
+    - cron: '0 2 * * *' # 02:00 UTC daily (~03:00/04:00 Belgrade)
+  workflow_dispatch: {} # lets you trigger a backup by hand from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --omit=dev
+
+      - name: Dump database to JSON
+        working-directory: backend
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: npm run backup -- ./dump
+
+      - name: Encrypt the dump
+        working-directory: backend
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          STAMP="$(date -u +%Y-%m-%d_%H-%M-%S)"
+          echo "ARCHIVE=backup-${STAMP}.tar.gz.gpg" >> "$GITHUB_ENV"
+          tar -czf - -C ./dump . \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase "$BACKUP_PASSPHRASE" \
+                  --output "backup-${STAMP}.tar.gz.gpg"
+
+      - name: Upload to Cloudflare R2
+        working-directory: backend
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3 cp "$ARCHIVE" "s3://${R2_BUCKET}/${ARCHIVE}" --endpoint-url "$R2_ENDPOINT"
+          echo "Uploaded $ARCHIVE"
+
+      - name: Prune backups older than 90 days
+        working-directory: backend
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          CUTOFF="$(date -u -d '90 days ago' +%Y-%m-%d)"
+          aws s3 ls "s3://${R2_BUCKET}/" --endpoint-url "$R2_ENDPOINT" \
+            | awk '{print $1" "$4}' \
+            | while read -r day file; do
+                if [ -n "$file" ] && [ "$day" \< "$CUTOFF" ]; then
+                  aws s3 rm "s3://${R2_BUCKET}/${file}" --endpoint-url "$R2_ENDPOINT"
+                  echo "Pruned $file"
+                fi
+              done
