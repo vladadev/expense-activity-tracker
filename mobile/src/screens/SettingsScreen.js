@@ -70,6 +70,10 @@ export default function SettingsScreen({ navigation }) {
           ))}
         </View>
 
+        <TouchableOpacity style={styles.activityButton} onPress={() => navigation.navigate('Household')}>
+          <Text style={styles.activityButtonText}>{t('settings.household')}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.activityButton} onPress={() => navigation.navigate('ManageCategories')}>
           <Text style={styles.activityButtonText}>{t('settings.manageCategories')}</Text>
         </TouchableOpacity>

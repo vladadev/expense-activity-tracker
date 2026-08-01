@@ -34,6 +34,21 @@ export function AuthProvider({ children }) {
     setUser(res.data.user);
   }
 
+  async function register(name, email, password) {
+    const res = await client.post('/auth/register', { name, email, password });
+    await AsyncStorage.setItem(TOKEN_KEY, res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  }
+
+  // Called after joining/leaving a household so screens depending on
+  // user.household re-read the current value without a full re-login.
+  async function refreshUser() {
+    const res = await client.get('/auth/me');
+    setUser(res.data.user);
+    return res.data.user;
+  }
+
   async function logout() {
     try {
       await client.post('/auth/logout');
@@ -45,7 +60,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
