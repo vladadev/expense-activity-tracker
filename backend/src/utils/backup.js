@@ -59,6 +59,18 @@ async function runBackup() {
   }
 
   fs.writeFileSync(path.join(outDir, '_manifest.json'), JSON.stringify(manifest, null, 2));
+
+  // Guard against the worst failure mode: a backup that "succeeds" while
+  // containing nothing. Connecting to the wrong database, or to one that was
+  // wiped, would otherwise produce a green run and an empty archive — and the
+  // scheduled prune would eventually rotate the good backups away behind it.
+  if (totalDocs === 0) {
+    throw new Error('Backup produced 0 documents — refusing to treat this as a successful backup');
+  }
+  if (!manifest.collections.users || manifest.collections.users === 0) {
+    throw new Error('Backup contains no user accounts — this does not look like the right database');
+  }
+
   pruneOldBackups(rootDir);
 
   console.log(`\nBackup complete: ${totalDocs} documents -> ${outDir}`);
