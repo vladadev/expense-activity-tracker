@@ -3,7 +3,7 @@ const Household = require('../models/Household');
 const User = require('../models/User');
 const requireAuth = require('../middleware/auth');
 const { requireHousehold } = require('../middleware/auth');
-const { generateUniqueCode, INVITE_TTL_HOURS, MAX_MEMBERS } = require('../utils/household');
+const { generateUniqueCode, createHouseholdFor, INVITE_TTL_HOURS, MAX_MEMBERS } = require('../utils/household');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -96,6 +96,35 @@ router.post('/join', async (req, res) => {
 
   const members = await User.find({ household: household._id }).select('name email');
   res.json({ household: { id: household._id, name: household.name, members } });
+});
+
+// POST /api/households/leave { confirmName } — drops the caller out of their
+// household and puts them in a fresh empty one.
+//
+// Records they created stay behind on purpose. Expenses are joint financial
+// history: "together" entries were shared costs, and deleting one member's
+// rows would retroactively falsify every past month's totals for whoever
+// remains. Leaving revokes access; erasing personal data is a separate
+// account-deletion concern.
+router.post('/leave', requireHousehold, async (req, res) => {
+  const { confirmName } = req.body;
+  const household = await Household.findById(req.householdId);
+  if (!household) return res.status(404).json({ error: 'Household not found' });
+
+  // Typing the name out is the guard against an accidental, unrecoverable tap.
+  if (typeof confirmName !== 'string' || confirmName.trim() !== household.name) {
+    return res.status(400).json({ error: 'Confirmation text does not match the household name' });
+  }
+
+  const others = await User.countDocuments({ household: household._id, _id: { $ne: req.userId } });
+  if (others === 0) {
+    return res.status(409).json({ error: 'You are the only member — there is nothing to leave' });
+  }
+
+  const user = await User.findById(req.userId);
+  const fresh = await createHouseholdFor(user);
+
+  res.json({ household: { id: fresh._id, name: fresh.name } });
 });
 
 module.exports = router;
