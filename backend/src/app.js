@@ -50,8 +50,12 @@ const apiLimiter = rateLimit({
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-app.use('/api', apiLimiter);
-app.use('/api/auth/login', loginLimiter);
+// Rate limits are real behaviour, but a test suite legitimately fires hundreds
+// of requests in seconds and would trip them. Disabled only under NODE_ENV=test.
+if (process.env.NODE_ENV !== 'test') {
+  app.use('/api', apiLimiter);
+  app.use('/api/auth/login', loginLimiter);
+}
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/events', eventRoutes);

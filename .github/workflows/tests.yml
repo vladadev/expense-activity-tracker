@@ -1,0 +1,32 @@
+name: Tests
+
+# Runs on every push and pull request, so a change that breaks household
+# isolation or auth is caught before it can reach the phones.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          # The suite refuses to start unless this resolves to a -dev/-test
+          # database, so pointing it at production cannot silently happen.
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: npm test
