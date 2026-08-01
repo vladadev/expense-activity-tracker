@@ -12,6 +12,7 @@
     "reset:data": "node src/utils/resetTransactionData.js",
     "backup": "node src/utils/backup.js",
     "restore": "node src/utils/restore.js",
+    "verify:backup": "node src/utils/verifyBackup.js",
     "migrate:households": "node src/utils/migrateToHouseholds.js"
   },
   "dependencies": {
