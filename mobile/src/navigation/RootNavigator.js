@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -30,6 +31,8 @@ import WishlistScreen from '../screens/WishlistScreen';
 import WishlistFolderScreen from '../screens/WishlistFolderScreen';
 import WishlistItemFormScreen from '../screens/WishlistItemFormScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import HouseholdScreen from '../screens/HouseholdScreen';
+import OnboardingScreen, { onboardingKey } from '../screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -90,6 +93,7 @@ function SettingsStack() {
       <Stack.Screen name="SettingsHome" component={SettingsScreen} />
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
+      <Stack.Screen name="Household" component={HouseholdScreen} />
     </Stack.Navigator>
   );
 }
@@ -146,11 +150,24 @@ function AppStack() {
 export default function RootNavigator() {
   const { user, loading } = useAuth();
   const { theme } = useTheme();
+  // null = still checking, true/false = whether this account saw the intro.
+  const [onboarded, setOnboarded] = useState(null);
 
   useEffect(() => {
     if (user) {
       registerForPushNotifications();
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setOnboarded(null);
+      return;
+    }
+    AsyncStorage.getItem(onboardingKey(user.id))
+      .then((v) => setOnboarded(v === '1'))
+      // If storage is unreadable, don't trap the user on the intro forever.
+      .catch(() => setOnboarded(true));
   }, [user]);
 
   if (loading) {
@@ -172,6 +189,12 @@ export default function RootNavigator() {
       primary: theme.primary,
     },
   };
+
+  // Onboarding sits outside the navigator: it's a one-time gate, not a
+  // destination you can navigate back to.
+  if (user && onboarded === false) {
+    return <OnboardingScreen onDone={() => setOnboarded(true)} />;
+  }
 
   return (
     <NavigationContainer theme={navigationTheme}>{user ? <AppStack /> : <LoginScreen />}</NavigationContainer>
