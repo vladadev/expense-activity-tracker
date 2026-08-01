@@ -23,6 +23,20 @@ npm run backup -- D:/put  # -> D:/put/<datum_vreme>/
 Čuva poslednjih 30 kopija, starije briše. Folder je u `.gitignore` — sadrži
 hešove lozinki i ne sme na GitHub.
 
+## Provera backupa (uradi ovo povremeno)
+
+Backup koji nikad nisi otvorio je pretpostavka, ne rezerva. Ova komanda
+dešifruje arhivu, raspakuje je, proveri da nijedan fajl nije oštećen i uporedi
+brojeve zapisa sa živom bazom — a ništa ne upisuje:
+
+```bash
+cd backend
+npm run verify:backup -- "C:/putanja/do/backup-2026-08-01_18-48-57.tar.gz.gpg"
+```
+
+Traži lozinku, pa ispiše izveštaj. Na kraju mora da piše **VERIFIED**.
+Preporuka: uradi ovo jednom mesečno i posle svake promene lozinke.
+
 ## Vraćanje podataka
 
 ```bash
