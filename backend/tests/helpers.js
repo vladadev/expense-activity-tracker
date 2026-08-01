@@ -8,11 +8,27 @@ let server;
 let baseUrl;
 const createdEmails = [];
 
+// Fails fast with an actionable message instead of letting the suite die on
+// an opaque "secretOrPrivateKey must have a value" at the first signup.
+function assertRequiredEnv() {
+  if (!process.env.JWT_SECRET) {
+    throw new Error(
+      'JWT_SECRET is not set. Locally it comes from backend/.env; in CI add it under ' +
+        'repo Settings > Secrets and variables > Actions.'
+    );
+  }
+}
+
 // Hard stop: these tests delete data, so they must never reach production.
 // Checked before anything connects, not as a courtesy warning afterwards.
 function assertSafeDatabase() {
   const uri = resolveUri();
-  if (!uri) throw new Error('No database URI resolved — is backend/.env present?');
+  if (!uri) {
+    throw new Error(
+      'No database URI resolved. Locally that means backend/.env is missing; ' +
+        'in CI it means the MONGODB_URI secret is not set.'
+    );
+  }
   const dbName = (uri.replace(/\/\/[^@]+@/, '//').split('/')[3] || '').split('?')[0];
   if (!dbName.endsWith('-dev') && !dbName.endsWith('-test')) {
     throw new Error(
@@ -23,6 +39,7 @@ function assertSafeDatabase() {
 }
 
 async function startTestServer() {
+  assertRequiredEnv();
   const dbName = assertSafeDatabase();
   await mongoose.connect(resolveUri());
 
