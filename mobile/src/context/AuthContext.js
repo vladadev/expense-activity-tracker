@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client, { TOKEN_KEY } from '../api/client';
+import { identifyUser, clearUser } from '../utils/errorReporting';
 
 const AuthContext = createContext(null);
 
@@ -11,6 +12,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // Tags crash reports with an opaque account id — never a name or email —
+  // so one person hitting a bug 40 times is distinguishable from 40 people.
+  useEffect(() => {
+    if (user) identifyUser(user);
+    else clearUser();
+  }, [user]);
 
   async function restoreSession() {
     const token = await AsyncStorage.getItem(TOKEN_KEY);

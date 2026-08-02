@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { Sentry } = require('./config/sentry');
 
 const authRoutes = require('./routes/auth');
 const expenseRoutes = require('./routes/expenses');
@@ -86,7 +87,12 @@ app.use((err, req, res, next) => {
   if (err.name === 'ValidationError' || err.name === 'CastError') {
     return res.status(400).json({ error: 'Invalid data submitted.' });
   }
+  // Only genuine server faults are reported — the client errors above are
+  // expected behaviour and would drown out real problems.
   console.error(err);
+  Sentry.captureException(err, {
+    tags: { route: `${req.method} ${req.path}` },
+  });
   res.status(500).json({ error: 'Internal server error' });
 });
 
