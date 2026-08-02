@@ -77,6 +77,43 @@ router.post('/login', async (req, res) => {
   });
 });
 
+// POST /api/auth/change-password — requires the current password, so a phone
+// left unlocked can't be used to lock the owner out of their own account.
+router.post('/change-password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+    return res.status(400).json({ error: 'Both the current and the new password are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+
+  const user = await User.findById(req.userId);
+  if (!user) return res.status(404).json({ error: 'Account not found' });
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+
+  if (await bcrypt.compare(newPassword, user.passwordHash)) {
+    return res.status(400).json({ error: 'The new password must be different from the current one' });
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  logAction({
+    userId: req.userId,
+    userName: req.userName,
+    householdId: req.householdId,
+    action: 'update',
+    entityType: 'auth',
+    // Deliberately no password material in the audit trail.
+    details: { change: 'password' },
+  });
+
+  res.json({ ok: true });
+});
+
 // Stateless JWT — logout is a client-side token clear. This endpoint exists
 // so the client has a consistent call to make (and a hook point later if we
 // ever add refresh tokens / a denylist).

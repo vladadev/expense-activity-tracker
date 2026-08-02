@@ -1,11 +1,11 @@
 {
-  "name": "expense-tracker-backend",
+  "name": "duo-tracker-backend",
   "version": "1.0.0",
-  "description": "Backend API for Expense & Activity Tracker",
+  "description": "Backend API for Duo Tracker",
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
-    "test": "cross-env NODE_ENV=test node --test tests/auth.test.js tests/households.test.js",
+    "test": "cross-env NODE_ENV=test node --test tests/auth.test.js tests/households.test.js tests/password.test.js",
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "dev:prod-db": "nodemon src/server.js",
     "start": "node src/server.js",
