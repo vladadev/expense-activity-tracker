@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
@@ -112,8 +113,13 @@ export default function SettingsScreen({ navigation }) {
           activeOpacity={1}
           style={styles.versionRow}
         >
+          {/* The app version only changes with a new APK. Over-the-air updates
+              keep it identical, so the update id is what actually identifies
+              which build is on a given phone when debugging with someone. */}
           <Text style={styles.versionText}>
             v{Constants.expoConfig?.version || '?'}
+            {'  ·  '}
+            {Updates.updateId ? Updates.updateId.slice(0, 8) : 'embedded'}
             {'  ·  '}
             {isErrorReportingEnabled() ? t('settings.reportingOn') : t('settings.reportingOff')}
             {testing ? '  ·  ...' : ''}
