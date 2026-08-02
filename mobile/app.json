@@ -37,7 +37,8 @@
     "extra": {
       "eas": {
         "projectId": "8d96a007-fe7a-48fd-82a8-9e1eb42574e2"
-      }
+      },
+      "sentryDsn": ""
     },
     "runtimeVersion": {
       "policy": "appVersion"
