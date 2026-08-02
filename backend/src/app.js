@@ -74,6 +74,18 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
+// Sentry's own express handler, registered after all routes and before our
+// error middleware. It attaches request context (route, method, headers) that
+// a bare captureException call would miss. Filtered so only genuine server
+// faults are reported — client mistakes like 400/413 are expected traffic and
+// would bury the real problems.
+Sentry.setupExpressErrorHandler(app, {
+  shouldHandleError(error) {
+    const status = error.status || error.statusCode || 500;
+    return status >= 500;
+  },
+});
+
 app.use((err, req, res, next) => {
   // Client-caused errors get an accurate status and a message the app can
   // show; anything else is logged server-side and reported generically so
@@ -87,12 +99,9 @@ app.use((err, req, res, next) => {
   if (err.name === 'ValidationError' || err.name === 'CastError') {
     return res.status(400).json({ error: 'Invalid data submitted.' });
   }
-  // Only genuine server faults are reported — the client errors above are
-  // expected behaviour and would drown out real problems.
+  // Reporting is handled by setupExpressErrorHandler above; this only decides
+  // what the client sees. Internals (stack traces, driver errors) never leak.
   console.error(err);
-  Sentry.captureException(err, {
-    tags: { route: `${req.method} ${req.path}` },
-  });
   res.status(500).json({ error: 'Internal server error' });
 });
 
