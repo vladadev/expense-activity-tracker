@@ -95,6 +95,10 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.activityButtonText}>{t('settings.household')}</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.activityButton} onPress={() => navigation.navigate('ChangePassword')}>
+          <Text style={styles.activityButtonText}>{t('settings.changePassword')}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.activityButton} onPress={() => navigation.navigate('ManageCategories')}>
           <Text style={styles.activityButtonText}>{t('settings.manageCategories')}</Text>
         </TouchableOpacity>

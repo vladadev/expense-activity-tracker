@@ -32,6 +32,7 @@ import WishlistFolderScreen from '../screens/WishlistFolderScreen';
 import WishlistItemFormScreen from '../screens/WishlistItemFormScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import HouseholdScreen from '../screens/HouseholdScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
 import OnboardingScreen, { onboardingKey } from '../screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
@@ -94,6 +95,7 @@ function SettingsStack() {
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="ManageCategories" component={ManageCategoriesScreen} />
       <Stack.Screen name="Household" component={HouseholdScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   );
 }
