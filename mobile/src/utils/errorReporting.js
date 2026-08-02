@@ -101,3 +101,22 @@ export function reportError(error, context) {
 export function isErrorReportingEnabled() {
   return enabled;
 }
+
+// Why this exists: "no errors reported" is ambiguous — it could mean the app is
+// healthy, or that reporting was never wired up at all. This proves the whole
+// chain (native module -> DSN -> network -> Sentry) on demand, from the device.
+// Reachable only by long-pressing the version line in Settings.
+export async function sendTestEvent() {
+  if (!enabled || !Sentry) {
+    return { ok: false, reason: 'disabled' };
+  }
+  try {
+    Sentry.captureMessage('Diagnostic check from Settings', 'info');
+    // flush resolves false on timeout, so a silent network failure is caught
+    // instead of being reported as success.
+    const delivered = await Sentry.flush(8000);
+    return { ok: delivered, reason: delivered ? 'sent' : 'timeout' };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}

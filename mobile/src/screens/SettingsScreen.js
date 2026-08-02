@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { CURRENCIES } from '../config/categories';
 import Screen from '../components/Screen';
+import { isErrorReportingEnabled, sendTestEvent } from '../utils/errorReporting';
 
 const LANGUAGES = [
   { code: 'sr', label: 'Srpski' },
@@ -17,11 +19,29 @@ export default function SettingsScreen({ navigation }) {
   const { theme, themeName, setThemeName, availableThemes } = useTheme();
   const styles = createStyles(theme);
 
+  const [testing, setTesting] = useState(false);
+
   function handleLogout() {
     Alert.alert(t('settings.logoutConfirmTitle'), t('settings.logoutConfirmMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('settings.logout'), style: 'destructive', onPress: logout },
     ]);
+  }
+
+  // Long-press, not a visible button: this is a diagnostic, not a feature.
+  async function handleDiagnostics() {
+    if (testing) return;
+    setTesting(true);
+    const result = await sendTestEvent();
+    setTesting(false);
+    Alert.alert(
+      t('settings.diagnostics'),
+      result.ok
+        ? t('settings.diagnosticsOk')
+        : result.reason === 'disabled'
+          ? t('settings.diagnosticsDisabled')
+          : t('settings.diagnosticsFailed', { reason: result.reason })
+    );
   }
 
   return (
@@ -85,6 +105,20 @@ export default function SettingsScreen({ navigation }) {
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onLongPress={handleDiagnostics}
+          delayLongPress={800}
+          activeOpacity={1}
+          style={styles.versionRow}
+        >
+          <Text style={styles.versionText}>
+            v{Constants.expoConfig?.version || '?'}
+            {'  ·  '}
+            {isErrorReportingEnabled() ? t('settings.reportingOn') : t('settings.reportingOff')}
+            {testing ? '  ·  ...' : ''}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </Screen>
   );
@@ -95,6 +129,8 @@ function createStyles(theme) {
     container: { flex: 1, backgroundColor: theme.background },
     name: { fontSize: 22, fontWeight: '700', color: theme.text },
     email: { fontSize: 14, color: theme.textSecondary, marginTop: 4, marginBottom: 24 },
+    versionRow: { alignItems: 'center', paddingVertical: 20 },
+    versionText: { fontSize: 11, color: theme.textSecondary },
     sectionLabel: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginBottom: 8 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 20 },
     chip: {
