@@ -33,7 +33,13 @@
         }
       ],
       "expo-font",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "vladadev",
+          "project": "expense-tracker-app"
+        }
+      ]
     ],
     "extra": {
       "eas": {
