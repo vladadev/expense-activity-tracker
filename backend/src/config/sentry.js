@@ -45,10 +45,20 @@ function initSentry() {
   Sentry.init({
     dsn,
     environment: process.env.NODE_ENV || 'production',
-    // Sample a slice of requests for performance data; errors are always sent.
+    // Sentry's quickstart suggests 1.0 (every request traced). That is meant
+    // for a first look; at 100% it burns the free quota quickly and adds
+    // overhead on a small instance. Errors are ALWAYS sent regardless — this
+    // only samples performance traces.
     tracesSampleRate: 0.1,
     // Never let Sentry attach IPs, cookies or user identities automatically.
     sendDefaultPii: false,
+    // Belt-and-braces alongside beforeSend: refuse request bodies and user
+    // details at the SDK level too, so a future SDK change can't start
+    // collecting them silently.
+    dataCollection: {
+      userInfo: false,
+      httpBodies: [],
+    },
     beforeSend(event) {
       // Request bodies and query strings can hold passwords and amounts.
       if (event.request) {
