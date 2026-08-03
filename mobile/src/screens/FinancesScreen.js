@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
+import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 import { formatMonthYear } from '../i18n/dateFormat';
 
@@ -202,7 +203,7 @@ export default function FinancesScreen({ navigation }) {
   const isCurrentMonth = monthOffset === 0;
 
   return (
-    <Screen title={t('nav.finances')} showBack={false}>
+    <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
       <ScrollView
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -277,28 +278,35 @@ export default function FinancesScreen({ navigation }) {
                     <Text style={styles.currencyBadgeText}>{currency}</Text>
                   </View>
                 </View>
-                <Text style={[styles.heroValue, { color: remainingMonth >= 0 ? theme.success : theme.danger }]}>
-                  {formatAmount(remainingMonth, currency)}
-                </Text>
+                <Money
+                  value={remainingMonth}
+                  currency={currency}
+                  style={[styles.heroValue, { color: remainingMonth >= 0 ? theme.success : theme.danger }]}
+                />
               </View>
 
               <View style={styles.metricsRow}>
                 <View style={styles.metricBox}>
                   <Ionicons name="arrow-down-outline" size={16} color={theme.success} />
                   <Text style={styles.metricLabel}>{t('finance.income')}</Text>
-                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(month.income, currency)}</Text>
+                  <Money value={month.income} currency={currency} style={styles.metricValue} numberOfLines={1} />
                 </View>
                 <View style={styles.metricBox}>
                   <Ionicons name="arrow-up-outline" size={16} color={theme.danger} />
                   <Text style={styles.metricLabel}>{t('finance.expenses')}</Text>
-                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(month.expenses, currency)}</Text>
+                  <Money value={month.expenses} currency={currency} style={styles.metricValue} numberOfLines={1} />
                 </View>
                 <View style={styles.metricBox}>
                   <Ionicons name="wallet-outline" size={16} color={theme.primary} />
                   <Text style={styles.metricLabel}>
                     {month.netSavings >= 0 ? t('finance.toSavings') : t('finance.fromSavings')}
                   </Text>
-                  <Text style={styles.metricValue} numberOfLines={1}>{formatAmount(Math.abs(month.netSavings), currency)}</Text>
+                  <Money
+                    value={Math.abs(month.netSavings)}
+                    currency={currency}
+                    style={styles.metricValue}
+                    numberOfLines={1}
+                  />
                 </View>
               </View>
 
@@ -309,16 +317,18 @@ export default function FinancesScreen({ navigation }) {
                     <Ionicons name="cash-outline" size={17} color={theme.primary} />
                     <Text style={styles.totalsLabel}>{t('finance.available')}</Text>
                   </View>
-                  <Text style={[styles.totalsValue, { color: available >= 0 ? theme.success : theme.danger }]}>
-                    {formatAmount(available, currency)}
-                  </Text>
+                  <Money
+                    value={available}
+                    currency={currency}
+                    style={[styles.totalsValue, { color: available >= 0 ? theme.success : theme.danger }]}
+                  />
                 </View>
                 <View style={[styles.totalsRow, styles.totalsRowDivider]}>
                   <View style={styles.totalsLabelWrap}>
                     <Ionicons name="wallet-outline" size={17} color={theme.primary} />
                     <Text style={styles.totalsLabel}>{t('finance.totalSavings')}</Text>
                   </View>
-                  <Text style={styles.totalsValue}>{formatAmount(all.netSavings, currency)}</Text>
+                  <Money value={all.netSavings} currency={currency} style={styles.totalsValue} />
                 </View>
               </View>
             </Animated.View>
@@ -354,7 +364,7 @@ export default function FinancesScreen({ navigation }) {
                   <PersonTag name={e.owner?.name} />
                   {e.description ? <Text style={styles.cardSubtext}>{e.description}</Text> : null}
                 </View>
-                <Text style={styles.entryAmount}>+{formatAmount(e.amount, e.currency)}</Text>
+                <Money value={e.amount} currency={e.currency} prefix="+" style={styles.entryAmount} />
               </TouchableOpacity>
             ))
           )}

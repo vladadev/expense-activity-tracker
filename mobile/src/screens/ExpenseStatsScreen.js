@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import DonutChart from '../components/DonutChart';
 import PersonTag from '../components/PersonTag';
+import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 import { formatLongDate } from '../i18n/dateFormat';
 
@@ -86,7 +87,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
 
   if (expenses === null) {
     return (
-      <Screen title={t('nav.expenses')}>
+      <Screen title={t('nav.expenses')} showPrivacyToggle>
         <View style={styles.container}>
           <Text style={styles.emptyText}>{t('common.loading')}</Text>
         </View>
@@ -115,7 +116,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   const currencies = Object.keys(grouped).sort((a, b) => CURRENCY_ORDER.indexOf(a) - CURRENCY_ORDER.indexOf(b));
 
   return (
-    <Screen title={t('nav.expenses')}>
+    <Screen title={t('nav.expenses')} showPrivacyToggle>
     <ScrollView style={styles.container}>
       <TouchableOpacity style={styles.dateHeader} onPress={() => setShowDatePicker(true)} activeOpacity={0.6}>
         <Ionicons name="calendar-outline" size={18} color={theme.primary} />
@@ -271,18 +272,18 @@ export default function ExpenseStatsScreen({ route, navigation }) {
                       <View style={styles.ownerHeader}>
                         <View style={[styles.ownerDot, { backgroundColor: getPersonColor(name) }]} />
                         <Text style={styles.ownerName}>{name}</Text>
-                        <Text style={styles.ownerTotal}>{formatAmount(breakdown.total, currency)}</Text>
+                        <Money value={breakdown.total} currency={currency} style={styles.ownerTotal} />
                       </View>
                       {typeFilter === 'all' && (
                         <View style={styles.ownerBreakdownRow}>
                           <View style={styles.ownerBreakdownCol}>
                             <Text style={styles.ownerBreakdownLabel}>{t('expenseStats.personal')}</Text>
-                            <Text style={styles.ownerBreakdownValue}>{formatAmount(breakdown.personal, currency)}</Text>
+                            <Money value={breakdown.personal} currency={currency} style={styles.ownerBreakdownValue} />
                           </View>
                           <View style={styles.ownerBreakdownDivider} />
                           <View style={styles.ownerBreakdownCol}>
                             <Text style={styles.ownerBreakdownLabel}>{t('expenseStats.together')}</Text>
-                            <Text style={styles.ownerBreakdownValue}>{formatAmount(breakdown.together, currency)}</Text>
+                            <Money value={breakdown.together} currency={currency} style={styles.ownerBreakdownValue} />
                           </View>
                         </View>
                       )}
@@ -319,7 +320,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
                   {e.description ? <Text style={styles.cardSubtext}>{e.description}</Text> : null}
                   <PersonTag name={e.owner?.name} />
                 </View>
-                <Text style={styles.expenseAmount}>{formatAmount(e.amount, e.currency)}</Text>
+                <Money value={e.amount} currency={e.currency} style={styles.expenseAmount} />
               </TouchableOpacity>
             ))
           )}
@@ -341,7 +342,7 @@ function SummaryBox({ label, value, currency, formatAmount, styles, theme, activ
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={[styles.summaryValue, active && { color: theme.primary }]}>{formatAmount(value, currency)}</Text>
+      <Money value={value} currency={currency} style={[styles.summaryValue, active && { color: theme.primary }]} />
       <Text style={styles.summaryLabel}>{label}</Text>
     </TouchableOpacity>
   );

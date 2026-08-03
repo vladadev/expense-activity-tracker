@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import DonutChart from '../components/DonutChart';
 import DayBarChart from '../components/DayBarChart';
+import Money from '../components/AmountText';
 import { formatMonthYear } from '../i18n/dateFormat';
 import { getPersonColor } from '../utils/personColor';
 
@@ -284,7 +285,7 @@ export default function StatsScreen({ navigation }) {
   }
 
   return (
-    <Screen title={t('nav.stats')} showBack={false}>
+    <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <View style={styles.segmentRow}>
           {[
@@ -508,22 +509,26 @@ export default function StatsScreen({ navigation }) {
                             <View style={styles.ownerHeader}>
                               <View style={[styles.ownerDot, { backgroundColor: color }]} />
                               <Text style={styles.ownerName}>{name}</Text>
-                              <Text style={styles.ownerTotal}>{formatAmount(breakdown.total, currency)}</Text>
+                              <Money value={breakdown.total} currency={currency} style={styles.ownerTotal} />
                             </View>
                             {typeFilter === 'all' && (
                               <View style={styles.ownerBreakdownRow}>
                                 <View style={styles.ownerBreakdownCol}>
                                   <Text style={styles.ownerBreakdownLabel}>{t('expenseStats.personal')}</Text>
-                                  <Text style={styles.ownerBreakdownValue}>
-                                    {formatAmount(breakdown.personal, currency)}
-                                  </Text>
+                                  <Money
+                                    value={breakdown.personal}
+                                    currency={currency}
+                                    style={styles.ownerBreakdownValue}
+                                  />
                                 </View>
                                 <View style={styles.ownerBreakdownDivider} />
                                 <View style={styles.ownerBreakdownCol}>
                                   <Text style={styles.ownerBreakdownLabel}>{t('stats.toTogether')}</Text>
-                                  <Text style={styles.ownerBreakdownValue}>
-                                    {formatAmount(breakdown.together, currency)}
-                                  </Text>
+                                  <Money
+                                    value={breakdown.together}
+                                    currency={currency}
+                                    style={styles.ownerBreakdownValue}
+                                  />
                                 </View>
                               </View>
                             )}
@@ -663,17 +668,17 @@ export default function StatsScreen({ navigation }) {
                           <View style={styles.ownerHeader}>
                             <View style={[styles.ownerDot, { backgroundColor: color }]} />
                             <Text style={styles.ownerName}>{name}</Text>
-                            <Text style={styles.ownerTotal}>{formatAmount(breakdown.total, currency)}</Text>
+                            <Money value={breakdown.total} currency={currency} style={styles.ownerTotal} />
                           </View>
                           <View style={styles.ownerBreakdownRow}>
                             <View style={styles.ownerBreakdownCol}>
                               <Text style={styles.ownerBreakdownLabel}>{t('expenseStats.personal')}</Text>
-                              <Text style={styles.ownerBreakdownValue}>{formatAmount(breakdown.personal, currency)}</Text>
+                              <Money value={breakdown.personal} currency={currency} style={styles.ownerBreakdownValue} />
                             </View>
                             <View style={styles.ownerBreakdownDivider} />
                             <View style={styles.ownerBreakdownCol}>
                               <Text style={styles.ownerBreakdownLabel}>{t('stats.toTogether')}</Text>
-                              <Text style={styles.ownerBreakdownValue}>{formatAmount(breakdown.together, currency)}</Text>
+                              <Money value={breakdown.together} currency={currency} style={styles.ownerBreakdownValue} />
                             </View>
                           </View>
                         </View>
@@ -702,7 +707,7 @@ function SummaryBox({ label, value, currency, formatAmount, styles, theme, activ
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={[styles.summaryValue, active && { color: theme.primary }]}>{formatAmount(value, currency)}</Text>
+      <Money value={value} currency={currency} style={[styles.summaryValue, active && { color: theme.primary }]} />
       <Text style={styles.summaryLabel}>{label}</Text>
     </TouchableOpacity>
   );

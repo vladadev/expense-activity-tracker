@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
+import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 
 function hexToRgba(hex, alpha) {
@@ -64,7 +65,7 @@ export default function DayDetailScreen({ route, navigation }) {
   });
 
   return (
-    <Screen title={formatLongDate(date, language)}>
+    <Screen title={formatLongDate(date, language)} showPrivacyToggle>
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ padding: 16 }}
@@ -94,20 +95,24 @@ export default function DayDetailScreen({ route, navigation }) {
             ) : (
               currencies.map((currency) => (
                 <View key={currency} style={styles.totalBlock}>
-                  <Text style={styles.totalValue}>{formatAmount(byCurrency[currency].total, currency)}</Text>
+                  <Money value={byCurrency[currency].total} currency={currency} style={styles.totalValue} />
                   <View style={styles.splitRow}>
                     <View style={styles.splitItem}>
                       <Text style={styles.splitLabel}>{t('dayDetail.personal')}</Text>
-                      <Text style={styles.splitValue}>
-                        {formatAmount(byCurrency[currency].personalTotal, currency)}
-                      </Text>
+                      <Money
+                        value={byCurrency[currency].personalTotal}
+                        currency={currency}
+                        style={styles.splitValue}
+                      />
                     </View>
                     <View style={styles.splitDivider} />
                     <View style={styles.splitItem}>
                       <Text style={styles.splitLabel}>{t('dayDetail.together')}</Text>
-                      <Text style={styles.splitValue}>
-                        {formatAmount(byCurrency[currency].togetherTotal, currency)}
-                      </Text>
+                      <Money
+                        value={byCurrency[currency].togetherTotal}
+                        currency={currency}
+                        style={styles.splitValue}
+                      />
                     </View>
                   </View>
                 </View>

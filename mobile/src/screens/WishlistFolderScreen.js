@@ -20,6 +20,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
+import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
@@ -286,15 +287,22 @@ export default function WishlistFolderScreen({ route, navigation }) {
                 {item.reminderEnabled && item.reminderAt && (
                   <Ionicons name="alarm-outline" size={12} color={theme.primary} style={{ marginRight: 4 }} />
                 )}
-                <Text style={styles.itemSub} numberOfLines={1}>
-                  {item.price != null && (
-                    <Text style={styles.itemPrice}>{formatAmount(item.price, item.currency)}</Text>
-                  )}
-                  {item.price != null && (item.notes || reminderText(item)) ? '  ·  ' : ''}
-                  {reminderText(item)}
-                  {reminderText(item) && item.notes ? '  ·  ' : ''}
-                  {item.notes || ''}
-                </Text>
+                {/* The price is a sibling rather than a nested <Text> so privacy
+                    mode can blur it: on Android a text shadow applies to the
+                    whole Text node, never to one span inside it. */}
+                {item.price != null && (
+                  <Money value={item.price} currency={item.currency} style={styles.itemPrice} />
+                )}
+                {(() => {
+                  const rest = [reminderText(item), item.notes].filter(Boolean).join('  ·  ');
+                  if (!rest) return null;
+                  return (
+                    <Text style={[styles.itemSub, { flexShrink: 1 }]} numberOfLines={1}>
+                      {item.price != null ? '  ·  ' : ''}
+                      {rest}
+                    </Text>
+                  );
+                })()}
               </View>
             )}
           </View>
@@ -322,7 +330,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   }
 
   return (
-    <Screen title={folder.name}>
+    <Screen title={folder.name} showPrivacyToggle>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} scrollEnabled={!activeId}>
           {total > 0 && (

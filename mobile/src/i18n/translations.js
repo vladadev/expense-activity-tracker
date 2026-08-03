@@ -109,6 +109,8 @@ export const translations = {
     'common.save': 'Save',
     'common.add': 'Add',
     'common.none': 'None yet.',
+    'common.hideAmounts': 'Hide amounts',
+    'common.showAmounts': 'Show amounts',
 
     'expenseForm.amount': 'Amount',
     'expenseForm.category': 'Category',
@@ -427,6 +429,8 @@ export const translations = {
     'common.save': 'Sačuvaj',
     'common.add': 'Dodaj',
     'common.none': 'Još uvek ništa.',
+    'common.hideAmounts': 'Sakrij iznose',
+    'common.showAmounts': 'Prikaži iznose',
 
     'expenseForm.amount': 'Iznos',
     'expenseForm.category': 'Kategorija',
