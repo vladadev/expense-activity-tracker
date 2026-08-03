@@ -1,0 +1,13 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Duo Tracker">
+  <title>Duo Tracker</title>
+  <desc>A coin split into two interlocking halves, one blue and one rose.</desc>
+  <!-- Rounded-square plate. 27/120 matches the corner radius Android and iOS
+       apply to app icons, so the mark sits correctly inside either mask. -->
+  <rect width="120" height="120" rx="27" fill="#0C447C"/>
+  <!-- One circle divided by an S-curve. Both halves trace the SAME centre
+       curve (two 18r arcs, one bulging each way) and differ only in which
+       side the outer 36r arc closes around — that is what makes the halves
+       equal in area and genuinely interlocking. -->
+  <path d="M60 24 A18 18 0 0 1 60 60 A18 18 0 0 0 60 96 A36 36 0 0 0 60 24 Z" fill="#378ADD"/>
+  <path d="M60 24 A18 18 0 0 1 60 60 A18 18 0 0 0 60 96 A36 36 0 0 1 60 24 Z" fill="#ED93B1"/>
+</svg>
