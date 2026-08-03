@@ -14,7 +14,7 @@
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0C447C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -52,6 +52,12 @@
     },
     "updates": {
       "url": "https://u.expo.dev/8d96a007-fe7a-48fd-82a8-9e1eb42574e2"
-    }
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C447C"
+    },
+    "backgroundColor": "#0C447C"
   }
 }
