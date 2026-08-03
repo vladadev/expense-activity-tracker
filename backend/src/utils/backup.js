@@ -7,9 +7,12 @@ const mongoose = require('mongoose');
 //
 // Why this exists: MongoDB Atlas' free (M0) tier has NO automated backups,
 // and Render's filesystem is ephemeral — anything written on the server is
-// lost on redeploy. So backups must be pulled to durable storage OUTSIDE
-// both: run this from a machine whose disk survives (and ideally syncs to
-// cloud storage, e.g. a OneDrive/Dropbox folder).
+// lost on redeploy.
+//
+// This local copy is the SECONDARY layer, handy before a risky change. The
+// primary is the nightly encrypted upload to Cloudflare R2 (see
+// .github/workflows/backup.yml), which runs off-site and needs no machine of
+// ours to be switched on.
 //
 // Usage:  npm run backup            -> ./backups/<timestamp>/
 //         npm run backup -- <dir>   -> <dir>/<timestamp>/
