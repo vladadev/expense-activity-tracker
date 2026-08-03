@@ -6,6 +6,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
+import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 
 export default function SavingsScreen({ navigation }) {
@@ -64,7 +65,7 @@ export default function SavingsScreen({ navigation }) {
   const togetherCurrencies = Object.keys(summary.together);
 
   return (
-    <Screen title={t('nav.savings')}>
+    <Screen title={t('nav.savings')} showPrivacyToggle>
       <ScrollView
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -77,12 +78,10 @@ export default function SavingsScreen({ navigation }) {
             <View key={u._id} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: getPersonColor(u.name) }]}>
               <PersonTag name={u.name} />
               {currenciesForUser.length === 0 ? (
-                <Text style={styles.balance}>{formatAmount(0, defaultCurrency)}</Text>
+                <Money value={0} currency={defaultCurrency} style={styles.balance} />
               ) : (
                 currenciesForUser.map((currency) => (
-                  <Text key={currency} style={styles.balance}>
-                    {formatAmount(balances[currency], currency)}
-                  </Text>
+                  <Money key={currency} value={balances[currency]} currency={currency} style={styles.balance} />
                 ))
               )}
             </View>
@@ -95,9 +94,7 @@ export default function SavingsScreen({ navigation }) {
         ) : (
           <View style={styles.card}>
             {togetherCurrencies.map((currency) => (
-              <Text key={currency} style={styles.balance}>
-                {formatAmount(summary.together[currency], currency)}
-              </Text>
+              <Money key={currency} value={summary.together[currency]} currency={currency} style={styles.balance} />
             ))}
           </View>
         )}
@@ -121,10 +118,12 @@ export default function SavingsScreen({ navigation }) {
               {e.description ? <Text style={styles.cardSubtext}>{e.description}</Text> : null}
               <PersonTag name={e.owner?.name} />
             </View>
-            <Text style={[styles.entryAmount, e.direction === 'withdrawal' && { color: theme.danger }]}>
-              {e.direction === 'withdrawal' ? '-' : '+'}
-              {formatAmount(e.amount, e.currency)}
-            </Text>
+            <Money
+              value={e.amount}
+              currency={e.currency}
+              prefix={e.direction === 'withdrawal' ? '-' : '+'}
+              style={[styles.entryAmount, e.direction === 'withdrawal' && { color: theme.danger }]}
+            />
           </TouchableOpacity>
         ))}
         <Text style={styles.hint}>{t('expenseStats.hint')}</Text>

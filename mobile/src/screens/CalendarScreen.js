@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { applyCalendarLocale } from '../i18n/calendarLocale';
 import { formatLongDate } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
 import { getPersonColor } from '../utils/personColor';
 
@@ -120,7 +121,7 @@ export default function CalendarScreen({ navigation }) {
           : null;
 
   return (
-    <Screen title={t('nav.calendar')} showBack={false}>
+    <Screen title={t('nav.calendar')} showBack={false} showPrivacyToggle>
       <View style={styles.segmentWrap}>
         <View style={styles.segmentRow}>
           {[
@@ -207,9 +208,9 @@ export default function CalendarScreen({ navigation }) {
               {totalEntries.length > 0 && (
                 <View style={styles.totalRow}>
                   <Ionicons name="wallet-outline" size={16} color={theme.primary} />
-                  <Text style={styles.totalText}>
+                  <BlurredText style={styles.totalText}>
                     {totalEntries.map(([cur, amt]) => formatAmount(amt, cur)).join('  ·  ')}
-                  </Text>
+                  </BlurredText>
                   <Text style={styles.totalCount}>{dayExpenses.length}×</Text>
                 </View>
               )}

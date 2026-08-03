@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
+import { BlurredText, CAN_BLUR } from './AmountText';
+import { useSettings } from '../context/SettingsContext';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
@@ -37,6 +39,7 @@ function clamp(value, min, max) {
 // column is a full tap target that calls onBarPress(date).
 export default function DayBarChart({ data, width, theme, formatAmount, currency, onBarPress }) {
   const progress = useRef(new Animated.Value(0)).current;
+  const { hideAmounts } = useSettings();
 
   useEffect(() => {
     progress.setValue(0);
@@ -98,22 +101,26 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
         })}
       </Svg>
 
-      {gridLines.map((g, i) => (
-        <Text
-          key={i}
-          style={[styles.axisLabel, { color: theme.textSecondary, top: g.y - 7, width: LEFT_PAD - 8 }]}
-          numberOfLines={1}
-        >
-          {compact(g.value)}
-        </Text>
-      ))}
+      {/* Blur keeps the scale in place. Where blur isn't available the labels
+          are dropped instead of masked: the gutter is only 32px wide, so
+          "•••••k" would just truncate. The bars still carry the shape. */}
+      {(!hideAmounts || CAN_BLUR) &&
+        gridLines.map((g, i) => (
+          <BlurredText
+            key={i}
+            style={[styles.axisLabel, { color: theme.textSecondary, top: g.y - 7, width: LEFT_PAD - 8 }]}
+            numberOfLines={1}
+          >
+            {compact(g.value)}
+          </BlurredText>
+        ))}
 
-      <Text
+      <BlurredText
         style={[styles.valueLabel, { color: theme.primary, left: labelLeft, width: LABEL_WIDTH }]}
         numberOfLines={1}
       >
         {formatAmount(maxValue, currency)}
-      </Text>
+      </BlurredText>
 
       <View style={[StyleSheet.absoluteFill, { paddingLeft: LEFT_PAD }]} pointerEvents="box-none">
         <View style={styles.overlay}>

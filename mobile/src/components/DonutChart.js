@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { BlurredText } from './AmountText';
 
 const SIZE = 150;
 const STROKE = 26;
@@ -44,7 +45,7 @@ export default function DonutChart({ data, total, centerValue, centerCaption, th
         </Svg>
         <View style={styles.centerLabel} pointerEvents="none">
           <Text style={styles.centerCaption}>{centerCaption}</Text>
-          <Text style={styles.centerValue} numberOfLines={1}>{centerValue}</Text>
+          <BlurredText style={styles.centerValue} numberOfLines={1}>{centerValue}</BlurredText>
         </View>
       </View>
       <View style={styles.list}>
@@ -55,7 +56,7 @@ export default function DonutChart({ data, total, centerValue, centerCaption, th
               <View style={[styles.dot, { backgroundColor: d.color }]} />
               <Text style={styles.rowName} numberOfLines={1}>{d.name}</Text>
               <Text style={styles.rowPct}>{pct}%</Text>
-              <Text style={styles.rowAmount}>{d.valueLabel}</Text>
+              <BlurredText style={styles.rowAmount}>{d.valueLabel}</BlurredText>
             </View>
           );
         })}

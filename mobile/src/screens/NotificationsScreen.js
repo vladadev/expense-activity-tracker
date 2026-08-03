@@ -6,13 +6,18 @@ import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
+import { maskAmounts } from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
 const ENTITY_ICONS = { expense: '💰', event: '📅', savings: '🐷', income: '💵', wishlistItem: '🎁' };
 
 export default function NotificationsScreen() {
-  const { t, language, formatAmount } = useSettings();
+  const { t, language, formatAmount, hideAmounts } = useSettings();
+  const money = (amount, currency) => {
+    const formatted = formatAmount(amount, currency);
+    return hideAmounts ? maskAmounts(formatted) : formatted;
+  };
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const { notifications, loadNotifications, markSeen } = useNotifications();
@@ -37,14 +42,14 @@ export default function NotificationsScreen() {
 
     if (log.entityType === 'expense') {
       const src = log.action === 'update' ? d.after || d : d;
-      const amountText = src.amount != null ? formatAmount(src.amount, src.currency) : '';
+      const amountText = src.amount != null ? money(src.amount, src.currency) : '';
       const extra = src.description || src.category || '';
       return `${label}: ${amountText}${extra ? `, ${extra}` : ''}`;
     }
 
     if (log.entityType === 'income') {
       const src = log.action === 'update' ? d.after || d : d;
-      const amountText = src.amount != null ? formatAmount(src.amount, src.currency) : '';
+      const amountText = src.amount != null ? money(src.amount, src.currency) : '';
       const extra = src.description || '';
       return `${label}: ${amountText}${extra ? `, ${extra}` : ''}`;
     }
@@ -52,7 +57,7 @@ export default function NotificationsScreen() {
     if (log.entityType === 'savings') {
       const src = log.action === 'update' ? d.after || d : d;
       const directionText = src.direction === 'withdrawal' ? t('savings.withdrawal') : t('savings.deposit');
-      const amountText = src.amount != null ? formatAmount(src.amount, src.currency) : '';
+      const amountText = src.amount != null ? money(src.amount, src.currency) : '';
       const extra = src.description || '';
       return `${label}: ${directionText}, ${amountText}${extra ? `, ${extra}` : ''}`;
     }
@@ -76,7 +81,7 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <Screen title={t('nav.notifications')} showBell={false}>
+    <Screen title={t('nav.notifications')} showBell={false} showPrivacyToggle>
       <FlatList
         style={styles.container}
         data={notifications}
