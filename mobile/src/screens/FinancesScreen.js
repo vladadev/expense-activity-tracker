@@ -7,8 +7,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
-import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
+import TransactionsSection from '../components/TransactionsSection';
 import { getPersonColor } from '../utils/personColor';
 import { formatMonthYear } from '../i18n/dateFormat';
 
@@ -80,7 +80,10 @@ export default function FinancesScreen({ navigation }) {
   const { theme } = useTheme();
   const { user } = useAuth();
   const styles = createStyles(theme);
-  const [incomeEntries, setIncomeEntries] = useState([]);
+  // Full history, not just the visible month: the transactions section below
+  // searches across every month, and the month view is a filter over these.
+  const [allIncome, setAllIncome] = useState([]);
+  const [allExpenses, setAllExpenses] = useState([]);
   const [monthData, setMonthData] = useState({ byCurrency: {}, byOwner: {} });
   const [allData, setAllData] = useState({ byCurrency: {}, byOwner: {} });
   const [partner, setPartner] = useState(null);
@@ -92,6 +95,8 @@ export default function FinancesScreen({ navigation }) {
   // months become visible and editable). "Ukupno stanje" ignores this.
   const [monthOffset, setMonthOffset] = useState(0);
   const fade = useRef(new Animated.Value(1)).current;
+  const scrollRef = useRef(null);
+  const sectionY = useRef(0);
 
   function animateContent() {
     fade.setValue(0);
@@ -121,12 +126,13 @@ export default function FinancesScreen({ navigation }) {
     try {
       // All-time income/savings lists (filtered to the month client-side),
       // plus expense rollups for the month and for all time.
-      const [incomeRes, savingsRes, statsMonthRes, statsAllRes, usersRes] = await Promise.all([
+      const [incomeRes, savingsRes, statsMonthRes, statsAllRes, usersRes, expensesRes] = await Promise.all([
         client.get('/income'),
         client.get('/savings'),
         client.get(`/stats/range/${from}/${to}`),
         client.get(`/stats/range/2000-01-01/${today}`),
         client.get('/auth/users'),
+        client.get('/expenses', { params: { from: '2000-01-01', to: today } }),
       ]);
 
       setPartner(usersRes.data.users.find((u) => u._id !== user.id) || null);
@@ -138,7 +144,8 @@ export default function FinancesScreen({ navigation }) {
       const monthIncome = incomeRes.data.entries.filter(inMonth);
       const monthSavings = savingsRes.data.entries.filter(inMonth);
 
-      setIncomeEntries(monthIncome);
+      setAllIncome(incomeRes.data.entries);
+      setAllExpenses(expensesRes.data.expenses);
       setMonthData(buildBuckets(monthIncome, monthSavings, statsMonthRes.data.byCurrency));
       setAllData(buildBuckets(incomeRes.data.entries, savingsRes.data.entries, statsAllRes.data.byCurrency));
     } catch (err) {
@@ -158,18 +165,15 @@ export default function FinancesScreen({ navigation }) {
     setRefreshing(false);
   }
 
-  async function handleDeleteIncome(id) {
-    Alert.alert(t('common.delete'), t('finance.deleteConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          await client.delete(`/income/${id}`);
-          load();
-        },
-      },
-    ]);
+  // The confirmation dialog lives in TransactionsSection; this only performs
+  // the delete once the user has confirmed.
+  async function handleDelete(type, id) {
+    try {
+      await client.delete(type === 'income' ? `/income/${id}` : `/expenses/${id}`);
+      load();
+    } catch (err) {
+      Alert.alert(t('common.error'), t('finance.saveError'));
+    }
   }
 
   const currencies = [...new Set([...Object.keys(allData.byCurrency), ...Object.keys(monthData.byCurrency)])].sort(
@@ -205,7 +209,11 @@ export default function FinancesScreen({ navigation }) {
   return (
     <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ padding: 16 }}
+        // Without this the first tap on a search result only dismisses the
+        // keyboard instead of opening the entry.
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.personRow}>
@@ -346,28 +354,22 @@ export default function FinancesScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionTitle}>
-            {t('finance.incomeSection')} · {formatMonthYear(shownMonth, language)}
-          </Text>
-          {incomeEntries.length === 0 ? (
-            <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>
-          ) : (
-            incomeEntries.map((e) => (
-              <TouchableOpacity
-                key={e._id}
-                style={[styles.entryRow, { borderLeftWidth: 4, borderLeftColor: getPersonColor(e.owner?.name) }]}
-                onLongPress={() => handleDeleteIncome(e._id)}
-                onPress={() => navigation.navigate('IncomeForm', { entry: e })}
-              >
-                <View style={{ flex: 1 }}>
-                  <PersonTag name={e.owner?.name} />
-                  {e.description ? <Text style={styles.cardSubtext}>{e.description}</Text> : null}
-                </View>
-                <Money value={e.amount} currency={e.currency} prefix="+" style={styles.entryAmount} />
-              </TouchableOpacity>
-            ))
-          )}
+        <View onLayout={(e) => { sectionY.current = e.nativeEvent.layout.y; }}>
+          <TransactionsSection
+            expenses={allExpenses}
+            income={allIncome}
+            monthFrom={monthRange(monthOffset).from}
+            monthTo={monthRange(monthOffset).to}
+            monthLabel={formatMonthYear(shownMonth, language)}
+            ownerName={activeName}
+            currency={currency}
+            onEditExpense={(e) =>
+              navigation.navigate('ExpenseForm', { date: localDateString(new Date(e.date)), expense: e })
+            }
+            onEditIncome={(e) => navigation.navigate('IncomeForm', { entry: e })}
+            onDeleted={handleDelete}
+            onSearchFocus={() => scrollRef.current?.scrollTo({ y: sectionY.current - 8, animated: true })}
+          />
         </View>
         <Text style={styles.hint}>{t('expenseStats.hint')}</Text>
       </ScrollView>

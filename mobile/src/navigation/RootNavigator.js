@@ -74,6 +74,9 @@ function FinancesStack() {
       <Stack.Screen name="SavingsHome" component={SavingsScreen} />
       <Stack.Screen name="SavingsForm" component={SavingsFormScreen} />
       <Stack.Screen name="IncomeForm" component={IncomeFormScreen} />
+      {/* Reachable from the transactions list on Finances, where tapping an
+          expense opens it for editing. */}
+      <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} />
     </Stack.Navigator>
   );
 }
