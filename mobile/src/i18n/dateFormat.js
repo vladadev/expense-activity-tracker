@@ -26,6 +26,25 @@ export function formatLongDate(dateString, language) {
   return `${day}, ${month} ${date}, ${year}`;
 }
 
+const DAY_SHORT = {
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  sr: ['ned', 'pon', 'uto', 'sre', 'čet', 'pet', 'sub'],
+};
+
+// Compact day grouping header, e.g. "Wed, July 1" (en) / "sre, 1. jul" (sr).
+// The year is appended only when it is not the current one — search results
+// span years, a single month's list never does.
+export function formatDayHeader(dateString, language) {
+  const d = new Date(dateString + 'T00:00:00');
+  const day = DAY_SHORT[language]?.[d.getDay()] ?? DAY_SHORT.en[d.getDay()];
+  const month = MONTH_NAMES[language]?.[d.getMonth()] ?? MONTH_NAMES.en[d.getMonth()];
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  if (language === 'sr') {
+    return `${day}, ${d.getDate()}. ${month}${sameYear ? '' : ` ${d.getFullYear()}.`}`;
+  }
+  return `${day}, ${month} ${d.getDate()}${sameYear ? '' : `, ${d.getFullYear()}`}`;
+}
+
 // e.g. "July 2026" (en) / "Jul 2026." (sr) — used for month navigation headings.
 export function formatMonthYear(date, language) {
   const month = MONTH_NAMES[language]?.[date.getMonth()] ?? MONTH_NAMES.en[date.getMonth()];
