@@ -25,8 +25,13 @@ const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
 // How long the finger must rest over another folder before the drag switches
 // from reordering to dropping into it, and how far it may drift while resting.
-const DWELL_MS = 500;
-const DWELL_TOLERANCE = 8;
+const DWELL_MS = 350;
+const DWELL_TOLERANCE = 14;
+// How much of a row the dragged card must overlap to count as aiming at it.
+// Rows deliberately do NOT move out of the way during a drag: when they did,
+// the folder under the finger was no longer the folder being computed, and
+// hitting the one you were looking at became guesswork.
+const NEST_BAND = 34;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -76,9 +81,12 @@ export default function WishlistScreen({ navigation }) {
   const [nestTargetId, setNestTargetId] = useState(null);
   const nestTargetRef = useRef(null);
   const dwellRef = useRef({ timer: null, index: -1, dy: 0 });
+  // Where the card would land if released now. Drawn as a line between rows
+  // instead of opening a gap, so nothing under the finger moves.
+  const [insertIndex, setInsertIndex] = useState(null);
+  const insertIndexRef = useRef(null);
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
-  const shiftsRef = useRef({});
   const folderIdsRef = useRef([]);
   const dragMetaRef = useRef(null);
   const finishDragRef = useRef(() => {});
@@ -108,26 +116,6 @@ export default function WishlistScreen({ navigation }) {
     }, [loadCounts])
   );
 
-  function shiftFor(id) {
-    if (!shiftsRef.current[id]) shiftsRef.current[id] = new Animated.Value(0);
-    return shiftsRef.current[id];
-  }
-
-  // Applies the gap that shows where the dragged card would land. Passing
-  // hover === null closes every gap, which is what nesting mode wants: the
-  // list settles back and the highlighted folder becomes the only signal.
-  function applyShifts(meta, hover) {
-    folderIdsRef.current.forEach((otherId, position) => {
-      if (otherId === meta.id) return;
-      let target = 0;
-      if (hover != null) {
-        if (position > meta.startIndex && position <= hover) target = -STEP;
-        else if (position < meta.startIndex && position >= hover) target = STEP;
-      }
-      Animated.timing(shiftFor(otherId), { toValue: target, duration: 120, useNativeDriver: false }).start();
-    });
-  }
-
   function clearDwell() {
     if (dwellRef.current.timer) clearTimeout(dwellRef.current.timer);
     dwellRef.current.timer = null;
@@ -138,11 +126,12 @@ export default function WishlistScreen({ navigation }) {
     const nestInto = nestTargetRef.current;
     dragMetaRef.current = null;
     nestTargetRef.current = null;
+    insertIndexRef.current = null;
     clearDwell();
-    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
     dragY.setValue(0);
     setActiveId(null);
     setNestTargetId(null);
+    setInsertIndex(null);
     if (!meta) return;
 
     if (nestInto) {
@@ -191,7 +180,17 @@ export default function WishlistScreen({ navigation }) {
           if (!meta) return;
           dragY.setValue(gesture.dy);
           const ids = folderIdsRef.current;
-          const hover = clamp(meta.startIndex + Math.round(gesture.dy / STEP), 0, ids.length - 1);
+          // Where the dragged card's top edge now sits, in list coordinates.
+          const top = meta.startIndex * STEP + gesture.dy;
+          const nearest = clamp(Math.round(top / STEP), 0, ids.length - 1);
+          const overlap = Math.abs(top - nearest * STEP);
+          const overRow = overlap <= NEST_BAND && nearest !== meta.startIndex;
+          meta.hover = nearest;
+
+          if (meta.hover !== insertIndexRef.current) {
+            insertIndexRef.current = meta.hover;
+            setInsertIndex(meta.hover);
+          }
 
           // Any real movement cancels a pending or active drop: the finger
           // travelling through a folder on its way somewhere else must not be
@@ -202,29 +201,26 @@ export default function WishlistScreen({ navigation }) {
             if (nestTargetRef.current) {
               nestTargetRef.current = null;
               setNestTargetId(null);
-              applyShifts(meta, hover);
             }
           }
 
-          if (hover !== meta.hover) {
-            meta.hover = hover;
+          if (!overRow) {
             clearDwell();
-            if (!nestTargetRef.current) applyShifts(meta, hover);
+            if (nestTargetRef.current) {
+              nestTargetRef.current = null;
+              setNestTargetId(null);
+            }
+            return;
           }
 
-          // Holding still over another folder arms the drop. Half a second is
-          // long enough that passing over cannot trigger it, short enough that
-          // deliberately pausing feels answered.
-          if (meta.canNest && hover !== meta.startIndex && !nestTargetRef.current && !dwellRef.current.timer) {
-            const targetId = ids[hover];
+          // Resting on top of a folder arms the drop.
+          if (meta.canNest && !nestTargetRef.current && !dwellRef.current.timer) {
+            const targetId = ids[nearest];
             dwellRef.current.timer = setTimeout(() => {
               dwellRef.current.timer = null;
               if (!dragMetaRef.current) return;
               nestTargetRef.current = targetId;
               setNestTargetId(targetId);
-              // Close the insertion gap: the list is no longer making room,
-              // it is offering a destination.
-              applyShifts(dragMetaRef.current, null);
             }, DWELL_MS);
           }
         },
@@ -441,7 +437,10 @@ export default function WishlistScreen({ navigation }) {
               ))
             )
           ) : (
-            <>
+            <View style={{ position: 'relative' }}>
+          {insertIndex != null && !nestTargetId && (
+            <View style={[styles.insertLine, { top: insertIndex * STEP - FOLDER_GAP / 2 - 1 }]} />
+          )}
           {rootFolders.length === 0 && (
             <Text style={styles.emptyText}>
               {listType === 'wishlist' ? t('wishlist.noneYet') : t('todo.noneYet')}
@@ -462,7 +461,7 @@ export default function WishlistScreen({ navigation }) {
                     borderWidth: 2,
                     backgroundColor: hexToRgba(theme.primary, 0.12),
                   },
-                  { transform: isActive ? [{ translateY: dragY }, { scale: 1.02 }] : [{ translateY: shiftFor(item._id) }] },
+                  isActive && { transform: [{ translateY: dragY }, { scale: 1.02 }] },
                   isActive && {
                     zIndex: 10,
                     elevation: 8,
@@ -517,7 +516,7 @@ export default function WishlistScreen({ navigation }) {
               </Animated.View>
             );
           })}
-            </>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -597,6 +596,15 @@ function createStyles(theme) {
     taskTitle: { flex: 1, fontSize: 14, color: theme.text },
     moreButton: { paddingHorizontal: 6, paddingVertical: 8 },
     nestHint: { fontSize: 12, color: theme.primary, fontWeight: '700', marginTop: 2 },
+    insertLine: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: theme.primary,
+      zIndex: 5,
+    },
     addRow: { flexDirection: 'row', gap: 8 },
     inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     input: {

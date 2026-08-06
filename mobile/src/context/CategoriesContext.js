@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
 
 const CategoriesContext = createContext(null);
@@ -7,6 +7,10 @@ const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
 export function CategoriesProvider({ children }) {
   const [byScope, setByScope] = useState({ expense: [], event: [], wishlist: [], todo: [] });
   const [loading, setLoading] = useState(true);
+  // Mirrors byScope so an optimistic update can capture the pre-change list to
+  // revert to, without the mutation having to be a hook with byScope as a dep.
+  const byScopeRef = useRef(byScope);
+  byScopeRef.current = byScope;
 
   const refresh = useCallback(async (scope) => {
     const scopesToLoad = scope ? [scope] : SCOPES;
@@ -36,27 +40,65 @@ export function CategoriesProvider({ children }) {
     })();
   }, [refresh]);
 
+  // Every mutation below used to POST/PUT and then refetch the whole scope:
+  // two round trips before the screen changed, which at ~250ms each is the
+  // second or two of lag you could feel on every action. The server already
+  // returns the updated document, so the list is patched from that response —
+  // one round trip — and moves/deletes are applied locally before the request
+  // even goes out, since they cannot be rejected for any reason the UI has
+  // not already checked. A failure reverts by refetching.
+  function patchScope(scope, updater) {
+    setByScope((prev) => ({ ...prev, [scope]: updater(prev[scope]) }));
+  }
+
   async function addCategory(scope, name, parent) {
-    await client.post('/categories', { scope, name, parent: parent || undefined });
-    await refresh(scope);
+    const res = await client.post('/categories', { scope, name, parent: parent || undefined });
+    patchScope(scope, (list) => [...list, res.data.category]);
   }
 
   async function renameCategory(id, scope, name) {
-    await client.put(`/categories/${id}`, { name });
-    await refresh(scope);
+    const res = await client.put(`/categories/${id}`, { name });
+    patchScope(scope, (list) => list.map((c) => (c._id === id ? res.data.category : c)));
   }
 
   // parent: a folder id, or null to move back out to the root. Sent even when
   // null, since the route distinguishes "move to root" from "do not move" by
   // whether the key is present at all.
   async function moveCategory(id, scope, parent) {
-    await client.put(`/categories/${id}`, { parent: parent ?? null });
-    await refresh(scope);
+    const next = parent ?? null;
+    const previous = byScopeRef.current[scope];
+    patchScope(scope, (list) => list.map((c) => (c._id === id ? { ...c, parent: next } : c)));
+    try {
+      const res = await client.put(`/categories/${id}`, { parent: next });
+      patchScope(scope, (list) => list.map((c) => (c._id === id ? res.data.category : c)));
+    } catch (err) {
+      patchScope(scope, () => previous);
+      throw err;
+    }
   }
 
   async function deleteCategory(id, scope) {
-    await client.delete(`/categories/${id}`);
-    await refresh(scope);
+    const previous = byScopeRef.current[scope];
+    // Subfolders go with the parent on the server, so they must go here too —
+    // otherwise they linger as rows pointing at a folder that no longer exists.
+    const doomed = new Set([id]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const c of previous) {
+        if (!doomed.has(c._id) && c.parent && doomed.has(c.parent)) {
+          doomed.add(c._id);
+          added = true;
+        }
+      }
+    }
+    patchScope(scope, (list) => list.filter((c) => !doomed.has(c._id)));
+    try {
+      await client.delete(`/categories/${id}`);
+    } catch (err) {
+      patchScope(scope, () => previous);
+      throw err;
+    }
   }
 
   // Optimistic: reorders locally right away, then persists; reverts via

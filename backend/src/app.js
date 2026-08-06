@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { Sentry } = require('./config/sentry');
@@ -25,6 +26,11 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors());
+// Responses were going out as raw JSON. The list and history endpoints return
+// the household's full set of items/expenses, which compresses by roughly 80%
+// — on a phone connection that is the difference between a screen appearing
+// and a screen arriving.
+app.use(compression());
 // Cap request bodies — nothing this API accepts is anywhere near this size,
 // and an unbounded limit is a free memory-exhaustion vector.
 app.use(express.json({ limit: '100kb' }));
