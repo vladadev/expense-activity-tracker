@@ -46,6 +46,14 @@ export function CategoriesProvider({ children }) {
     await refresh(scope);
   }
 
+  // parent: a folder id, or null to move back out to the root. Sent even when
+  // null, since the route distinguishes "move to root" from "do not move" by
+  // whether the key is present at all.
+  async function moveCategory(id, scope, parent) {
+    await client.put(`/categories/${id}`, { parent: parent ?? null });
+    await refresh(scope);
+  }
+
   async function deleteCategory(id, scope) {
     await client.delete(`/categories/${id}`);
     await refresh(scope);
@@ -82,6 +90,7 @@ export function CategoriesProvider({ children }) {
         refresh,
         addCategory,
         renameCategory,
+        moveCategory,
         deleteCategory,
         reorderCategories,
       }}

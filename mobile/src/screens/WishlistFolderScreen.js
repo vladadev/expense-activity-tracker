@@ -21,6 +21,7 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
 import Money from '../components/AmountText';
+import ListActions from '../components/ListActions';
 import { getPersonColor } from '../utils/personColor';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
@@ -52,10 +53,13 @@ function animateLayout() {
 export default function WishlistFolderScreen({ route, navigation }) {
   const { folder } = route.params;
   const { t, language, formatAmount } = useSettings();
-  const { wishlistCategories, todoCategories, addCategory, deleteCategory } = useCategories();
+  const { wishlistCategories, todoCategories, addCategory, renameCategory, moveCategory, deleteCategory } =
+    useCategories();
   const { theme } = useTheme();
   const styles = createStyles(theme);
   const [items, setItems] = useState([]);
+  const [subfolderItemCounts, setSubfolderItemCounts] = useState({});
+  const [actionTarget, setActionTarget] = useState(null);
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
   const [subfolderError, setSubfolderError] = useState('');
@@ -75,13 +79,25 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   // To-Do folders reuse this whole screen; only labels differ.
   const isTodo = folder.scope === 'todo';
+  const scope = folder.scope || 'wishlist';
   const siblingSource = isTodo ? todoCategories : wishlistCategories;
   const subfolders = siblingSource.filter((c) => c.parent === folder._id);
+  // The breadcrumb only ever has two levels, but resolving the parent by id
+  // keeps it honest if the folder was moved since this screen was opened.
+  const parentFolder = folder.parent ? siblingSource.find((c) => c._id === folder.parent) : null;
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get('/wishlist/items', { params: { category: folder._id } });
-      setItems(res.data.items);
+      // Everything in one call: this folder's items, plus the counts needed to
+      // say how much a subfolder deletion would take with it.
+      const res = await client.get('/wishlist/items');
+      const all = res.data.items;
+      setItems(all.filter((i) => i.category === folder._id));
+      const counts = {};
+      for (const item of all) {
+        counts[item.category] = (counts[item.category] || 0) + 1;
+      }
+      setSubfolderItemCounts(counts);
     } catch (err) {
       console.log('Failed to load wishlist items:', err.message);
     }
@@ -190,23 +206,14 @@ export default function WishlistFolderScreen({ route, navigation }) {
   }
 
   // ---- other actions -----------------------------------------------------
-  function handleDelete(item) {
-    Alert.alert(t('common.delete'), t('wishlist.deleteItemConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          animateLayout();
-          setItems((prev) => prev.filter((i) => i._id !== item._id));
-          try {
-            await client.delete(`/wishlist/items/${item._id}`);
-          } catch {
-            load();
-          }
-        },
-      },
-    ]);
+  async function deleteItem(id) {
+    animateLayout();
+    setItems((prev) => prev.filter((i) => i._id !== id));
+    try {
+      await client.delete(`/wishlist/items/${id}`);
+    } catch {
+      load();
+    }
   }
 
   async function handleAddSubfolder() {
@@ -227,11 +234,51 @@ export default function WishlistFolderScreen({ route, navigation }) {
     }
   }
 
-  function handleDeleteSubfolder(sub) {
-    Alert.alert(t('wishlist.deleteFolderConfirmTitle'), t('wishlist.deleteFolderConfirmMessage'), [
+  // ---- long-press actions (same sheet as the folder list) ----------------
+  function openSubfolderActions(sub) {
+    setActionTarget({
+      kind: 'folder',
+      id: sub._id,
+      name: sub.name,
+      parent: sub.parent ?? null,
+      hasChildren: false, // two-level limit: a subfolder never has children
+      itemCount: subfolderItemCounts[sub._id] || 0,
+    });
+  }
+
+  function openItemActions(item) {
+    setActionTarget({ kind: 'item', id: item._id, name: item.title, parent: item.category });
+  }
+
+  function handleActionDelete(target) {
+    if (target.kind === 'item') {
+      const message = t('wishlist.deleteItemConfirm');
+      Alert.alert(t('common.delete'), message, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => deleteItem(target.id) },
+      ]);
+      return;
+    }
+    const message =
+      target.itemCount > 0
+        ? t('lists.deleteFolderMessageCount', { count: target.itemCount })
+        : t('lists.deleteFolderMessage');
+    Alert.alert(t('wishlist.deleteFolderConfirmTitle'), message, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(sub._id, folder.scope || 'wishlist') },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(target.id, scope) },
     ]);
+  }
+
+  async function moveItem(target, destinationId) {
+    if (destinationId === target.parent) return;
+    animateLayout();
+    setItems((prev) => prev.filter((i) => i._id !== target.id));
+    try {
+      await client.put(`/wishlist/items/${target.id}`, { category: destinationId });
+    } catch (err) {
+      load();
+      throw err;
+    }
   }
 
   function reminderText(item) {
@@ -272,7 +319,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
           style={styles.rowTouchable}
           activeOpacity={0.6}
           onPress={() => togglePurchased(item)}
-          onLongPress={() => handleDelete(item)}
+          onLongPress={() => openItemActions(item)}
           delayLongPress={450}
         >
           <View style={[styles.checkbox, item.purchased && { backgroundColor: theme.primary, borderColor: theme.primary }]}>
@@ -330,7 +377,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   }
 
   return (
-    <Screen title={folder.name} showPrivacyToggle>
+    <Screen title={parentFolder ? `${parentFolder.name} › ${folder.name}` : folder.name} showPrivacyToggle>
       <View style={styles.container}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} scrollEnabled={!activeId}>
           {total > 0 && (
@@ -354,7 +401,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
                   key={sub._id}
                   style={styles.subfolderChip}
                   onPress={() => navigation.push('WishlistFolder', { folder: sub })}
-                  onLongPress={() => handleDeleteSubfolder(sub)}
+                  onLongPress={() => openSubfolderActions(sub)}
                 >
                   <Ionicons name="folder-outline" size={15} color={theme.primary} />
                   <Text style={styles.subfolderName} numberOfLines={1}>{sub.name}</Text>
@@ -426,6 +473,25 @@ export default function WishlistFolderScreen({ route, navigation }) {
           <Text style={styles.addButtonText}>{t(isTodo ? 'todo.addItem' : 'wishlist.addItem')}</Text>
         </TouchableOpacity>
       </View>
+
+      <ListActions
+        target={actionTarget}
+        folders={siblingSource}
+        onClose={() => setActionTarget(null)}
+        onRename={(target, name) => renameCategory(target.id, scope, name)}
+        onMove={(target, destination) =>
+          target.kind === 'item' ? moveItem(target, destination) : moveCategory(target.id, scope, destination)
+        }
+        onDelete={handleActionDelete}
+        onEdit={
+          actionTarget?.kind === 'item'
+            ? (target) => {
+                const item = items.find((i) => i._id === target.id);
+                if (item) navigation.navigate('WishlistItemForm', { folder, item });
+              }
+            : undefined
+        }
+      />
     </Screen>
   );
 }
