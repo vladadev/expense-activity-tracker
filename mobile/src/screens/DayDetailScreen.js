@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +24,7 @@ export default function DayDetailScreen({ route, navigation }) {
   const { date } = route.params;
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [byCurrency, setByCurrency] = useState({});
   const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState  } from 'react';
 import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated, PanResponder, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,7 +32,7 @@ function localDayString(d) {
 export default function AgendaScreen({ navigation }) {
   const { t, language } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'past' | 'all'
 

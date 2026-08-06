@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState  } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,7 +79,7 @@ function computeSummary(list) {
 export default function StatsScreen({ navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [dataType, setDataType] = useState('expenses'); // 'expenses' | 'income' | 'savings'
   const [periodMode, setPeriodMode] = useState('month'); // 'month' | 'year'
   const [monthOffset, setMonthOffset] = useState(0);

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSettings } from '../context/SettingsContext';
@@ -19,7 +19,7 @@ export default function NotificationsScreen() {
     return hideAmounts ? maskAmounts(formatted) : formatted;
   };
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { notifications, loadNotifications, markSeen } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
 

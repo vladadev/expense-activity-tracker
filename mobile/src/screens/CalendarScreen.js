@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,7 +37,7 @@ function todayString() {
 export default function CalendarScreen({ navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [expenses, setExpenses] = useState([]);
   const [events, setEvents] = useState([]);
   // 'calendar' | 'list' — the month grid, or the agenda of every activity.

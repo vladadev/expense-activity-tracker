@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState  } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +29,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   const { date } = route.params;
   const { t, formatAmount, language } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [expenses, setExpenses] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.

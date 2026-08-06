@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
@@ -9,7 +9,7 @@ export default function ManageCategoriesScreen({ route }) {
   const { t } = useSettings();
   const { expenseCategories, eventCategories, addCategory, renameCategory, deleteCategory } = useCategories();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [tab, setTab] = useState(route.params?.initialTab || 'expense');
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState(null);

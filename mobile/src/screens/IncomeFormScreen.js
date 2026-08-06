@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState  } from 'react';
 import { Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, View, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
@@ -13,7 +13,7 @@ export default function IncomeFormScreen({ route, navigation }) {
   const isEditing = !!entry;
   const { t, language, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [amount, setAmount] = useState(entry ? String(entry.amount) : '');
   const [currency, setCurrency] = useState(entry?.currency || defaultCurrency);

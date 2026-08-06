@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState  } from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
@@ -20,7 +20,7 @@ import FormError from './FormError';
 export default function ListActions({ target, folders, onClose, onRename, onMove, onDelete, onEdit }) {
   const { t } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const keyboardHeight = useKeyboardHeight();
 
   const [phase, setPhase] = useState('menu');

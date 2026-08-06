@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
@@ -12,7 +12,7 @@ const MIN_LENGTH = 8;
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');

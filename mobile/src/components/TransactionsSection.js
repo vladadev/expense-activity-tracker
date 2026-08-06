@@ -40,7 +40,7 @@ export default function TransactionsSection({
 }) {
   const { t, language } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [kind, setKind] = useState('expense');
   const [query, setQuery] = useState('');

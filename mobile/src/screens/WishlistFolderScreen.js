@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState  } from 'react';
 import {
   View,
   Text,
@@ -56,7 +56,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const { wishlistCategories, todoCategories, addCategory, renameCategory, moveCategory, deleteCategory } =
     useCategories();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [items, setItems] = useState([]);
   const [subfolderItemCounts, setSubfolderItemCounts] = useState({});
   const [actionTarget, setActionTarget] = useState(null);

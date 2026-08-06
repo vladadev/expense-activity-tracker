@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState  } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
@@ -18,7 +18,7 @@ export default function SettingsScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { t, language, setLanguage, currency, setCurrency } = useSettings();
   const { theme, themeName, setThemeName, availableThemes } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [testing, setTesting] = useState(false);
 
