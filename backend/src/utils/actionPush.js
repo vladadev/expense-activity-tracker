@@ -86,6 +86,20 @@ function queueListActivity({ userId, userName, householdId, kind, title }) {
   pending.timer = setTimeout(() => {
     flushListActivity(key).catch((err) => console.error('Failed to flush list push:', err.message));
   }, LIST_FLUSH_MS);
+  // A pending digest must never be the reason the process stays alive: it is a
+  // notification, not work worth delaying a shutdown for. Without this the
+  // timer also outlives the database connection and fires against a closed
+  // client.
+  pending.timer.unref?.();
+}
+
+// Drop every pending digest without sending it. Called on shutdown, where the
+// alternative is a timer firing after the database connection has gone.
+function cancelPendingListActivity() {
+  for (const pending of pendingListActivity.values()) {
+    if (pending.timer) clearTimeout(pending.timer);
+  }
+  pendingListActivity.clear();
 }
 
 async function flushListActivity(key) {
@@ -174,4 +188,4 @@ async function pushActionToPartner({ userId, userName, householdId, action, enti
   await sendToOthers(userId, householdId, `${userName} · ${message.title}`, message.body);
 }
 
-module.exports = { pushActionToPartner };
+module.exports = { pushActionToPartner, cancelPendingListActivity };

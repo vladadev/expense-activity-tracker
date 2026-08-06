@@ -52,7 +52,10 @@ async function startTestServer() {
   return { dbName, baseUrl };
 }
 
+const { cancelPendingListActivity } = require('../src/utils/actionPush');
+
 async function stopTestServer() {
+  cancelPendingListActivity();
   await cleanupTestData();
   if (server) await new Promise((resolve) => server.close(resolve));
   await mongoose.disconnect();
