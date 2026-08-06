@@ -23,6 +23,10 @@ import ListActions from '../components/ListActions';
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
+// How long the finger must rest over another folder before the drag switches
+// from reordering to dropping into it, and how far it may drift while resting.
+const DWELL_MS = 500;
+const DWELL_TOLERANCE = 8;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -65,6 +69,13 @@ export default function WishlistScreen({ navigation }) {
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
   const [activeId, setActiveId] = useState(null);
+  // Which folder the dragged card would drop into. Kept in a ref for the
+  // gesture (which must not depend on render timing) and in state for the
+  // highlight. Responders live in refs and are created once, so the extra
+  // render this causes cannot reset the gesture.
+  const [nestTargetId, setNestTargetId] = useState(null);
+  const nestTargetRef = useRef(null);
+  const dwellRef = useRef({ timer: null, index: -1, dy: 0 });
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
   const shiftsRef = useRef({});
@@ -73,10 +84,12 @@ export default function WishlistScreen({ navigation }) {
   const finishDragRef = useRef(() => {});
   const listTypeRef = useRef(listType);
   listTypeRef.current = listType;
+  const categoriesRef = useRef([]);
 
   const categories = listType === 'wishlist' ? wishlistCategories : todoCategories;
   const rootFolders = categories.filter((c) => !c.parent).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   folderIdsRef.current = rootFolders.map((c) => c._id);
+  categoriesRef.current = categories;
 
   // All items in one fetch, so each folder card can show its (and its
   // subfolders') item count and progress.
@@ -100,13 +113,46 @@ export default function WishlistScreen({ navigation }) {
     return shiftsRef.current[id];
   }
 
+  // Applies the gap that shows where the dragged card would land. Passing
+  // hover === null closes every gap, which is what nesting mode wants: the
+  // list settles back and the highlighted folder becomes the only signal.
+  function applyShifts(meta, hover) {
+    folderIdsRef.current.forEach((otherId, position) => {
+      if (otherId === meta.id) return;
+      let target = 0;
+      if (hover != null) {
+        if (position > meta.startIndex && position <= hover) target = -STEP;
+        else if (position < meta.startIndex && position >= hover) target = STEP;
+      }
+      Animated.timing(shiftFor(otherId), { toValue: target, duration: 120, useNativeDriver: false }).start();
+    });
+  }
+
+  function clearDwell() {
+    if (dwellRef.current.timer) clearTimeout(dwellRef.current.timer);
+    dwellRef.current.timer = null;
+  }
+
   finishDragRef.current = () => {
     const meta = dragMetaRef.current;
+    const nestInto = nestTargetRef.current;
     dragMetaRef.current = null;
+    nestTargetRef.current = null;
+    clearDwell();
     Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
     dragY.setValue(0);
     setActiveId(null);
-    if (!meta || meta.hover === meta.startIndex) return;
+    setNestTargetId(null);
+    if (!meta) return;
+
+    if (nestInto) {
+      moveCategory(meta.id, listTypeRef.current, nestInto).catch((err) => {
+        Alert.alert(t('common.error'), err.response?.data?.error || t('lists.moveFailed'));
+      });
+      return;
+    }
+
+    if (meta.hover === meta.startIndex) return;
     const ids = [...folderIdsRef.current];
     const [moved] = ids.splice(meta.startIndex, 1);
     ids.splice(meta.hover, 0, moved);
@@ -126,7 +172,17 @@ export default function WishlistScreen({ navigation }) {
           const ids = folderIdsRef.current;
           const startIndex = ids.indexOf(id);
           if (startIndex === -1) return;
-          dragMetaRef.current = { id, startIndex, hover: startIndex };
+          // A folder that already has subfolders cannot become one itself —
+          // that is the two-level rule, and the server enforces it too. Such a
+          // folder simply never enters nesting mode, so the gesture stays a
+          // plain reorder instead of offering a drop that would be rejected.
+          dragMetaRef.current = {
+            id,
+            startIndex,
+            hover: startIndex,
+            canNest: !categoriesRef.current.some((c) => c.parent === id),
+          };
+          dwellRef.current = { timer: null, index: startIndex, dy: 0 };
           dragY.setValue(0);
           setActiveId(id);
         },
@@ -136,15 +192,41 @@ export default function WishlistScreen({ navigation }) {
           dragY.setValue(gesture.dy);
           const ids = folderIdsRef.current;
           const hover = clamp(meta.startIndex + Math.round(gesture.dy / STEP), 0, ids.length - 1);
-          if (hover === meta.hover) return;
-          meta.hover = hover;
-          ids.forEach((otherId, position) => {
-            if (otherId === meta.id) return;
-            let target = 0;
-            if (position > meta.startIndex && position <= hover) target = -STEP;
-            else if (position < meta.startIndex && position >= hover) target = STEP;
-            Animated.timing(shiftFor(otherId), { toValue: target, duration: 120, useNativeDriver: false }).start();
-          });
+
+          // Any real movement cancels a pending or active drop: the finger
+          // travelling through a folder on its way somewhere else must not be
+          // read as an intent to drop into it.
+          if (Math.abs(gesture.dy - dwellRef.current.dy) > DWELL_TOLERANCE) {
+            dwellRef.current.dy = gesture.dy;
+            clearDwell();
+            if (nestTargetRef.current) {
+              nestTargetRef.current = null;
+              setNestTargetId(null);
+              applyShifts(meta, hover);
+            }
+          }
+
+          if (hover !== meta.hover) {
+            meta.hover = hover;
+            clearDwell();
+            if (!nestTargetRef.current) applyShifts(meta, hover);
+          }
+
+          // Holding still over another folder arms the drop. Half a second is
+          // long enough that passing over cannot trigger it, short enough that
+          // deliberately pausing feels answered.
+          if (meta.canNest && hover !== meta.startIndex && !nestTargetRef.current && !dwellRef.current.timer) {
+            const targetId = ids[hover];
+            dwellRef.current.timer = setTimeout(() => {
+              dwellRef.current.timer = null;
+              if (!dragMetaRef.current) return;
+              nestTargetRef.current = targetId;
+              setNestTargetId(targetId);
+              // Close the insertion gap: the list is no longer making room,
+              // it is offering a destination.
+              applyShifts(dragMetaRef.current, null);
+            }, DWELL_MS);
+          }
         },
         onPanResponderRelease: () => finishDragRef.current(),
         onPanResponderTerminate: () => finishDragRef.current(),
@@ -369,11 +451,17 @@ export default function WishlistScreen({ navigation }) {
             const { total, purchased, subCount } = statsFor(item);
             const progress = total > 0 ? purchased / total : 0;
             const isActive = activeId === item._id;
+            const isNestTarget = nestTargetId === item._id;
             return (
               <Animated.View
                 key={item._id}
                 style={[
                   styles.folderCard,
+                  isNestTarget && {
+                    borderColor: theme.primary,
+                    borderWidth: 2,
+                    backgroundColor: hexToRgba(theme.primary, 0.12),
+                  },
                   { transform: isActive ? [{ translateY: dragY }, { scale: 1.02 }] : [{ translateY: shiftFor(item._id) }] },
                   isActive && {
                     zIndex: 10,
@@ -396,14 +484,32 @@ export default function WishlistScreen({ navigation }) {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.folderName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.folderSummary} numberOfLines={1}>
-                      {t(summaryKey, { total, purchased })}
-                      {subCount > 0 ? ` · ${subCount} 📁` : ''}
-                    </Text>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-                    </View>
+                    {isNestTarget ? (
+                      <Text style={styles.nestHint} numberOfLines={1}>
+                        {t('lists.dropInside')}
+                      </Text>
+                    ) : (
+                      <>
+                        <Text style={styles.folderSummary} numberOfLines={1}>
+                          {t(summaryKey, { total, purchased })}
+                          {subCount > 0 ? ` · ${subCount} 📁` : ''}
+                        </Text>
+                        <View style={styles.progressTrack}>
+                          <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+                        </View>
+                      </>
+                    )}
                   </View>
+                </TouchableOpacity>
+                {/* Long press opens the same sheet, but a gesture nobody can
+                    see is a feature nobody finds — this is the discoverable
+                    way in. */}
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={() => openFolderActions(item)}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={19} color={theme.textSecondary} />
                 </TouchableOpacity>
                 <View {...responderFor(item._id).panHandlers} style={styles.dragHandle}>
                   <Ionicons name="reorder-three-outline" size={24} color={theme.textSecondary} />
@@ -489,6 +595,8 @@ function createStyles(theme) {
       borderColor: theme.border,
     },
     taskTitle: { flex: 1, fontSize: 14, color: theme.text },
+    moreButton: { paddingHorizontal: 6, paddingVertical: 8 },
+    nestHint: { fontSize: 12, color: theme.primary, fontWeight: '700', marginTop: 2 },
     addRow: { flexDirection: 'row', gap: 8 },
     inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     input: {

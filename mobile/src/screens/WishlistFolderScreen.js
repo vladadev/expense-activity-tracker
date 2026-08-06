@@ -360,12 +360,15 @@ export default function WishlistFolderScreen({ route, navigation }) {
             <Ionicons name="open-outline" size={19} color={theme.primary} />
           </TouchableOpacity>
         )}
+        {/* Replaces the old pencil: editing is still the first action in the
+            sheet, but moving and deleting are now reachable without knowing
+            that a long press exists. */}
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => navigation.navigate('WishlistItemForm', { folder, item })}
+          onPress={() => openItemActions(item)}
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
-          <Ionicons name="pencil-outline" size={18} color={theme.textSecondary} />
+          <Ionicons name="ellipsis-horizontal" size={18} color={theme.textSecondary} />
         </TouchableOpacity>
         {!isPurchasedRow && (
           <View {...responderFor(item._id).panHandlers} style={styles.dragHandle}>
@@ -405,6 +408,12 @@ export default function WishlistFolderScreen({ route, navigation }) {
                 >
                   <Ionicons name="folder-outline" size={15} color={theme.primary} />
                   <Text style={styles.subfolderName} numberOfLines={1}>{sub.name}</Text>
+                  <TouchableOpacity
+                    onPress={() => openSubfolderActions(sub)}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={15} color={theme.textSecondary} />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               ))}
             </View>
