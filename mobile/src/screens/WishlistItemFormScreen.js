@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
@@ -16,7 +16,7 @@ export default function WishlistItemFormScreen({ route, navigation }) {
   const isTodo = folder.scope === 'todo';
   const { t, language, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [title, setTitle] = useState(item?.title || '');
   const [price, setPrice] = useState(item?.price != null ? String(item.price) : '');

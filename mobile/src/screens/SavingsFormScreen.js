@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
@@ -15,7 +15,7 @@ export default function SavingsFormScreen({ route, navigation }) {
   const { t, language, currency: defaultCurrency } = useSettings();
   const { user } = useAuth();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [type, setType] = useState(entry?.type || 'personal');
   const [owner, setOwner] = useState(entry?.owner?._id || user?.id);

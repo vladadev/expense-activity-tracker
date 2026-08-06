@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
@@ -12,7 +12,7 @@ import { getPersonColor } from '../utils/personColor';
 export default function SavingsScreen({ navigation }) {
   const { t, formatAmount, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [summary, setSummary] = useState({ personal: {}, together: {} });
   const [entries, setEntries] = useState([]);
   const [users, setUsers] = useState([]);

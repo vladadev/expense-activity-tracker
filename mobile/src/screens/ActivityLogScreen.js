@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
@@ -24,7 +24,7 @@ const ENTITY_KEYS = {
 export default function ActivityLogScreen() {
   const { t, language } = useSettings();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [logs, setLogs] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 

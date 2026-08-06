@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState  } from 'react';
 import {
   View,
   Text,
@@ -19,19 +19,25 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
+import { getPersonColor } from '../utils/personColor';
 
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
 // How long the finger must rest over another folder before the drag switches
 // from reordering to dropping into it, and how far it may drift while resting.
-const DWELL_MS = 350;
-const DWELL_TOLERANCE = 14;
-// How much of a row the dragged card must overlap to count as aiming at it.
+const DWELL_MS = 320;
+// How close the dragged card's centre must be to a row's centre to count as
+// aiming at it — 40 of a possible 47, so all but the very edge of a row.
 // Rows deliberately do NOT move out of the way during a drag: when they did,
 // the folder under the finger was no longer the folder being computed, and
 // hitting the one you were looking at became guesswork.
-const NEST_BAND = 34;
+const NEST_BAND = 40;
+// The dragged card shrinks so it stops covering the row underneath it — you
+// need to see the folder you are aiming at — and shrinks further once a drop
+// is armed, as a second signal alongside the highlight.
+const DRAG_SCALE = 0.9;
+const DROP_SCALE = 0.8;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -58,7 +64,7 @@ export default function WishlistScreen({ navigation }) {
     reorderCategories,
   } = useCategories();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   // 'wishlist' | 'todo' — which list type the tab shows.
   const [listType, setListType] = useState('wishlist');
   // To-Do only: 'folders' shows the folder cards, 'all' flattens every
@@ -80,7 +86,7 @@ export default function WishlistScreen({ navigation }) {
   // render this causes cannot reset the gesture.
   const [nestTargetId, setNestTargetId] = useState(null);
   const nestTargetRef = useRef(null);
-  const dwellRef = useRef({ timer: null, index: -1, dy: 0 });
+  const dwellRef = useRef({ timer: null, row: -1 });
   // Where the card would land if released now. Drawn as a line between rows
   // instead of opening a gap, so nothing under the finger moves.
   const [insertIndex, setInsertIndex] = useState(null);
@@ -171,7 +177,8 @@ export default function WishlistScreen({ navigation }) {
             hover: startIndex,
             canNest: !categoriesRef.current.some((c) => c.parent === id),
           };
-          dwellRef.current = { timer: null, index: startIndex, dy: 0 };
+          clearDwell();
+          dwellRef.current = { timer: null, row: startIndex };
           dragY.setValue(0);
           setActiveId(id);
         },
@@ -180,23 +187,29 @@ export default function WishlistScreen({ navigation }) {
           if (!meta) return;
           dragY.setValue(gesture.dy);
           const ids = folderIdsRef.current;
-          // Where the dragged card's top edge now sits, in list coordinates.
-          const top = meta.startIndex * STEP + gesture.dy;
-          const nearest = clamp(Math.round(top / STEP), 0, ids.length - 1);
-          const overlap = Math.abs(top - nearest * STEP);
-          const overRow = overlap <= NEST_BAND && nearest !== meta.startIndex;
-          meta.hover = nearest;
+          // Hit-test from the CENTRE of the dragged card, and floor rather than
+          // round, so every position on the list maps to exactly one row. The
+          // previous version measured the card's top edge against the nearest
+          // slot, which left dead bands between rows where nothing was being
+          // targeted at all.
+          const center = meta.startIndex * STEP + FOLDER_HEIGHT / 2 + gesture.dy;
+          const row = clamp(Math.floor(center / STEP), 0, ids.length - 1);
+          const distance = Math.abs(center - (row * STEP + FOLDER_HEIGHT / 2));
+          const canTarget = meta.canNest && row !== meta.startIndex && distance <= NEST_BAND;
+          meta.hover = row;
 
-          if (meta.hover !== insertIndexRef.current) {
-            insertIndexRef.current = meta.hover;
-            setInsertIndex(meta.hover);
+          if (row !== insertIndexRef.current) {
+            insertIndexRef.current = row;
+            setInsertIndex(row);
           }
 
-          // Any real movement cancels a pending or active drop: the finger
-          // travelling through a folder on its way somewhere else must not be
-          // read as an intent to drop into it.
-          if (Math.abs(gesture.dy - dwellRef.current.dy) > DWELL_TOLERANCE) {
-            dwellRef.current.dy = gesture.dy;
+          // Dwell is measured against the ROW, not against stillness. A finger
+          // resting on glass always jitters a few pixels, and once it truly
+          // stops, no further move events arrive at all — so a timer cancelled
+          // by the last twitch would never be re-armed. Leaving one row for
+          // another is the only thing that cancels a pending drop.
+          if (row !== dwellRef.current.row) {
+            dwellRef.current.row = row;
             clearDwell();
             if (nestTargetRef.current) {
               nestTargetRef.current = null;
@@ -204,18 +217,17 @@ export default function WishlistScreen({ navigation }) {
             }
           }
 
-          if (!overRow) {
-            clearDwell();
+          if (!canTarget) {
             if (nestTargetRef.current) {
+              clearDwell();
               nestTargetRef.current = null;
               setNestTargetId(null);
             }
             return;
           }
 
-          // Resting on top of a folder arms the drop.
-          if (meta.canNest && !nestTargetRef.current && !dwellRef.current.timer) {
-            const targetId = ids[nearest];
+          if (!nestTargetRef.current && !dwellRef.current.timer) {
+            const targetId = ids[row];
             dwellRef.current.timer = setTimeout(() => {
               dwellRef.current.timer = null;
               if (!dragMetaRef.current) return;
@@ -423,7 +435,7 @@ export default function WishlistScreen({ navigation }) {
                   {group.items.map((item) => (
                     <TouchableOpacity
                       key={item._id}
-                      style={styles.taskRow}
+                      style={[styles.taskRow, { borderLeftColor: getPersonColor(item.addedBy?.name) }]}
                       onPress={() => toggleTask(item)}
                       activeOpacity={0.6}
                     >
@@ -431,6 +443,7 @@ export default function WishlistScreen({ navigation }) {
                       <Text style={styles.taskTitle} numberOfLines={1}>
                         {item.title}
                       </Text>
+                      <View style={[styles.taskPersonDot, { backgroundColor: getPersonColor(item.addedBy?.name) }]} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -438,7 +451,7 @@ export default function WishlistScreen({ navigation }) {
             )
           ) : (
             <View style={{ position: 'relative' }}>
-          {insertIndex != null && !nestTargetId && (
+          {insertIndex != null && !nestTargetId && insertIndex !== dragMetaRef.current?.startIndex && (
             <View style={[styles.insertLine, { top: insertIndex * STEP - FOLDER_GAP / 2 - 1 }]} />
           )}
           {rootFolders.length === 0 && (
@@ -461,7 +474,10 @@ export default function WishlistScreen({ navigation }) {
                     borderWidth: 2,
                     backgroundColor: hexToRgba(theme.primary, 0.12),
                   },
-                  isActive && { transform: [{ translateY: dragY }, { scale: 1.02 }] },
+                  isActive && {
+                    transform: [{ translateY: dragY }, { scale: nestTargetId ? DROP_SCALE : DRAG_SCALE }],
+                    opacity: 0.94,
+                  },
                   isActive && {
                     zIndex: 10,
                     elevation: 8,
@@ -585,7 +601,9 @@ function createStyles(theme) {
       paddingVertical: 13,
       paddingHorizontal: 13,
       marginBottom: 6,
+      borderLeftWidth: 4,
     },
+    taskPersonDot: { width: 9, height: 9, borderRadius: 5 },
     taskCheckbox: {
       width: 20,
       height: 20,

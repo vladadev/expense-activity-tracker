@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import client from '../api/client';
 import { EXPENSE_TYPES, CURRENCIES } from '../config/categories';
@@ -12,7 +12,7 @@ export default function ExpenseFormScreen({ route, navigation }) {
   const { t, currency: defaultCurrency } = useSettings();
   const { expenseCategories } = useCategories();
   const { theme } = useTheme();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const isEditing = !!expense;
 
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');

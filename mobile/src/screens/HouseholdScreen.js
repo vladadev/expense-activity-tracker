@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,7 @@ export default function HouseholdScreen() {
   const { t } = useSettings();
   const { theme } = useTheme();
   const { user, refreshUser } = useAuth();
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [household, setHousehold] = useState(null);
   const [busy, setBusy] = useState(false);

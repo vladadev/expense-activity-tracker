@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { BlurredText } from './AmountText';
@@ -12,7 +12,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 // Renders a ring (no on-chart text) plus a separate legend list below it, so the
 // list can grow to any number of rows without ever overlapping the chart.
 export default function DonutChart({ data, total, centerValue, centerCaption, theme }) {
-  const styles = createStyles(theme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   let cumulativeFraction = 0;
 
   return (
