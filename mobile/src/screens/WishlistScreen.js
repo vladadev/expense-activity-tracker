@@ -18,6 +18,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
+import ListActions from '../components/ListActions';
 
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
@@ -38,11 +39,24 @@ function clamp(value, min, max) {
 
 export default function WishlistScreen({ navigation }) {
   const { t } = useSettings();
-  const { wishlistCategories, todoCategories, addCategory, deleteCategory, reorderCategories } = useCategories();
+  const {
+    wishlistCategories,
+    todoCategories,
+    addCategory,
+    renameCategory,
+    moveCategory,
+    deleteCategory,
+    reorderCategories,
+  } = useCategories();
   const { theme } = useTheme();
   const styles = createStyles(theme);
   // 'wishlist' | 'todo' — which list type the tab shows.
   const [listType, setListType] = useState('wishlist');
+  // To-Do only: 'folders' shows the folder cards, 'all' flattens every
+  // outstanding task into one list grouped by the folder it came from, so
+  // nothing has to be hunted for folder by folder.
+  const [todoView, setTodoView] = useState('folders');
+  const [actionTarget, setActionTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -180,11 +194,67 @@ export default function WishlistScreen({ navigation }) {
     }
   }
 
-  function handleDeleteFolder(folder) {
-    Alert.alert(t('wishlist.deleteFolderConfirmTitle'), t('wishlist.deleteFolderConfirmMessage'), [
+  function handleDeleteFolder(target) {
+    // Say how much is about to disappear — "this will also delete everything
+    // inside" reads the same for an empty folder and for one with 30 tasks.
+    const message =
+      target.itemCount > 0
+        ? t('lists.deleteFolderMessageCount', { count: target.itemCount })
+        : t('lists.deleteFolderMessage');
+    Alert.alert(t('wishlist.deleteFolderConfirmTitle'), message, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(folder._id, listType) },
+      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(target.id, listType) },
     ]);
+  }
+
+  function openFolderActions(folder) {
+    const { total } = statsFor(folder);
+    setActionTarget({
+      kind: 'folder',
+      id: folder._id,
+      name: folder.name,
+      parent: folder.parent ?? null,
+      hasChildren: categories.some((c) => c.parent === folder._id),
+      itemCount: total,
+    });
+  }
+
+  // ---- flattened To-Do view ----------------------------------------------
+  function folderPath(categoryId) {
+    const folder = categories.find((c) => c._id === categoryId);
+    if (!folder) return t('lists.uncategorised');
+    const parent = folder.parent ? categories.find((c) => c._id === folder.parent) : null;
+    return parent ? `${parent.name} › ${folder.name}` : folder.name;
+  }
+
+  const openTaskGroups = (() => {
+    if (listType !== 'todo' || todoView !== 'all') return [];
+    const folderIds = new Set(categories.map((c) => c._id));
+    const open = allItems.filter((i) => !i.purchased && folderIds.has(i.category));
+    const byFolder = new Map();
+    for (const item of open) {
+      if (!byFolder.has(item.category)) byFolder.set(item.category, []);
+      byFolder.get(item.category).push(item);
+    }
+    return [...byFolder.entries()]
+      .map(([categoryId, items]) => ({
+        categoryId,
+        label: folderPath(categoryId),
+        items: items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
+  // Optimistic: the checkbox must respond to the tap, not to the round trip.
+  async function toggleTask(item) {
+    const next = !item.purchased;
+    setAllItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: next } : i)));
+    try {
+      await client.put(`/wishlist/items/${item._id}`, { purchased: next });
+    } catch (err) {
+      setAllItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: !next } : i)));
+      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+    }
   }
 
   const summaryKey = listType === 'wishlist' ? 'wishlist.folderSummary' : 'todo.folderSummary';
@@ -210,6 +280,31 @@ export default function WishlistScreen({ navigation }) {
           ))}
         </View>
 
+        {listType === 'todo' && (
+          <View style={styles.viewToggleRow}>
+            {[
+              { key: 'all', label: t('lists.allTasks'), icon: 'list-outline' },
+              { key: 'folders', label: t('lists.byFolder'), icon: 'folder-outline' },
+            ].map((view) => {
+              const active = todoView === view.key;
+              return (
+                <TouchableOpacity
+                  key={view.key}
+                  style={[styles.viewToggle, active && { backgroundColor: hexToRgba(theme.primary, 0.14), borderColor: theme.primary }]}
+                  onPress={() => setTodoView(view.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={view.icon} size={14} color={active ? theme.primary : theme.textSecondary} />
+                  <Text style={[styles.viewToggleText, active && { color: theme.primary, fontWeight: '700' }]}>
+                    {view.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {!(listType === 'todo' && todoView === 'all') && (
         <View style={styles.addSection}>
           <View style={styles.addRow}>
             <TextInput
@@ -231,12 +326,40 @@ export default function WishlistScreen({ navigation }) {
           </View>
           <FormError message={nameError} />
         </View>
+        )}
 
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingTop: 0 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!activeId}
         >
+          {listType === 'todo' && todoView === 'all' ? (
+            openTaskGroups.length === 0 ? (
+              <Text style={styles.emptyText}>{t('lists.allTasksEmpty')}</Text>
+            ) : (
+              openTaskGroups.map((group) => (
+                <View key={group.categoryId} style={styles.taskGroup}>
+                  <Text style={styles.taskGroupLabel} numberOfLines={1}>
+                    {group.label}
+                  </Text>
+                  {group.items.map((item) => (
+                    <TouchableOpacity
+                      key={item._id}
+                      style={styles.taskRow}
+                      onPress={() => toggleTask(item)}
+                      activeOpacity={0.6}
+                    >
+                      <View style={styles.taskCheckbox} />
+                      <Text style={styles.taskTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))
+            )
+          ) : (
+            <>
           {rootFolders.length === 0 && (
             <Text style={styles.emptyText}>
               {listType === 'wishlist' ? t('wishlist.noneYet') : t('todo.noneYet')}
@@ -265,7 +388,7 @@ export default function WishlistScreen({ navigation }) {
                 <TouchableOpacity
                   style={styles.folderTouchable}
                   onPress={() => navigation.navigate('WishlistFolder', { folder: item })}
-                  onLongPress={() => handleDeleteFolder(item)}
+                  onLongPress={() => openFolderActions(item)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.folderIconWrap}>
@@ -288,8 +411,19 @@ export default function WishlistScreen({ navigation }) {
               </Animated.View>
             );
           })}
+            </>
+          )}
         </ScrollView>
       </View>
+
+      <ListActions
+        target={actionTarget}
+        folders={categories}
+        onClose={() => setActionTarget(null)}
+        onRename={(target, name) => renameCategory(target.id, listType, name)}
+        onMove={(target, parent) => moveCategory(target.id, listType, parent)}
+        onDelete={handleDeleteFolder}
+      />
     </Screen>
   );
 }
@@ -316,6 +450,45 @@ function createStyles(theme) {
     segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
     segmentTextActive: { color: '#fff' },
     addSection: { padding: 16 },
+    viewToggleRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+    viewToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 13,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    viewToggleText: { fontSize: 12, color: theme.textSecondary },
+    taskGroup: { marginTop: 16 },
+    taskGroupLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 7,
+    },
+    taskRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      backgroundColor: theme.surface,
+      borderRadius: 10,
+      paddingVertical: 13,
+      paddingHorizontal: 13,
+      marginBottom: 6,
+    },
+    taskCheckbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: theme.border,
+    },
+    taskTitle: { flex: 1, fontSize: 14, color: theme.text },
     addRow: { flexDirection: 'row', gap: 8 },
     inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     input: {
