@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSettings } from '../context/SettingsContext';
 import NotificationBell from './NotificationBell';
+import useKeyboardHeight from '../utils/useKeyboardHeight';
 
 // Replaces React Navigation's native stack header everywhere in the app.
 // The native header wasn't reserving space for the status bar correctly on
@@ -13,24 +14,8 @@ import NotificationBell from './NotificationBell';
 // not just stack roots) — this JS-rendered header lives inside the same
 // SafeAreaView we already confirmed works, so it can't have that problem.
 //
-// Keyboard handling on Android is done by hand (padding driven off the real
-// keyboardDidShow/Hide event height) instead of KeyboardAvoidingView or the
-// native windowSoftInputMode=resize setting. Expo SDK 54 enforces edge-to-edge
-// on Android, which breaks both of those mechanisms — the root view no longer
-// actually resizes when the keyboard opens, so nothing to "avoid" into exists.
-function useKeyboardHeight() {
-  const [height, setHeight] = useState(0);
-  useEffect(() => {
-    if (Platform.OS !== 'android') return undefined;
-    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setHeight(e.endCoordinates.height));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setHeight(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-  return height;
-}
+// Keyboard handling on Android is done by hand — see useKeyboardHeight for why
+// KeyboardAvoidingView and windowSoftInputMode=resize both stopped working.
 
 // showPrivacyToggle is opt-in: the eye only belongs on screens that actually
 // display amounts, otherwise it is a control that appears to do nothing.

@@ -350,6 +350,7 @@ export const translations = {
     'lists.byFolder': 'Folders',
     'lists.allTasksEmpty': 'Nothing left to do.',
     'lists.uncategorised': 'No folder',
+    'lists.dropInside': 'Release to move inside',
   },
   sr: {
     'app.title': 'Duo Tracker',
@@ -697,5 +698,6 @@ export const translations = {
     'lists.byFolder': 'Folderi',
     'lists.allTasksEmpty': 'Nema nijedne neodrađene obaveze.',
     'lists.uncategorised': 'Bez foldera',
+    'lists.dropInside': 'Pusti da ubaciš unutra',
   },
 };

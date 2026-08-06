@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, TextInpu
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
+import useKeyboardHeight from '../utils/useKeyboardHeight';
 import FormError from './FormError';
 
 // One sheet for every long-press in the Lists tab — folders, subfolders and
@@ -20,6 +21,7 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
   const { t } = useSettings();
   const { theme } = useTheme();
   const styles = createStyles(theme);
+  const keyboardHeight = useKeyboardHeight();
 
   const [phase, setPhase] = useState('menu');
   const [name, setName] = useState('');
@@ -103,11 +105,15 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
   const title = phase === 'move' ? t('lists.moveTo') : phase === 'rename' ? t('lists.rename') : target.name;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
-      <View style={styles.sheetWrap} pointerEvents="box-none">
+      {/* The sheet is bottom-anchored, so lifting it by the keyboard height is
+          what keeps the rename field and its buttons visible. A Modal renders
+          in its own native window and never inherits the padding Screen
+          applies to the rest of the app. */}
+      <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]} pointerEvents="box-none">
         <View style={styles.sheet}>
           <View style={styles.grabber} />
           <Text style={styles.title} numberOfLines={1}>
