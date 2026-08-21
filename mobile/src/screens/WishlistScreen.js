@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
+import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
@@ -75,7 +75,8 @@ export default function WishlistScreen({ navigation }) {
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [allItems, setAllItems] = useState([]);
+  const { items: allItems, loaded: itemsLoaded, refresh: refreshItems, togglePurchased, dropItemsIn } =
+    useWishlistItems();
   const nameInputRef = useRef(null);
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
@@ -105,21 +106,13 @@ export default function WishlistScreen({ navigation }) {
   folderIdsRef.current = rootFolders.map((c) => c._id);
   categoriesRef.current = categories;
 
-  // All items in one fetch, so each folder card can show its (and its
-  // subfolders') item count and progress.
-  const loadCounts = useCallback(async () => {
-    try {
-      const res = await client.get('/wishlist/items');
-      setAllItems(res.data.items);
-    } catch (err) {
-      console.log('Failed to load wishlist items:', err.message);
-    }
-  }, []);
-
+  // The cache is shared with the folder screen, so returning here costs
+  // nothing: what is already loaded renders at once and the refresh happens
+  // behind it.
   useFocusEffect(
     useCallback(() => {
-      loadCounts();
-    }, [loadCounts])
+      refreshItems();
+    }, [refreshItems])
   );
 
   function clearDwell() {
@@ -293,7 +286,11 @@ export default function WishlistScreen({ navigation }) {
         : t('lists.deleteFolderMessage');
     Alert.alert(t('wishlist.deleteFolderConfirmTitle'), message, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(target.id, listType) },
+      { text: t('common.delete'), style: 'destructive', onPress: () => {
+          dropItemsIn(subtreeIds(target.id));
+          deleteCategory(target.id, listType);
+        },
+      },
     ]);
   }
 
@@ -335,16 +332,10 @@ export default function WishlistScreen({ navigation }) {
       .sort((a, b) => a.label.localeCompare(b.label));
   })();
 
-  // Optimistic: the checkbox must respond to the tap, not to the round trip.
-  async function toggleTask(item) {
-    const next = !item.purchased;
-    setAllItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: next } : i)));
-    try {
-      await client.put(`/wishlist/items/${item._id}`, { purchased: next });
-    } catch (err) {
-      setAllItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: !next } : i)));
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-    }
+  // The tick lands on the tap; the shared cache owns the round trip and
+  // reverts itself if the server refuses.
+  function toggleTask(item) {
+    togglePurchased(item).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
   }
 
   const summaryKey = listType === 'wishlist' ? 'wishlist.folderSummary' : 'todo.folderSummary';

@@ -9,6 +9,8 @@ import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
 import Money from '../components/AmountText';
 import TransactionsSection from '../components/TransactionsSection';
+import FinancesSkeleton from '../components/FinancesSkeleton';
+import { useDeferredSkeleton } from '../components/Skeleton';
 import { getPersonColor } from '../utils/personColor';
 import { formatMonthYear } from '../i18n/dateFormat';
 
@@ -87,6 +89,8 @@ export default function FinancesScreen({ navigation }) {
   const [monthData, setMonthData] = useState({ byCurrency: {}, byOwner: {} });
   const [allData, setAllData] = useState({ byCurrency: {}, byOwner: {} });
   const [partner, setPartner] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const partnerLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('RSD');
   // 'combined' | 'mine' | 'partner' — visible tabs instead of a swipe carousel.
@@ -126,16 +130,21 @@ export default function FinancesScreen({ navigation }) {
     try {
       // All-time income/savings lists (filtered to the month client-side),
       // plus expense rollups for the month and for all time.
-      const [incomeRes, savingsRes, statsMonthRes, statsAllRes, usersRes, expensesRes] = await Promise.all([
+      const [incomeRes, savingsRes, statsMonthRes, statsAllRes, expensesRes, usersRes] = await Promise.all([
         client.get('/income'),
         client.get('/savings'),
         client.get(`/stats/range/${from}/${to}`),
         client.get(`/stats/range/2000-01-01/${today}`),
-        client.get('/auth/users'),
         client.get('/expenses', { params: { from: '2000-01-01', to: today } }),
+        // The household's members do not change while the app is open, so this
+        // is fetched once rather than on every visit to the tab.
+        partnerLoaded.current ? Promise.resolve(null) : client.get('/auth/users'),
       ]);
 
-      setPartner(usersRes.data.users.find((u) => u._id !== user.id) || null);
+      if (usersRes) {
+        setPartner(usersRes.data.users.find((u) => u._id !== user.id) || null);
+        partnerLoaded.current = true;
+      }
 
       const inMonth = (entry) => {
         const d = (entry.date || '').slice(0, 10);
@@ -148,6 +157,7 @@ export default function FinancesScreen({ navigation }) {
       setAllExpenses(expensesRes.data.expenses);
       setMonthData(buildBuckets(monthIncome, monthSavings, statsMonthRes.data.byCurrency));
       setAllData(buildBuckets(incomeRes.data.entries, savingsRes.data.entries, statsAllRes.data.byCurrency));
+      setLoaded(true);
     } catch (err) {
       console.log('Failed to load finances overview:', err.message);
     }
@@ -205,6 +215,16 @@ export default function FinancesScreen({ navigation }) {
   const now = new Date();
   const shownMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
   const isCurrentMonth = monthOffset === 0;
+
+  const showSkeleton = useDeferredSkeleton(!loaded);
+
+  if (!loaded) {
+    return (
+      <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
+        {showSkeleton ? <FinancesSkeleton /> : <View />}
+      </Screen>
+    );
+  }
 
   return (
     <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>

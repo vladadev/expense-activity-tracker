@@ -14,9 +14,10 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import client from '../api/client';
+
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
+import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
@@ -55,10 +56,16 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { wishlistCategories, todoCategories, addCategory, renameCategory, moveCategory, deleteCategory } =
     useCategories();
+  const {
+    items: allItems,
+    refresh: refreshItems,
+    deleteItem: cacheDeleteItem,
+    updateItem: cacheUpdateItem,
+    togglePurchased: cacheToggle,
+    reorderItems: cacheReorder,
+  } = useWishlistItems();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
-  const [items, setItems] = useState([]);
-  const [subfolderItemCounts, setSubfolderItemCounts] = useState({});
   const [actionTarget, setActionTarget] = useState(null);
   const [showSubfolderInput, setShowSubfolderInput] = useState(false);
   const [subfolderName, setSubfolderName] = useState('');
@@ -86,22 +93,15 @@ export default function WishlistFolderScreen({ route, navigation }) {
   // keeps it honest if the folder was moved since this screen was opened.
   const parentFolder = folder.parent ? siblingSource.find((c) => c._id === folder.parent) : null;
 
-  const load = useCallback(async () => {
-    try {
-      // Everything in one call: this folder's items, plus the counts needed to
-      // say how much a subfolder deletion would take with it.
-      const res = await client.get('/wishlist/items');
-      const all = res.data.items;
-      setItems(all.filter((i) => i.category === folder._id));
-      const counts = {};
-      for (const item of all) {
-        counts[item.category] = (counts[item.category] || 0) + 1;
-      }
-      setSubfolderItemCounts(counts);
-    } catch (err) {
-      console.log('Failed to load wishlist items:', err.message);
-    }
-  }, [folder._id]);
+  // Both list screens read the same cache, so opening a folder no longer
+  // costs a request of its own — and an item added from the form is already
+  // here by the time this screen comes back into view.
+  const items = allItems.filter((i) => i.category === folder._id);
+  const subfolderItemCounts = allItems.reduce((counts, item) => {
+    counts[item.category] = (counts[item.category] || 0) + 1;
+    return counts;
+  }, {});
+  const load = refreshItems;
 
   useFocusEffect(
     useCallback(() => {
@@ -134,15 +134,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
     const ids = [...uncheckedIdsRef.current];
     const [moved] = ids.splice(meta.startIndex, 1);
     ids.splice(meta.hover, 0, moved);
-    const orderById = {};
-    ids.forEach((id, i) => {
-      orderById[id] = i;
-    });
-    setItems((prev) => prev.map((i) => (orderById[i._id] != null ? { ...i, order: orderById[i._id] } : i)));
-    client.put('/wishlist/items/reorder', { ids }).catch(() => {
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-      load();
-    });
+    cacheReorder(ids).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
   };
 
   function responderFor(id) {
@@ -188,32 +180,14 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   // ---- optimistic toggle -------------------------------------------------
   function togglePurchased(item) {
-    const next = !item.purchased;
-    const maxOrder = unchecked.reduce((max, i) => Math.max(max, i.order ?? 0), -1);
     animateLayout();
-    setItems((prev) =>
-      prev.map((i) =>
-        i._id === item._id
-          ? { ...i, purchased: next, purchasedAt: next ? new Date().toISOString() : null, order: next ? i.order : maxOrder + 1 }
-          : i
-      )
-    );
-    client.put(`/wishlist/items/${item._id}`, { purchased: next }).catch(() => {
-      animateLayout();
-      setItems((prev) => prev.map((i) => (i._id === item._id ? { ...i, purchased: !next } : i)));
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-    });
+    cacheToggle(item).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
   }
 
   // ---- other actions -----------------------------------------------------
-  async function deleteItem(id) {
+  function deleteItem(id) {
     animateLayout();
-    setItems((prev) => prev.filter((i) => i._id !== id));
-    try {
-      await client.delete(`/wishlist/items/${id}`);
-    } catch {
-      load();
-    }
+    cacheDeleteItem(id).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
   }
 
   async function handleAddSubfolder() {
@@ -272,13 +246,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   async function moveItem(target, destinationId) {
     if (destinationId === target.parent) return;
     animateLayout();
-    setItems((prev) => prev.filter((i) => i._id !== target.id));
-    try {
-      await client.put(`/wishlist/items/${target.id}`, { category: destinationId });
-    } catch (err) {
-      load();
-      throw err;
-    }
+    await cacheUpdateItem(target.id, { category: destinationId });
   }
 
   function reminderText(item) {

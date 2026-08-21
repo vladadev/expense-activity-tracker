@@ -1,0 +1,28 @@
+<svg id="duo-spinner" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Loading">
+  <title>Loading</title>
+
+  <!-- Transparent background: this one is the loading element, so it sits on
+       whatever surface it is placed on. The animation is CSS rather than SMIL
+       because CSS is what every current browser and animation tool drives. -->
+  <style>
+    @keyframes duo-spin { to { transform: rotate(360deg); } }
+    #coin-spin {
+      animation: duo-spin 1.1s linear infinite;
+    }
+    /* Respect a viewer who has asked the system for less motion. */
+    @media (prefers-reduced-motion: reduce) {
+      #coin-spin { animation: none; }
+    }
+  </style>
+
+  <g id="coin" transform="translate(60 60)">
+    <g id="coin-spin">
+      <path id="half-blue"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 0 0 -36 Z"
+            fill="#378ADD"/>
+      <path id="half-rose"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 1 0 -36 Z"
+            fill="#ED93B1"/>
+    </g>
+  </g>
+</svg>

@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,9 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { CategoriesProvider } from '../context/CategoriesContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
+import { WishlistItemsProvider } from '../context/WishlistItemsContext';
+import { SkeletonProvider } from '../components/Skeleton';
+import DuoLoader from '../components/duo/DuoLoader';
 import { registerForPushNotifications } from '../utils/notifications';
 
 import LoginScreen from '../screens/LoginScreen';
@@ -142,12 +145,16 @@ function MainTabs() {
 function AppStack() {
   return (
     <CategoriesProvider>
-      <NotificationsProvider>
-        <Stack.Navigator screenOptions={NO_HEADER}>
-          <Stack.Screen name="Tabs" component={MainTabs} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        </Stack.Navigator>
-      </NotificationsProvider>
+      <WishlistItemsProvider>
+        <NotificationsProvider>
+          <SkeletonProvider>
+          <Stack.Navigator screenOptions={NO_HEADER}>
+            <Stack.Screen name="Tabs" component={MainTabs} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          </Stack.Navigator>
+          </SkeletonProvider>
+        </NotificationsProvider>
+      </WishlistItemsProvider>
     </CategoriesProvider>
   );
 }
@@ -178,7 +185,7 @@ export default function RootNavigator() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
+        <DuoLoader size={64} />
       </View>
     );
   }

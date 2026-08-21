@@ -4,6 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
+import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
@@ -15,6 +16,7 @@ export default function WishlistItemFormScreen({ route, navigation }) {
   // To-Do tasks don't have prices or shop links — only a title and notes.
   const isTodo = folder.scope === 'todo';
   const { t, language, currency: defaultCurrency } = useSettings();
+  const { addItem, updateItem } = useWishlistItems();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -59,9 +61,9 @@ export default function WishlistItemFormScreen({ route, navigation }) {
         reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
       };
       if (isEditing) {
-        await client.put(`/wishlist/items/${item._id}`, payload);
+        await updateItem(item._id, payload);
       } else {
-        await client.post('/wishlist/items', payload);
+        await addItem(payload);
       }
       navigation.goBack();
     } catch (err) {

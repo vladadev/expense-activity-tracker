@@ -1,0 +1,37 @@
+<svg id="duo-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Duo Tracker">
+  <title>Duo Tracker</title>
+  <desc>A coin split into two interlocking halves, one blue and one rose.</desc>
+
+  <!-- STRUCTURE FOR ANIMATION
+       #plate        the rounded app-icon background; delete this group for a
+                     transparent mark
+       #coin         positions the coin at the centre. Carries a transform
+                     ATTRIBUTE and must never be animated directly: a CSS
+                     transform on the same element REPLACES this attribute,
+                     which would throw the coin to the top-left corner.
+       #coin-spin    the element to animate. Its local origin is already the
+                     centre of the coin, so rotate/scale need no
+                     transform-origin at all.
+       #half-blue    the two halves, each animatable on its own
+       #half-rose    (for splitting them apart, cross-fading, etc.)
+  -->
+
+  <g id="plate">
+    <rect id="plate-bg" width="120" height="120" rx="27" fill="#0C447C"/>
+  </g>
+
+  <g id="coin" transform="translate(60 60)">
+    <g id="coin-spin">
+      <!-- Both halves trace the SAME centre S-curve (two 18r arcs, one bulging
+           each way) and differ only in which side the outer 36r arc closes
+           around. That is what makes them equal in area and interlocking.
+           Drawn around 0,0 so every transform is symmetrical by default. -->
+      <path id="half-blue"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 0 0 -36 Z"
+            fill="#378ADD"/>
+      <path id="half-rose"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 1 0 -36 Z"
+            fill="#ED93B1"/>
+    </g>
+  </g>
+</svg>

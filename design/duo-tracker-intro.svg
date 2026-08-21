@@ -1,0 +1,30 @@
+<svg id="duo-intro" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Duo Tracker">
+  <title>Duo Tracker</title>
+
+  <!-- Splash version: spins three times, decelerating into rest, then stays
+       put. `forwards` is what keeps it from snapping back to frame one. -->
+  <style>
+    @keyframes duo-intro-spin { to { transform: rotate(1080deg); } }
+    #coin-spin {
+      animation: duo-intro-spin 1.6s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #coin-spin { animation: none; }
+    }
+  </style>
+
+  <g id="plate">
+    <rect id="plate-bg" width="120" height="120" rx="27" fill="#0C447C"/>
+  </g>
+
+  <g id="coin" transform="translate(60 60)">
+    <g id="coin-spin">
+      <path id="half-blue"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 0 0 -36 Z"
+            fill="#378ADD"/>
+      <path id="half-rose"
+            d="M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 1 0 -36 Z"
+            fill="#ED93B1"/>
+    </g>
+  </g>
+</svg>
