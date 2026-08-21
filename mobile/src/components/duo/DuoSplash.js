@@ -124,6 +124,7 @@ export default function DuoSplash({
   const cueOut = sparkle ? CUE_OUT : CUE_SPARKLE;
   const T = useClock(total, loop, onFinish);
   const { width } = Dimensions.get('window');
+  const tagFamily = fontFamily ? fontFamily.replace('_500Medium', '_300Light') : undefined;
   const size = Math.min(width * 0.52, 260);
 
   const approach = ramp(T, 0, CUE_SPIN);
@@ -143,7 +144,7 @@ export default function DuoSplash({
 
   const nameIn = ramp(T, CUE_SPIN + 0.05, CUE_HOLD + 0.05);
   const nameOpacity = nameIn * (1 - ramp(T, cueOut, total - 0.12));
-  const nameLs = 0.16 + 0.34 * (1 - nameIn) + 0.26 * outP;
+  const nameLs = 0.16 + 0.14 * (1 - nameIn) + 0.12 * outP;
   const nameY = 24 * (1 - nameIn);
   const tagIn = ramp(T, CUE_SPIN + 0.35, CUE_HOLD + 0.3);
   const tagOpacity = tagIn * (1 - ramp(T, cueOut, total - 0.12));
@@ -154,13 +155,22 @@ export default function DuoSplash({
   const bloomP = sparkle ? ramp(T, runEnd - 0.05, runEnd + 0.5) : 0;
 
   // letterSpacing u RN je u px, ne u em — pretvaramo preko font size.
-  const nameSize = Math.round(size * 0.19);
-  const tagSize = Math.round(size * 0.075);
+  // Type is sized off the SCREEN, not off the coin. At size * 0.19 the name
+  // came out around 49px, and "DUO TRACKER" with entry tracking then measured
+  // wider than the phone — React Native wrapped it onto a second line, on top
+  // of the tagline. That was the overlap.
+  const nameSize = Math.round(Math.min(width * 0.082, 34));
+  const tagSize = Math.round(Math.min(width * 0.037, 15));
 
   return (
     <View style={styles.root}>
       <View style={{ width: size, height: size, opacity: outFade, transform: [{ scale: coinScale }] }}>
-        <Svg viewBox="-60 -60 120 120" width={size} height={size}>
+        <Svg
+          viewBox="-120 -120 240 240"
+          width={size * 2}
+          height={size * 2}
+          style={{ position: 'absolute', left: -size / 2, top: -size / 2 }}
+        >
           <Defs>
             <RadialGradient id={`halo-blue-${uid}`}>
               <Stop offset="0%" stopColor="#EAF4FF" stopOpacity={0.95} />
@@ -199,16 +209,18 @@ export default function DuoSplash({
       {showName ? (
         <View style={styles.type}>
           <Text style={[styles.name, {
-            fontFamily, fontSize: nameSize, opacity: nameOpacity,
+            fontFamily, fontWeight: fontFamily ? undefined : '600',
+            fontSize: nameSize, opacity: nameOpacity,
             letterSpacing: nameLs * nameSize,
             marginLeft: nameLs * nameSize,
             transform: [{ translateY: nameY }],
-          }]}>DUO TRACKER</Text>
+          }]} numberOfLines={1}>DUO TRACKER</Text>
           {showTagline ? (
             <Text style={[styles.tag, {
-              fontFamily, fontSize: tagSize, opacity: tagOpacity,
+              fontFamily: tagFamily, fontWeight: tagFamily ? undefined : '300',
+              fontSize: tagSize, opacity: tagOpacity,
               letterSpacing: 0.24 * tagSize, marginLeft: 0.24 * tagSize,
-            }]}>{tagline.toUpperCase()}</Text>
+            }]} numberOfLines={1}>{tagline.toUpperCase()}</Text>
           ) : null}
         </View>
       ) : null}
@@ -224,6 +236,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   type: { marginTop: 56, alignItems: 'center' },
-  name: { color: '#F2F6FC', fontWeight: '500' },
-  tag: { color: 'rgba(215,230,248,0.66)', fontWeight: '300', marginTop: 14 },
+  name: { color: '#F2F6FC' },
+  tag: { color: 'rgba(215,230,248,0.66)', marginTop: 14 },
 });
