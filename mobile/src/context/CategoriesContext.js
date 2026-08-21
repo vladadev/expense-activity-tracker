@@ -2,6 +2,8 @@ import React, { createContext, useContext, useCallback, useEffect, useRef, useSt
 import client from '../api/client';
 
 const CategoriesContext = createContext(null);
+
+let tempSeq = 0;
 const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
 
 export function CategoriesProvider({ children }) {
@@ -51,9 +53,22 @@ export function CategoriesProvider({ children }) {
     setByScope((prev) => ({ ...prev, [scope]: updater(prev[scope]) }));
   }
 
+  // Optimistic like the rest: the folder appears on the tap, and the caller
+  // gets the placeholder id back so it can highlight the new row immediately
+  // rather than waiting for the server to name it.
   async function addCategory(scope, name, parent) {
-    const res = await client.post('/categories', { scope, name, parent: parent || undefined });
-    patchScope(scope, (list) => [...list, res.data.category]);
+    const previous = byScopeRef.current[scope];
+    const tempId = `temp-cat-${++tempSeq}`;
+    const optimistic = { _id: tempId, name, scope, parent: parent || null, order: 9999, pending: true };
+    patchScope(scope, (list) => [...list, optimistic]);
+    try {
+      const res = await client.post('/categories', { scope, name, parent: parent || undefined });
+      patchScope(scope, (list) => list.map((c) => (c._id === tempId ? res.data.category : c)));
+      return res.data.category;
+    } catch (err) {
+      patchScope(scope, () => previous);
+      throw err;
+    }
   }
 
   async function renameCategory(id, scope, name) {

@@ -9,6 +9,8 @@ import Screen from '../components/Screen';
 import DonutChart from '../components/DonutChart';
 import DayBarChart from '../components/DayBarChart';
 import Money from '../components/AmountText';
+import StatsSkeleton from '../components/StatsSkeleton';
+import { useDeferredSkeleton } from '../components/Skeleton';
 import { formatMonthYear } from '../i18n/dateFormat';
 import { getPersonColor } from '../utils/personColor';
 
@@ -92,6 +94,9 @@ export default function StatsScreen({ navigation }) {
   // Income/savings entries when one of those data types is selected.
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  // First load only: a filter change already has a page to change, so redrawing
+  // it as placeholders would be a step backwards.
+  const [everLoaded, setEverLoaded] = useState(false);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
   const [typeFilter, setTypeFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
@@ -135,6 +140,7 @@ export default function StatsScreen({ navigation }) {
       console.log('Failed to load stats:', err.message);
     } finally {
       setLoading(false);
+      setEverLoaded(true);
     }
   }, [dataType, periodMode, monthOffset, yearOffset]);
 
@@ -282,6 +288,16 @@ export default function StatsScreen({ navigation }) {
     setMonthOffset(offset);
     setPeriodMode('month');
     animateContent();
+  }
+
+  const showSkeleton = useDeferredSkeleton(loading && !everLoaded);
+
+  if (!everLoaded) {
+    return (
+      <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle>
+        {showSkeleton ? <StatsSkeleton /> : <View />}
+      </Screen>
+    );
   }
 
   return (

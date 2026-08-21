@@ -13,6 +13,7 @@ import { CategoriesProvider } from '../context/CategoriesContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
 import { WishlistItemsProvider } from '../context/WishlistItemsContext';
 import { SkeletonProvider } from '../components/Skeleton';
+import { ToastProvider } from '../components/Toast';
 import DuoLoader from '../components/duo/DuoLoader';
 import { registerForPushNotifications } from '../utils/notifications';
 
@@ -148,10 +149,12 @@ function AppStack() {
       <WishlistItemsProvider>
         <NotificationsProvider>
           <SkeletonProvider>
+          <ToastProvider>
           <Stack.Navigator screenOptions={NO_HEADER}>
             <Stack.Screen name="Tabs" component={MainTabs} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </Stack.Navigator>
+          </ToastProvider>
           </SkeletonProvider>
         </NotificationsProvider>
       </WishlistItemsProvider>

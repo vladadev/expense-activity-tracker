@@ -20,6 +20,7 @@ import Screen from '../components/Screen';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
 import { getPersonColor } from '../utils/personColor';
+import { useToast } from '../components/Toast';
 
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
@@ -54,6 +55,10 @@ function clamp(value, min, max) {
 
 export default function WishlistScreen({ navigation }) {
   const { t } = useSettings();
+  const toast = useToast();
+  // Id of the row that just appeared, so it can glow briefly — confirmation
+  // that names WHICH thing was created, which a message alone cannot.
+  const [flashId, setFlashId] = useState(null);
   const {
     wishlistCategories,
     todoCategories,
@@ -257,7 +262,8 @@ export default function WishlistScreen({ navigation }) {
   }
 
   async function handleAdd() {
-    if (!newName.trim()) {
+    const name = newName.trim();
+    if (!name) {
       // Inline, next to the field it's about — a popup here would hide the
       // very input the user needs to fix.
       setNameError(t('validation.folderNameRequired'));
@@ -265,15 +271,20 @@ export default function WishlistScreen({ navigation }) {
       return;
     }
     setNameError('');
-    setSubmitting(true);
+    // Cleared before the request, not after: the folder is already on screen
+    // by then, and leaving the text sitting there reads as "nothing happened".
+    setNewName('');
     try {
-      await addCategory(listType, newName.trim());
-      setNewName('');
+      const created = await addCategory(listType, name);
+      setFlashId(created?._id ?? null);
+      setTimeout(() => setFlashId(null), 1400);
+      toast.success(t('toast.folderCreated'));
     } catch (err) {
-      setNameError(err.response?.data?.error || t('manageCategories.duplicateError'));
+      setNewName(name);
+      const message = err.response?.data?.error || t('toast.saveFailed');
+      setNameError(message);
+      toast.error(message);
       nameInputRef.current?.focus();
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -455,11 +466,13 @@ export default function WishlistScreen({ navigation }) {
             const progress = total > 0 ? purchased / total : 0;
             const isActive = activeId === item._id;
             const isNestTarget = nestTargetId === item._id;
+            const isFlashing = flashId === item._id;
             return (
               <Animated.View
                 key={item._id}
                 style={[
                   styles.folderCard,
+                  isFlashing && { borderColor: theme.success, borderWidth: 2 },
                   isNestTarget && {
                     borderColor: theme.primary,
                     borderWidth: 2,

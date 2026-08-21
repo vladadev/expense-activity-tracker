@@ -26,6 +26,9 @@ const CUE_HOLD = CUE_SPIN + T_SPIN;
 const CUE_SPARKLE = CUE_HOLD + T_HOLD;
 const CUE_OUT = CUE_SPARKLE + T_SPARKLE;
 const TOTAL = CUE_OUT + T_OUT;
+// Without the sweep there is nothing to wait for after the name settles, so
+// the piece ends there: ~2.6s instead of 4.3s.
+const TOTAL_NO_SPARKLE = CUE_SPARKLE + T_OUT;
 
 // Gradient ids are global in react-native-svg on Android: two mounted
 // instances sharing 'halo-blue' would resolve each other's definitions.
@@ -112,12 +115,14 @@ export default function DuoSplash({
   onFinish,
   showName = true,
   showTagline = true,
-  sparkle = true,
+  sparkle = false,
   tagline = 'Two people, one plan',
   fontFamily,
 }) {
   const uid = React.useMemo(() => ++instanceSeq, []);
-  const T = useClock(TOTAL, loop, onFinish);
+  const total = sparkle ? TOTAL : TOTAL_NO_SPARKLE;
+  const cueOut = sparkle ? CUE_OUT : CUE_SPARKLE;
+  const T = useClock(total, loop, onFinish);
   const { width } = Dimensions.get('window');
   const size = Math.min(width * 0.52, 260);
 
@@ -132,16 +137,16 @@ export default function DuoSplash({
   const breathAmp = 0.03 * ramp(T, CUE_SPIN, CUE_HOLD + 0.25);
   const breath = 1 + breathAmp * Math.sin(((T - CUE_SPIN) / 1.05) * Math.PI * 2);
 
-  const outP = ramp(T, CUE_OUT, TOTAL);
-  const outFade = 1 - ramp(T, CUE_OUT, TOTAL - 0.05);
+  const outP = ramp(T, cueOut, total);
+  const outFade = 1 - ramp(T, cueOut, total - 0.05);
   const coinScale = arriveScale * breath * (1 + 0.12 * outP);
 
   const nameIn = ramp(T, CUE_SPIN + 0.05, CUE_HOLD + 0.05);
-  const nameOpacity = nameIn * (1 - ramp(T, CUE_OUT, TOTAL - 0.12));
+  const nameOpacity = nameIn * (1 - ramp(T, cueOut, total - 0.12));
   const nameLs = 0.16 + 0.34 * (1 - nameIn) + 0.26 * outP;
   const nameY = 24 * (1 - nameIn);
   const tagIn = ramp(T, CUE_SPIN + 0.35, CUE_HOLD + 0.3);
-  const tagOpacity = tagIn * (1 - ramp(T, CUE_OUT, TOTAL - 0.12));
+  const tagOpacity = tagIn * (1 - ramp(T, cueOut, total - 0.12));
 
   const runEnd = CUE_SPARKLE + 0.62;
   const starP = sparkle ? ramp(T, CUE_SPARKLE, runEnd) : 0;

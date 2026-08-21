@@ -7,6 +7,8 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
+import ListSkeleton from '../components/ListSkeleton';
+import { useDeferredSkeleton } from '../components/Skeleton';
 import { getPersonColor } from '../utils/personColor';
 
 export default function SavingsScreen({ navigation }) {
@@ -17,6 +19,7 @@ export default function SavingsScreen({ navigation }) {
   const [entries, setEntries] = useState([]);
   const [users, setUsers] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +31,7 @@ export default function SavingsScreen({ navigation }) {
       setSummary(summaryRes.data);
       setEntries(entriesRes.data.entries);
       setUsers(usersRes.data.users);
+      setLoaded(true);
     } catch (err) {
       console.log('Failed to load savings:', err.message);
     }
@@ -63,6 +67,16 @@ export default function SavingsScreen({ navigation }) {
   // unambiguous that personal savings are fully visible to each other —
   // an empty card is not the same as a hidden one.
   const togetherCurrencies = Object.keys(summary.together);
+
+  const showSkeleton = useDeferredSkeleton(!loaded);
+
+  if (!loaded) {
+    return (
+      <Screen title={t('nav.savings')} showPrivacyToggle>
+        {showSkeleton ? <ListSkeleton cards={2} rows={3} /> : <View />}
+      </Screen>
+    );
+  }
 
   return (
     <Screen title={t('nav.savings')} showPrivacyToggle>
