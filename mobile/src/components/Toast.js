@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Vibration, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Vibration, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -23,6 +23,7 @@ const DURATION = { success: 2200, error: 4000, undo: 5000 };
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
   const anim = useRef(new Animated.Value(0)).current;
+  const countdown = useRef(new Animated.Value(1)).current;
   const hideTimer = useRef(null);
 
   const dismiss = useCallback(() => {
@@ -39,11 +40,19 @@ export function ToastProvider({ children }) {
       // A short buzz on failure only. Confirming every success by vibration
       // turns into noise; a failure genuinely wants attention.
       if (next.kind === 'error' && Platform.OS === 'android') Vibration.vibrate(18);
+      const life = DURATION[next.kind] || DURATION.success;
       anim.setValue(0);
+      countdown.setValue(1);
       Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 9, tension: 70 }).start();
-      hideTimer.current = setTimeout(dismiss, DURATION[next.kind] || DURATION.success);
+      Animated.timing(countdown, {
+        toValue: 0,
+        duration: life,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start();
+      hideTimer.current = setTimeout(dismiss, life);
     },
-    [anim, dismiss]
+    [anim, countdown, dismiss]
   );
 
   const api = useMemo(
@@ -62,7 +71,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <ToastView toast={toast} anim={anim} onDismiss={dismiss} />
+      <ToastView toast={toast} anim={anim} countdown={countdown} onDismiss={dismiss} />
     </ToastContext.Provider>
   );
 }
@@ -72,7 +81,7 @@ const LABELS = {
   undo: { en: 'Undo', sr: 'Vrati' },
 };
 
-function ToastView({ toast, anim, onDismiss }) {
+function ToastView({ toast, anim, countdown, onDismiss }) {
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   if (!toast) return null;
@@ -116,6 +125,14 @@ function ToastView({ toast, anim, onDismiss }) {
           </TouchableOpacity>
         )}
       </View>
+      <View style={styles.trackWrap} pointerEvents="none">
+        <Animated.View
+          style={[
+            styles.track,
+            { backgroundColor: tone, transform: [{ scaleX: countdown }] },
+          ]}
+        />
+      </View>
     </Animated.View>
   );
 }
@@ -154,6 +171,18 @@ function createStyles(theme) {
       shadowOffset: { width: 0, height: 4 },
     },
     message: { flex: 1, fontSize: 14, color: theme.text },
+    trackWrap: {
+      width: '100%',
+      maxWidth: 520,
+      height: 3,
+      marginTop: -3,
+      borderBottomLeftRadius: 12,
+      borderBottomRightRadius: 12,
+      overflow: 'hidden',
+    },
+    // scaleX scales about the centre by default, which would make the bar
+    // close in on itself instead of draining. RN 0.76+ supports transformOrigin.
+    track: { width: '100%', height: 3, opacity: 0.55, transformOrigin: 'left' },
     action: { fontSize: 14, fontWeight: '700' },
   });
 }

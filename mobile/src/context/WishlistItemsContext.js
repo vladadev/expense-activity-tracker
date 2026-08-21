@@ -87,11 +87,29 @@ export function WishlistItemsProvider({ children }) {
     }
   }, []);
 
+  // Returns the payload needed to put the item back, so the caller can offer
+  // an undo instead of asking "are you sure?" beforehand. Confirming up front
+  // taxes every correct deletion to guard against the rare wrong one; undo
+  // charges only the mistake — and it is honest, because by then you have
+  // seen what disappeared.
   const deleteItem = useCallback(async (id) => {
     const previous = itemsRef.current;
+    const removed = previous.find((i) => i._id === id);
     setItems((prev) => prev.filter((i) => i._id !== id));
     try {
       await client.delete(`/wishlist/items/${id}`);
+      return removed
+        ? {
+            category: removed.category,
+            title: removed.title,
+            price: removed.price,
+            currency: removed.currency,
+            link: removed.link,
+            notes: removed.notes,
+            reminderEnabled: removed.reminderEnabled,
+            reminderAt: removed.reminderAt,
+          }
+        : null;
     } catch (err) {
       revert(previous);
       throw err;

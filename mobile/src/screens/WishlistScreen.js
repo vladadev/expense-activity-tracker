@@ -19,6 +19,7 @@ import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
+import DuoLoader from '../components/duo/DuoLoader';
 import { getPersonColor } from '../utils/personColor';
 import { useToast } from '../components/Toast';
 
@@ -59,6 +60,12 @@ export default function WishlistScreen({ navigation }) {
   // Id of the row that just appeared, so it can glow briefly — confirmation
   // that names WHICH thing was created, which a message alone cannot.
   const [flashId, setFlashId] = useState(null);
+  // 'idle' | 'working' | 'done' — the + button's own state. "working" only
+  // ever appears if the request is genuinely slow: the folder itself is
+  // already on screen by then, so a spinner over an instant result would be
+  // theatre, not information.
+  const [addState, setAddState] = useState('idle');
+  const listRef = useRef(null);
   const {
     wishlistCategories,
     todoCategories,
@@ -274,12 +281,23 @@ export default function WishlistScreen({ navigation }) {
     // Cleared before the request, not after: the folder is already on screen
     // by then, and leaving the text sitting there reads as "nothing happened".
     setNewName('');
+    // Only claim to be working if the wait becomes noticeable.
+    const slowTimer = setTimeout(() => setAddState('working'), 400);
     try {
       const created = await addCategory(listType, name);
+      clearTimeout(slowTimer);
+      setAddState('done');
+      setTimeout(() => setAddState('idle'), 1200);
       setFlashId(created?._id ?? null);
-      setTimeout(() => setFlashId(null), 1400);
+      setTimeout(() => setFlashId(null), 1600);
+      // New folders land at the END of the list, which on a long list is
+      // below the fold — the row appeared instantly and still looked like
+      // nothing had happened. Bring it into view.
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 60);
       toast.success(t('toast.folderCreated'));
     } catch (err) {
+      clearTimeout(slowTimer);
+      setAddState('idle');
       setNewName(name);
       const message = err.response?.data?.error || t('toast.saveFailed');
       setNameError(message);
@@ -412,8 +430,16 @@ export default function WishlistScreen({ navigation }) {
               onSubmitEditing={handleAdd}
               returnKeyType="done"
             />
-            <TouchableOpacity style={styles.addButton} onPress={handleAdd} disabled={submitting}>
-              <Ionicons name="add" size={22} color="#fff" />
+            <TouchableOpacity
+              style={[styles.addButton, addState === 'done' && { backgroundColor: theme.success }]}
+              onPress={handleAdd}
+              disabled={addState === 'working'}
+            >
+              {addState === 'working' ? (
+                <DuoLoader size={22} />
+              ) : (
+                <Ionicons name={addState === 'done' ? 'checkmark' : 'add'} size={22} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
           <FormError message={nameError} />
@@ -421,6 +447,7 @@ export default function WishlistScreen({ navigation }) {
         )}
 
         <ScrollView
+          ref={listRef}
           contentContainerStyle={{ padding: 16, paddingTop: 0 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!activeId}

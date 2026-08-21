@@ -23,6 +23,7 @@ import Screen from '../components/Screen';
 import FormError from '../components/FormError';
 import Money from '../components/AmountText';
 import ListActions from '../components/ListActions';
+import { useToast } from '../components/Toast';
 import { getPersonColor } from '../utils/personColor';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
@@ -60,10 +61,12 @@ export default function WishlistFolderScreen({ route, navigation }) {
     items: allItems,
     refresh: refreshItems,
     deleteItem: cacheDeleteItem,
+    addItem: cacheAddItem,
     updateItem: cacheUpdateItem,
     togglePurchased: cacheToggle,
     reorderItems: cacheReorder,
   } = useWishlistItems();
+  const toast = useToast();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [actionTarget, setActionTarget] = useState(null);
@@ -185,9 +188,19 @@ export default function WishlistFolderScreen({ route, navigation }) {
   }
 
   // ---- other actions -----------------------------------------------------
-  function deleteItem(id) {
+  async function deleteItem(id) {
     animateLayout();
-    cacheDeleteItem(id).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+    try {
+      const restorable = await cacheDeleteItem(id);
+      toast.undo(t('toast.itemDeleted'), () => {
+        if (restorable) {
+          animateLayout();
+          cacheAddItem(restorable).catch(() => toast.error(t('toast.saveFailed')));
+        }
+      });
+    } catch (err) {
+      toast.error(t('toast.deleteFailed'));
+    }
   }
 
   async function handleAddSubfolder() {
@@ -226,11 +239,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   function handleActionDelete(target) {
     if (target.kind === 'item') {
-      const message = t('wishlist.deleteItemConfirm');
-      Alert.alert(t('common.delete'), message, [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.delete'), style: 'destructive', onPress: () => deleteItem(target.id) },
-      ]);
+      deleteItem(target.id);
       return;
     }
     const message =
