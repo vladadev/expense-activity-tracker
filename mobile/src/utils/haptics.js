@@ -33,12 +33,6 @@ export function tapLight() {
   else fallback(8);
 }
 
-export function tapMedium() {
-  const h = load();
-  if (h) h.impactAsync(h.ImpactFeedbackStyle.Medium).catch(() => {});
-  else fallback(14);
-}
-
 export function notifySuccess() {
   const h = load();
   if (h) h.notificationAsync(h.NotificationFeedbackType.Success).catch(() => {});

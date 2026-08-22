@@ -14,7 +14,7 @@
 // "đubre", "djubre" and "dubre" all fold to "dubre" and match each other.
 const EXPLICIT = { đ: 'd', Đ: 'd', ђ: 'd', Ђ: 'd' };
 
-export function fold(value) {
+function fold(value) {
   if (value == null) return '';
   let text = String(value);
   text = text.replace(/[đĐђЂ]/g, (ch) => EXPLICIT[ch] || ch);

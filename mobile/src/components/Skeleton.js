@@ -120,14 +120,3 @@ export function useDeferredSkeleton(loading) {
   return visible;
 }
 
-export function SkeletonCard({ children, style }) {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-  return <View style={[styles.card, style]}>{children}</View>;
-}
-
-function createStyles(theme) {
-  return StyleSheet.create({
-    card: { backgroundColor: theme.surface, borderRadius: 12, padding: 14, marginBottom: 10 },
-  });
-}

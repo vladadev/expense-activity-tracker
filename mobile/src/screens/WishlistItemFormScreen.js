@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import client from '../api/client';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';

@@ -12,8 +12,8 @@ export const NAVY = '#0C447C';
 export const D_BLUE = 'M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 0 0 -36 Z';
 export const D_ROSE = 'M0 -36 A18 18 0 0 1 0 0 A18 18 0 0 0 0 36 A36 36 0 0 1 0 -36 Z';
 
-export const R_OUT = 36;
-export const R_IN = 18;
+const R_OUT = 36;
+const R_IN = 18;
 const SPLIT = R_OUT / (R_OUT + R_IN); // konstantna brzina zvezdice
 const RAD = Math.PI / 180;
 

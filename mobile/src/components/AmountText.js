@@ -31,7 +31,7 @@ const MIN_BLUR_RADIUS = 5;
 
 // Fixed width regardless of the real value: matching the digit count would
 // leak the order of magnitude, which is most of what we are hiding.
-export const MASK = '•••••';
+const MASK = '•••••';
 
 // Replaces each run of digits (with its thousands/decimal separators) while
 // leaving currency symbols, signs and separators intact:
