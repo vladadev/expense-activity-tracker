@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
@@ -54,9 +54,7 @@ export default function ChangePasswordScreen({ navigation }) {
     try {
       await client.post('/auth/change-password', { currentPassword: current, newPassword: next });
       toast.success(t('toast.passwordChanged'));
-      Alert.alert(t('password.doneTitle'), t('password.doneBody'), [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      navigation.goBack();
     } catch (err) {
       const message = err.response?.data?.error || t('password.failed');
       // A wrong current password belongs on that field, not in a generic banner.

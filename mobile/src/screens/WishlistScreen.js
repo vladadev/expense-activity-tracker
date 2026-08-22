@@ -252,7 +252,7 @@ export default function WishlistScreen({ navigation }) {
       reorderCategories(listTypeRef.current, ids).catch(() => {
         pendingResetRef.current = false;
         clearDragTransforms();
-        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+        toast.error(t('toast.saveFailed'));
       });
     });
   };
@@ -426,7 +426,7 @@ export default function WishlistScreen({ navigation }) {
   // The tick lands on the tap; the shared cache owns the round trip and
   // reverts itself if the server refuses.
   function toggleTask(item) {
-    togglePurchased(item).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+    togglePurchased(item).catch(() => toast.error(t('toast.saveFailed')));
   }
 
   const summaryKey = listType === 'wishlist' ? 'wishlist.folderSummary' : 'todo.folderSummary';

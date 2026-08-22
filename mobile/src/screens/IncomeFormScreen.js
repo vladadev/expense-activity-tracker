@@ -1,11 +1,12 @@
 import React, { useMemo, useState  } from 'react';
-import { Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, View, Platform } from 'react-native';
+import { Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, View, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import { formatLongDate } from '../i18n/dateFormat';
@@ -24,14 +25,16 @@ export default function IncomeFormScreen({ route, navigation }) {
   const [description, setDescription] = useState(entry?.description || '');
   const [date, setDate] = useState(entry?.date ? new Date(entry.date) : new Date());
   const [showPicker, setShowPicker] = useState(false);
+  const [amountError, setAmountError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSave() {
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert(t('expenseForm.invalidAmountTitle'), t('expenseForm.invalidAmountMessage'));
+      setAmountError(t('expenseForm.invalidAmountMessage'));
       return;
     }
+    setAmountError('');
 
     setSubmitting(true);
     try {
@@ -47,7 +50,13 @@ export default function IncomeFormScreen({ route, navigation }) {
       }
       navigation.goBack();
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('finance.saveError'));
+      if (err.queued) {
+        // Saved locally and waiting for a connection — not a failure.
+        toast.success(t('toast.offline'));
+        navigation.goBack();
+        return;
+      }
+      toast.error(err.response?.data?.error || t('finance.saveError'), handleSave);
     } finally {
       setSubmitting(false);
     }
@@ -63,8 +72,12 @@ export default function IncomeFormScreen({ route, navigation }) {
           placeholderTextColor={theme.textSecondary}
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={setAmount}
+          onChangeText={(v) => {
+            setAmount(v);
+            if (amountError) setAmountError('');
+          }}
         />
+        <FormError message={amountError} />
 
         <Text style={styles.label}>{t('finance.date')}</Text>
         <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>

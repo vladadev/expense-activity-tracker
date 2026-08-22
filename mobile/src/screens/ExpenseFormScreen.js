@@ -1,11 +1,12 @@
 import React, { useMemo, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import client from '../api/client';
 import { EXPENSE_TYPES, CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 
@@ -24,14 +25,16 @@ export default function ExpenseFormScreen({ route, navigation }) {
   const [type, setType] = useState(expense?.type || 'personal');
   const [currency, setCurrency] = useState(expense?.currency || defaultCurrency);
   const [description, setDescription] = useState(expense?.description || '');
+  const [amountError, setAmountError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSave() {
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert(t('expenseForm.invalidAmountTitle'), t('expenseForm.invalidAmountMessage'));
+      setAmountError(t('expenseForm.invalidAmountMessage'));
       return;
     }
+    setAmountError('');
 
     setSubmitting(true);
     try {
@@ -47,7 +50,13 @@ export default function ExpenseFormScreen({ route, navigation }) {
       }
       navigation.goBack();
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('expenseForm.saveError'));
+      if (err.queued) {
+        // Saved locally and waiting for a connection — not a failure.
+        toast.success(t('toast.offline'));
+        navigation.goBack();
+        return;
+      }
+      toast.error(err.response?.data?.error || t('expenseForm.saveError'), handleSave);
     } finally {
       setSubmitting(false);
     }
@@ -63,8 +72,12 @@ export default function ExpenseFormScreen({ route, navigation }) {
         placeholderTextColor={theme.textSecondary}
         keyboardType="decimal-pad"
         value={amount}
-        onChangeText={setAmount}
+        onChangeText={(v) => {
+          setAmount(v);
+          if (amountError) setAmountError('');
+        }}
       />
+      <FormError message={amountError} />
 
       <Text style={styles.label}>{t('expenseForm.currency')}</Text>
       <View style={styles.chipRow}>

@@ -180,6 +180,74 @@ describe('moving items between folders', () => {
   });
 });
 
+describe('reordering folders', () => {
+  test('a valid reorder is persisted', async () => {
+    const { token } = await createUser('OrderA');
+    const first = await makeFolder(token, 'Prvi');
+    const second = await makeFolder(token, 'Drugi');
+
+    const res = await api(
+      '/api/categories/reorder',
+      { method: 'PUT', body: { ids: [second._id, first._id] } },
+      token
+    );
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+
+    const all = await api('/api/categories?scope=todo', {}, token);
+    const order = all.body.categories
+      .filter((c) => c.parent == null)
+      .sort((a, b) => a.order - b.order)
+      .map((c) => c.name);
+    assert.deepEqual(order, ['Drugi', 'Prvi']);
+  });
+
+  // The one that hung the server. A client reordering while a create is still
+  // in flight sends the placeholder id it is using locally; casting that to an
+  // ObjectId throws, and an unhandled throw in an async Express 4 route means
+  // the request never gets a response at all — which the offline queue reads
+  // as "no connection" and retries forever.
+  test('a placeholder id is refused rather than left to hang', async () => {
+    const { token } = await createUser('OrderB');
+    const real = await makeFolder(token, 'Stvarni');
+
+    const res = await api(
+      '/api/categories/reorder',
+      { method: 'PUT', body: { ids: [real._id, 'temp-cat-1'] } },
+      token
+    );
+    assert.equal(res.status, 400, 'must answer, and must not accept the id');
+    assert.ok(res.body.error, 'the answer must say something the caller can use');
+  });
+
+  test('an empty or missing ids array is refused', async () => {
+    const { token } = await createUser('OrderC');
+    const empty = await api('/api/categories/reorder', { method: 'PUT', body: { ids: [] } }, token);
+    assert.equal(empty.status, 400);
+    const missing = await api('/api/categories/reorder', { method: 'PUT', body: {} }, token);
+    assert.equal(missing.status, 400);
+  });
+
+  test('the same guard covers list items', async () => {
+    const { token } = await createUser('OrderD');
+    const folder = await makeFolder(token, 'Lista');
+    const item = await addItem(token, folder._id, 'Stavka');
+
+    const ok = await api(
+      '/api/wishlist/items/reorder',
+      { method: 'PUT', body: { ids: [item._id] } },
+      token
+    );
+    assert.equal(ok.status, 200);
+
+    const bad = await api(
+      '/api/wishlist/items/reorder',
+      { method: 'PUT', body: { ids: [item._id, 'temp-3'] } },
+      token
+    );
+    assert.equal(bad.status, 400);
+  });
+});
+
 describe('deleting folders', () => {
   test('deleting a folder removes its subfolders and all their items', async () => {
     const { token } = await createUser('DeleteA');

@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated, PanResponder, Alert } from 'react-native';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated, PanResponder } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
@@ -34,6 +34,7 @@ function localDayString(d) {
 export default function AgendaScreen({ navigation }) {
   const { t, language } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState('upcoming'); // 'upcoming' | 'past' | 'all'
@@ -114,7 +115,7 @@ export default function AgendaScreen({ navigation }) {
       pendingResetRef.current = true;
       setEvents((prev) => prev.map((e) => (orderById[e._id] != null ? { ...e, order: orderById[e._id] } : e)));
       client.put('/events/reorder', { ids }).catch(() => {
-        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+        toast.error(t('toast.saveFailed'));
         load();
       });
     });

@@ -4,11 +4,13 @@ import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 
 export default function ManageCategoriesScreen({ route }) {
   const { t } = useSettings();
   const { expenseCategories, eventCategories, addCategory, renameCategory, deleteCategory } = useCategories();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [tab, setTab] = useState(route.params?.initialTab || 'expense');
   const [newName, setNewName] = useState('');
@@ -25,7 +27,7 @@ export default function ManageCategoriesScreen({ route }) {
       await addCategory(tab, newName.trim());
       setNewName('');
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('manageCategories.duplicateError'));
+      toast.error(err.response?.data?.error || t('manageCategories.duplicateError'));
     } finally {
       setSubmitting(false);
     }
@@ -42,7 +44,7 @@ export default function ManageCategoriesScreen({ route }) {
       await renameCategory(category._id, tab, editingName.trim());
       setEditingId(null);
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('manageCategories.duplicateError'));
+      toast.error(err.response?.data?.error || t('manageCategories.duplicateError'));
     }
   }
 

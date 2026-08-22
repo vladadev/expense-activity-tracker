@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState  } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
@@ -61,7 +61,7 @@ export default function HouseholdScreen() {
       toast.success(t('toast.inviteCreated'));
       await load();
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('wishlist.saveFailed'));
+      toast.error(err.response?.data?.error || t('toast.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -92,7 +92,7 @@ export default function HouseholdScreen() {
       setShowJoin(false);
       setJoinCode('');
       await load();
-      Alert.alert(t('household.joined', { name: res.data.household.name }));
+      toast.success(t('household.joined', { name: res.data.household.name }));
     } catch (err) {
       setJoinError(err.response?.data?.error || t('wishlist.saveFailed'));
     } finally {

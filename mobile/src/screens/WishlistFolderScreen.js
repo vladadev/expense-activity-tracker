@@ -172,7 +172,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
       cacheReorder(ids).catch(() => {
         pendingResetRef.current = false;
         clearDragTransforms();
-        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+        toast.error(t('toast.saveFailed'));
       });
     });
   };
@@ -223,7 +223,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   // ---- optimistic toggle -------------------------------------------------
   function togglePurchased(item) {
     animateLayout();
-    cacheToggle(item).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+    cacheToggle(item).catch(() => toast.error(t('toast.saveFailed')));
   }
 
   // ---- other actions -----------------------------------------------------

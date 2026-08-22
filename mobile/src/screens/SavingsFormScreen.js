@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
 import { CURRENCIES } from '../config/categories';
@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import FormError from '../components/FormError';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import { formatLongDate } from '../i18n/dateFormat';
@@ -30,6 +31,7 @@ export default function SavingsFormScreen({ route, navigation }) {
   const [description, setDescription] = useState(entry?.description || '');
   const [date, setDate] = useState(entry?.date ? new Date(entry.date) : new Date());
   const [showPicker, setShowPicker] = useState(false);
+  const [amountError, setAmountError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -39,9 +41,10 @@ export default function SavingsFormScreen({ route, navigation }) {
   async function handleSave() {
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert(t('expenseForm.invalidAmountTitle'), t('expenseForm.invalidAmountMessage'));
+      setAmountError(t('expenseForm.invalidAmountMessage'));
       return;
     }
+    setAmountError('');
 
     setSubmitting(true);
     try {
@@ -65,7 +68,13 @@ export default function SavingsFormScreen({ route, navigation }) {
       }
       navigation.goBack();
     } catch (err) {
-      Alert.alert(t('common.error'), err.response?.data?.error || t('savings.saveError'));
+      if (err.queued) {
+        // Saved locally and waiting for a connection — not a failure.
+        toast.success(t('toast.offline'));
+        navigation.goBack();
+        return;
+      }
+      toast.error(err.response?.data?.error || t('savings.saveError'), handleSave);
     } finally {
       setSubmitting(false);
     }
@@ -146,8 +155,12 @@ export default function SavingsFormScreen({ route, navigation }) {
         placeholderTextColor={theme.textSecondary}
         keyboardType="decimal-pad"
         value={amount}
-        onChangeText={setAmount}
+        onChangeText={(v) => {
+          setAmount(v);
+          if (amountError) setAmountError('');
+        }}
       />
+      <FormError message={amountError} />
 
       <Text style={styles.label}>{t('expenseForm.currency')}</Text>
       <View style={styles.chipRow}>
