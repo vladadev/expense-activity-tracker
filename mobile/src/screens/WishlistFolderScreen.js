@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef, useState  } from 'react';
+import React, { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -86,6 +86,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   const [activeId, setActiveId] = useState(null); // re-render only on grant/release
   const dragY = useRef(new Animated.Value(0)).current;
   const dragScale = useRef(new Animated.Value(1)).current;
+  const pendingResetRef = useRef(false);
   const respondersRef = useRef({});
   const shiftsRef = useRef({});
   const uncheckedIdsRef = useRef([]);
@@ -123,9 +124,24 @@ export default function WishlistFolderScreen({ route, navigation }) {
     .sort((a, b) => new Date(b.purchasedAt || b.updatedAt || 0) - new Date(a.purchasedAt || a.updatedAt || 0));
   uncheckedIdsRef.current = unchecked.map((i) => i._id);
 
+  const orderKey = uncheckedIdsRef.current.join('|');
+  useLayoutEffect(() => {
+    if (!pendingResetRef.current) return;
+    pendingResetRef.current = false;
+    clearDragTransforms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey]);
+
   const total = items.length;
   const doneCount = purchased.length;
   const progress = total > 0 ? doneCount / total : 0;
+
+  function clearDragTransforms() {
+    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+    dragY.setValue(0);
+    dragScale.setValue(1);
+    setActiveId(null);
+  }
 
   function shiftFor(id) {
     if (!shiftsRef.current[id]) shiftsRef.current[id] = new Animated.Value(0);
@@ -142,16 +158,21 @@ export default function WishlistFolderScreen({ route, navigation }) {
     // what the reordered list looks like at rest and nothing appears to move.
     const landing = (meta.hover - meta.startIndex) * STEP;
     Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: false }).start(() => {
-      if (meta.hover !== meta.startIndex) {
-        const ids = [...uncheckedIdsRef.current];
-        const [moved] = ids.splice(meta.startIndex, 1);
-        ids.splice(meta.hover, 0, moved);
-        cacheReorder(ids).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+      if (meta.hover === meta.startIndex) {
+        clearDragTransforms();
+        return;
       }
-      Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
-      dragY.setValue(0);
-      dragScale.setValue(1);
-      setActiveId(null);
+      const ids = [...uncheckedIdsRef.current];
+      const [moved] = ids.splice(meta.startIndex, 1);
+      ids.splice(meta.hover, 0, moved);
+      // See the folder list: clearing before the reorder is committed leaves a
+      // frame of the old order with the row back in its old slot.
+      pendingResetRef.current = true;
+      cacheReorder(ids).catch(() => {
+        pendingResetRef.current = false;
+        clearDragTransforms();
+        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+      });
     });
   };
 

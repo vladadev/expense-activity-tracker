@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef, useState  } from 'react';
+import React, { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -108,6 +108,9 @@ export default function WishlistScreen({ navigation }) {
   // just disable edge scrolling with no error to notice.
   const listBoxViewRef = useRef(null);
   const dragScale = useRef(new Animated.Value(1)).current;
+  // Set when a drop is waiting for the reordered list to be committed, so the
+  // transforms are cleared in that same commit rather than before it.
+  const pendingResetRef = useRef(false);
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
   const folderIdsRef = useRef([]);
@@ -122,6 +125,14 @@ export default function WishlistScreen({ navigation }) {
   folderIdsRef.current = rootFolders.map((c) => c._id);
   categoriesRef.current = categories;
 
+  const orderKey = folderIdsRef.current.join('|');
+  useLayoutEffect(() => {
+    if (!pendingResetRef.current) return;
+    pendingResetRef.current = false;
+    clearDragTransforms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey]);
+
   // The cache is shared with the folder screen, so returning here costs
   // nothing: what is already loaded renders at once and the refresh happens
   // behind it.
@@ -130,6 +141,13 @@ export default function WishlistScreen({ navigation }) {
       refreshItems();
     }, [refreshItems])
   );
+
+  function clearDragTransforms() {
+    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+    dragY.setValue(0);
+    dragScale.setValue(1);
+    setActiveId(null);
+  }
 
   function shiftFor(id) {
     if (!shiftsRef.current[id]) shiftsRef.current[id] = new Animated.Value(0);
@@ -209,17 +227,24 @@ export default function WishlistScreen({ navigation }) {
       Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: false }),
       Animated.timing(dragScale, { toValue: 1, duration: LAND_MS, useNativeDriver: false }),
     ]).start(() => {
-      if (meta.hover !== meta.startIndex) {
-        const ids = [...folderIdsRef.current];
-        const [moved] = ids.splice(meta.startIndex, 1);
-        ids.splice(meta.hover, 0, moved);
-        reorderCategories(listTypeRef.current, ids).catch(() => {
-          Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-        });
+      if (meta.hover === meta.startIndex) {
+        clearDragTransforms();
+        return;
       }
-      Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
-      dragY.setValue(0);
-      setActiveId(null);
+      const ids = [...folderIdsRef.current];
+      const [moved] = ids.splice(meta.startIndex, 1);
+      ids.splice(meta.hover, 0, moved);
+      // Cleared by the layout effect below, once the new order is committed.
+      // Doing it here instead writes straight to the views, which land a frame
+      // before React's re-render — and that frame shows the card back in its
+      // OLD slot in the OLD order, which is the text appearing to swap and
+      // then correct itself.
+      pendingResetRef.current = true;
+      reorderCategories(listTypeRef.current, ids).catch(() => {
+        pendingResetRef.current = false;
+        clearDragTransforms();
+        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+      });
     });
   };
 
