@@ -7,6 +7,7 @@ import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import DonutChart from '../components/DonutChart';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
@@ -29,6 +30,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   const { date } = route.params;
   const { t, formatAmount, language } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [expenses, setExpenses] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -79,6 +81,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/expenses/${id}`);
+          toast.success(t('toast.expenseDeleted'));
           load();
         },
       },

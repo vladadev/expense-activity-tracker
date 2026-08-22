@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
 import { getPersonColor } from '../utils/personColor';
 
@@ -22,6 +23,7 @@ function hexToRgba(hex, alpha) {
 export default function HouseholdScreen() {
   const { t } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const { user, refreshUser } = useAuth();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -55,6 +57,7 @@ export default function HouseholdScreen() {
     setBusy(true);
     try {
       await client.post('/households/invite');
+      toast.success(t('toast.inviteCreated'));
       await load();
     } catch (err) {
       Alert.alert(t('common.error'), err.response?.data?.error || t('wishlist.saveFailed'));
@@ -83,6 +86,7 @@ export default function HouseholdScreen() {
     setJoinError('');
     try {
       const res = await client.post('/households/join', { code: joinCode.trim() });
+      toast.success(t('toast.householdJoined'));
       await refreshUser();
       setShowJoin(false);
       setJoinCode('');
@@ -104,6 +108,7 @@ export default function HouseholdScreen() {
     setLeaveError('');
     try {
       await client.post('/households/leave', { confirmName: leaveText.trim() });
+      toast.success(t('toast.householdLeft'));
       await refreshUser();
       setShowLeave(false);
       setLeaveText('');

@@ -5,6 +5,7 @@ import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
 
 const MIN_LENGTH = 8;
@@ -12,6 +13,7 @@ const MIN_LENGTH = 8;
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [current, setCurrent] = useState('');
@@ -51,6 +53,7 @@ export default function ChangePasswordScreen({ navigation }) {
     setSubmitting(true);
     try {
       await client.post('/auth/change-password', { currentPassword: current, newPassword: next });
+      toast.success(t('toast.passwordChanged'));
       Alert.alert(t('password.doneTitle'), t('password.doneBody'), [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

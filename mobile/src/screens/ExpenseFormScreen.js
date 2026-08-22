@@ -6,10 +6,12 @@ import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 
 export default function ExpenseFormScreen({ route, navigation }) {
   const { date, expense } = route.params;
   const { t, currency: defaultCurrency } = useSettings();
+  const toast = useToast();
   const { expenseCategories } = useCategories();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -34,8 +36,10 @@ export default function ExpenseFormScreen({ route, navigation }) {
       const payload = { amount: parsedAmount, category, type, currency, description, date };
       if (isEditing) {
         await client.put(`/expenses/${expense._id}`, payload);
+        toast.success(t('toast.expenseSaved'));
       } else {
         await client.post('/expenses', payload);
+        toast.success(t('toast.expenseAdded'));
       }
       navigation.goBack();
     } catch (err) {

@@ -26,20 +26,8 @@ import { useToast } from '../components/Toast';
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
-// How long the finger must rest over another folder before the drag switches
-// from reordering to dropping into it, and how far it may drift while resting.
-const DWELL_MS = 320;
-// How close the dragged card's centre must be to a row's centre to count as
-// aiming at it — 40 of a possible 47, so all but the very edge of a row.
-// Rows deliberately do NOT move out of the way during a drag: when they did,
-// the folder under the finger was no longer the folder being computed, and
-// hitting the one you were looking at became guesswork.
-const NEST_BAND = 40;
-// The dragged card shrinks so it stops covering the row underneath it — you
-// need to see the folder you are aiming at — and shrinks further once a drop
-// is armed, as a second signal alongside the highlight.
+// The dragged card shrinks so it stops covering the row underneath it.
 const DRAG_SCALE = 0.9;
-const DROP_SCALE = 0.8;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -93,13 +81,6 @@ export default function WishlistScreen({ navigation }) {
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
   const [activeId, setActiveId] = useState(null);
-  // Which folder the dragged card would drop into. Kept in a ref for the
-  // gesture (which must not depend on render timing) and in state for the
-  // highlight. Responders live in refs and are created once, so the extra
-  // render this causes cannot reset the gesture.
-  const [nestTargetId, setNestTargetId] = useState(null);
-  const nestTargetRef = useRef(null);
-  const dwellRef = useRef({ timer: null, row: -1 });
   // Where the card would land if released now. Drawn as a line between rows
   // instead of opening a gap, so nothing under the finger moves.
   const [insertIndex, setInsertIndex] = useState(null);
@@ -127,31 +108,14 @@ export default function WishlistScreen({ navigation }) {
     }, [refreshItems])
   );
 
-  function clearDwell() {
-    if (dwellRef.current.timer) clearTimeout(dwellRef.current.timer);
-    dwellRef.current.timer = null;
-  }
-
   finishDragRef.current = () => {
     const meta = dragMetaRef.current;
-    const nestInto = nestTargetRef.current;
     dragMetaRef.current = null;
-    nestTargetRef.current = null;
     insertIndexRef.current = null;
-    clearDwell();
     dragY.setValue(0);
     setActiveId(null);
-    setNestTargetId(null);
     setInsertIndex(null);
     if (!meta) return;
-
-    if (nestInto) {
-      moveCategory(meta.id, listTypeRef.current, nestInto).catch((err) => {
-        Alert.alert(t('common.error'), err.response?.data?.error || t('lists.moveFailed'));
-      });
-      return;
-    }
-
     if (meta.hover === meta.startIndex) return;
     const ids = [...folderIdsRef.current];
     const [moved] = ids.splice(meta.startIndex, 1);
@@ -172,18 +136,7 @@ export default function WishlistScreen({ navigation }) {
           const ids = folderIdsRef.current;
           const startIndex = ids.indexOf(id);
           if (startIndex === -1) return;
-          // A folder that already has subfolders cannot become one itself —
-          // that is the two-level rule, and the server enforces it too. Such a
-          // folder simply never enters nesting mode, so the gesture stays a
-          // plain reorder instead of offering a drop that would be rejected.
-          dragMetaRef.current = {
-            id,
-            startIndex,
-            hover: startIndex,
-            canNest: !categoriesRef.current.some((c) => c.parent === id),
-          };
-          clearDwell();
-          dwellRef.current = { timer: null, row: startIndex };
+          dragMetaRef.current = { id, startIndex, hover: startIndex };
           dragY.setValue(0);
           setActiveId(id);
         },
@@ -192,53 +145,14 @@ export default function WishlistScreen({ navigation }) {
           if (!meta) return;
           dragY.setValue(gesture.dy);
           const ids = folderIdsRef.current;
-          // Hit-test from the CENTRE of the dragged card, and floor rather than
-          // round, so every position on the list maps to exactly one row. The
-          // previous version measured the card's top edge against the nearest
-          // slot, which left dead bands between rows where nothing was being
-          // targeted at all.
+          // Hit-test from the centre of the dragged card so every position on
+          // the list maps to exactly one slot.
           const center = meta.startIndex * STEP + FOLDER_HEIGHT / 2 + gesture.dy;
           const row = clamp(Math.floor(center / STEP), 0, ids.length - 1);
-          const distance = Math.abs(center - (row * STEP + FOLDER_HEIGHT / 2));
-          const canTarget = meta.canNest && row !== meta.startIndex && distance <= NEST_BAND;
           meta.hover = row;
-
           if (row !== insertIndexRef.current) {
             insertIndexRef.current = row;
             setInsertIndex(row);
-          }
-
-          // Dwell is measured against the ROW, not against stillness. A finger
-          // resting on glass always jitters a few pixels, and once it truly
-          // stops, no further move events arrive at all — so a timer cancelled
-          // by the last twitch would never be re-armed. Leaving one row for
-          // another is the only thing that cancels a pending drop.
-          if (row !== dwellRef.current.row) {
-            dwellRef.current.row = row;
-            clearDwell();
-            if (nestTargetRef.current) {
-              nestTargetRef.current = null;
-              setNestTargetId(null);
-            }
-          }
-
-          if (!canTarget) {
-            if (nestTargetRef.current) {
-              clearDwell();
-              nestTargetRef.current = null;
-              setNestTargetId(null);
-            }
-            return;
-          }
-
-          if (!nestTargetRef.current && !dwellRef.current.timer) {
-            const targetId = ids[row];
-            dwellRef.current.timer = setTimeout(() => {
-              dwellRef.current.timer = null;
-              if (!dragMetaRef.current) return;
-              nestTargetRef.current = targetId;
-              setNestTargetId(targetId);
-            }, DWELL_MS);
           }
         },
         onPanResponderRelease: () => finishDragRef.current(),
@@ -317,7 +231,9 @@ export default function WishlistScreen({ navigation }) {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
           dropItemsIn(subtreeIds(target.id));
-          deleteCategory(target.id, listType);
+          deleteCategory(target.id, listType)
+            .then(() => toast.success(t('toast.folderDeleted')))
+            .catch(() => toast.error(t('toast.deleteFailed')));
         },
       },
     ]);
@@ -480,7 +396,7 @@ export default function WishlistScreen({ navigation }) {
             )
           ) : (
             <View style={{ position: 'relative' }}>
-          {insertIndex != null && !nestTargetId && insertIndex !== dragMetaRef.current?.startIndex && (
+          {insertIndex != null && insertIndex !== dragMetaRef.current?.startIndex && (
             <View style={[styles.insertLine, { top: insertIndex * STEP - FOLDER_GAP / 2 - 1 }]} />
           )}
           {rootFolders.length === 0 && (
@@ -492,7 +408,6 @@ export default function WishlistScreen({ navigation }) {
             const { total, purchased, subCount } = statsFor(item);
             const progress = total > 0 ? purchased / total : 0;
             const isActive = activeId === item._id;
-            const isNestTarget = nestTargetId === item._id;
             const isFlashing = flashId === item._id;
             return (
               <Animated.View
@@ -500,13 +415,8 @@ export default function WishlistScreen({ navigation }) {
                 style={[
                   styles.folderCard,
                   isFlashing && { borderColor: theme.success, borderWidth: 2 },
-                  isNestTarget && {
-                    borderColor: theme.primary,
-                    borderWidth: 2,
-                    backgroundColor: hexToRgba(theme.primary, 0.12),
-                  },
                   isActive && {
-                    transform: [{ translateY: dragY }, { scale: nestTargetId ? DROP_SCALE : DRAG_SCALE }],
+                    transform: [{ translateY: dragY }, { scale: DRAG_SCALE }],
                     opacity: 0.94,
                   },
                   isActive && {
@@ -530,12 +440,7 @@ export default function WishlistScreen({ navigation }) {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.folderName} numberOfLines={1}>{item.name}</Text>
-                    {isNestTarget ? (
-                      <Text style={styles.nestHint} numberOfLines={1}>
-                        {t('lists.dropInside')}
-                      </Text>
-                    ) : (
-                      <>
+                    <>
                         <Text style={styles.folderSummary} numberOfLines={1}>
                           {t(summaryKey, { total, purchased })}
                           {subCount > 0 ? ` · ${subCount} 📁` : ''}
@@ -543,8 +448,7 @@ export default function WishlistScreen({ navigation }) {
                         <View style={styles.progressTrack}>
                           <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
                         </View>
-                      </>
-                    )}
+                    </>
                   </View>
                 </TouchableOpacity>
                 {/* Long press opens the same sheet, but a gesture nobody can
@@ -572,8 +476,14 @@ export default function WishlistScreen({ navigation }) {
         target={actionTarget}
         folders={categories}
         onClose={() => setActionTarget(null)}
-        onRename={(target, name) => renameCategory(target.id, listType, name)}
-        onMove={(target, parent) => moveCategory(target.id, listType, parent)}
+        onRename={async (target, name) => {
+          await renameCategory(target.id, listType, name);
+          toast.success(t('toast.folderRenamed'));
+        }}
+        onMove={async (target, parent) => {
+          await moveCategory(target.id, listType, parent);
+          toast.success(t('toast.folderMoved'));
+        }}
         onDelete={handleDeleteFolder}
       />
     </Screen>

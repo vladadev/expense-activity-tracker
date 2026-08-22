@@ -8,6 +8,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
 
 export default function EventFormScreen({ route, navigation }) {
@@ -15,6 +16,7 @@ export default function EventFormScreen({ route, navigation }) {
   const { t, language } = useSettings();
   const { eventCategories } = useCategories();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const isEditing = !!eventId;
 
@@ -72,8 +74,10 @@ export default function EventFormScreen({ route, navigation }) {
       };
       if (isEditing) {
         await client.put(`/events/${eventId}`, payload);
+        toast.success(t('toast.eventSaved'));
       } else {
         await client.post('/events', payload);
+        toast.success(t('toast.eventAdded'));
       }
       navigation.goBack();
     } catch (err) {
@@ -91,6 +95,7 @@ export default function EventFormScreen({ route, navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/events/${eventId}`);
+          toast.success(t('toast.eventDeleted'));
           navigation.goBack();
         },
       },

@@ -5,6 +5,7 @@ import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
 import ListSkeleton from '../components/ListSkeleton';
@@ -14,6 +15,7 @@ import { getPersonColor } from '../utils/personColor';
 export default function SavingsScreen({ navigation }) {
   const { t, formatAmount, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [summary, setSummary] = useState({ personal: {}, together: {} });
   const [entries, setEntries] = useState([]);
@@ -57,6 +59,7 @@ export default function SavingsScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/savings/${id}`);
+          toast.success(t('toast.savingsDeleted'));
           load();
         },
       },

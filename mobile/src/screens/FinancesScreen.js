@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import Money from '../components/AmountText';
 import TransactionsSection from '../components/TransactionsSection';
 import FinancesSkeleton from '../components/FinancesSkeleton';
@@ -80,6 +81,7 @@ function buildBuckets(incomeList, savingsList, statsByCurrency) {
 export default function FinancesScreen({ navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
+  const toast = useToast();
   const { user } = useAuth();
   const styles = useMemo(() => createStyles(theme), [theme]);
   // Full history, not just the visible month: the transactions section below
@@ -180,9 +182,10 @@ export default function FinancesScreen({ navigation }) {
   async function handleDelete(type, id) {
     try {
       await client.delete(type === 'income' ? `/income/${id}` : `/expenses/${id}`);
+      toast.success(t(type === 'income' ? 'toast.incomeDeleted' : 'toast.expenseDeleted'));
       load();
     } catch (err) {
-      Alert.alert(t('common.error'), t('finance.saveError'));
+      toast.error(t('toast.deleteFailed'));
     }
   }
 

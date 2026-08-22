@@ -215,6 +215,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
       await addCategory(folder.scope || 'wishlist', name, folder._id);
       setSubfolderName('');
       setShowSubfolderInput(false);
+      toast.success(t('toast.folderCreated'));
     } catch (err) {
       setSubfolderError(err.response?.data?.error || t('manageCategories.duplicateError'));
       subfolderInputRef.current?.focus();
@@ -248,7 +249,14 @@ export default function WishlistFolderScreen({ route, navigation }) {
         : t('lists.deleteFolderMessage');
     Alert.alert(t('wishlist.deleteFolderConfirmTitle'), message, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => deleteCategory(target.id, scope) },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () =>
+          deleteCategory(target.id, scope)
+            .then(() => toast.success(t('toast.folderDeleted')))
+            .catch(() => toast.error(t('toast.deleteFailed'))),
+      },
     ]);
   }
 
@@ -464,10 +472,19 @@ export default function WishlistFolderScreen({ route, navigation }) {
         target={actionTarget}
         folders={siblingSource}
         onClose={() => setActionTarget(null)}
-        onRename={(target, name) => renameCategory(target.id, scope, name)}
-        onMove={(target, destination) =>
-          target.kind === 'item' ? moveItem(target, destination) : moveCategory(target.id, scope, destination)
-        }
+        onRename={async (target, name) => {
+          await renameCategory(target.id, scope, name);
+          toast.success(t('toast.folderRenamed'));
+        }}
+        onMove={async (target, destination) => {
+          if (target.kind === 'item') {
+            await moveItem(target, destination);
+            toast.success(t('toast.itemMoved'));
+          } else {
+            await moveCategory(target.id, scope, destination);
+            toast.success(t('toast.folderMoved'));
+          }
+        }}
         onDelete={handleActionDelete}
         onEdit={
           actionTarget?.kind === 'item'

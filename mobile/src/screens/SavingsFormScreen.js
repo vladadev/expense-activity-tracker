@@ -7,12 +7,14 @@ import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useToast } from '../components/Toast';
 import { formatLongDate } from '../i18n/dateFormat';
 
 export default function SavingsFormScreen({ route, navigation }) {
   const { entry } = route.params || {};
   const isEditing = !!entry;
   const { t, language, currency: defaultCurrency } = useSettings();
+  const toast = useToast();
   const { user } = useAuth();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -52,8 +54,10 @@ export default function SavingsFormScreen({ route, navigation }) {
       };
       if (isEditing) {
         await client.put(`/savings/${entry._id}`, payload);
+        toast.success(t('toast.savingsSaved'));
       } else {
         await client.post('/savings', payload);
+        toast.success(t('toast.savingsAdded'));
       }
       navigation.goBack();
     } catch (err) {
