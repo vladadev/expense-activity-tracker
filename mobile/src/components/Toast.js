@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Vibration, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { notifyError, notifySuccess } from '../utils/haptics';
 
 // Every action the user takes gets an answer.
 //
@@ -37,9 +38,11 @@ export function ToastProvider({ children }) {
     (next) => {
       clearTimeout(hideTimer.current);
       setToast(next);
-      // A short buzz on failure only. Confirming every success by vibration
-      // turns into noise; a failure genuinely wants attention.
-      if (next.kind === 'error' && Platform.OS === 'android') Vibration.vibrate(18);
+      // Failure gets the sharper pattern; success gets the light one. Undo
+      // stays silent — it is an offer, not an outcome, and buzzing at someone
+      // who deliberately deleted something is nagging.
+      if (next.kind === 'error') notifyError();
+      else if (next.kind === 'success') notifySuccess();
       const life = DURATION[next.kind] || DURATION.success;
       anim.setValue(0);
       countdown.setValue(1);

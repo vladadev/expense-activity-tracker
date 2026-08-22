@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
+import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useToast } from '../components/Toast';
 import Money from '../components/AmountText';
 import TransactionsSection from '../components/TransactionsSection';
@@ -172,6 +173,9 @@ export default function FinancesScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  // Queued writes reached the server; take the authoritative version.
+  useOnQueueFlushed(() => load());
 
   // A record saved from a form lands here before this screen's own refetch
   // does, so the list on screen already contains it when the form closes.

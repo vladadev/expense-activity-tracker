@@ -136,6 +136,7 @@ export default function AgendaScreen({ navigation }) {
           dragMetaRef.current = { id, startIndex, hover: startIndex };
           dragY.setValue(0);
           Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: false, friction: 8, tension: 90 }).start();
+          tapLight();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {

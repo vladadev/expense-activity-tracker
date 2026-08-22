@@ -13,6 +13,8 @@ import { CategoriesProvider } from '../context/CategoriesContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
 import { WishlistItemsProvider } from '../context/WishlistItemsContext';
 import { DataEventsProvider } from '../context/DataEventsContext';
+import { OfflineQueueProvider } from '../context/OfflineQueueContext';
+import PendingBanner from '../components/PendingBanner';
 import { SkeletonProvider } from '../components/Skeleton';
 import { ToastProvider } from '../components/Toast';
 import DuoLoader from '../components/duo/DuoLoader';
@@ -146,6 +148,7 @@ function MainTabs() {
 // regardless of which tab/nested-stack the bell was tapped from.
 function AppStack() {
   return (
+    <OfflineQueueProvider>
     <CategoriesProvider>
       <DataEventsProvider>
       <WishlistItemsProvider>
@@ -156,12 +159,14 @@ function AppStack() {
             <Stack.Screen name="Tabs" component={MainTabs} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </Stack.Navigator>
+          <PendingBanner />
           </ToastProvider>
           </SkeletonProvider>
         </NotificationsProvider>
       </WishlistItemsProvider>
       </DataEventsProvider>
     </CategoriesProvider>
+    </OfflineQueueProvider>
   );
 }
 

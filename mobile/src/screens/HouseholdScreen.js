@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
+import ListSkeleton from '../components/ListSkeleton';
 import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
 import { getPersonColor } from '../utils/personColor';
@@ -123,7 +124,7 @@ export default function HouseholdScreen() {
   if (!household) {
     return (
       <Screen title={t('household.title')}>
-        <Text style={styles.loading}>{t('common.loading')}</Text>
+        <ListSkeleton cards={1} rows={3} />
       </Screen>
     );
   }

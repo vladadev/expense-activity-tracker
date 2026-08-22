@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { applyCalendarLocale } from '../i18n/calendarLocale';
 import { formatLongDate } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useOnDataEvent } from '../context/DataEventsContext';
 import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
@@ -72,6 +73,9 @@ export default function CalendarScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  // Queued writes reached the server; take the authoritative version.
+  useOnQueueFlushed(() => load());
 
   // The month grid aggregates per day, so recomputing it from the server is
   // simpler and no slower than merging a single record into every derived

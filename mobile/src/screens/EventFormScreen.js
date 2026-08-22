@@ -8,6 +8,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { SkeletonBlock } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import FormError from '../components/FormError';
@@ -113,7 +114,7 @@ export default function EventFormScreen({ route, navigation }) {
     return (
       <Screen title={screenTitle}>
         <View style={styles.container}>
-          <Text style={{ color: theme.text }}>{t('common.loading')}</Text>
+          <SkeletonBlock width={'70%'} height={22} radius={8} y={40} />
         </View>
       </Screen>
     );

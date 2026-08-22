@@ -17,11 +17,13 @@ import { useCategories } from '../context/CategoriesContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { tapLight } from '../utils/haptics';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
 import DuoLoader from '../components/duo/DuoLoader';
 import { getPersonColor } from '../utils/personColor';
 import { useToast } from '../components/Toast';
+import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 
 const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
@@ -73,6 +75,7 @@ export default function WishlistScreen({ navigation }) {
     moveCategory,
     deleteCategory,
     reorderCategories,
+    refresh: refreshCategories,
   } = useCategories();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -85,7 +88,6 @@ export default function WishlistScreen({ navigation }) {
   const [actionTarget, setActionTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const { items: allItems, loaded: itemsLoaded, refresh: refreshItems, togglePurchased, dropItemsIn } =
     useWishlistItems();
   const nameInputRef = useRef(null);
@@ -141,6 +143,13 @@ export default function WishlistScreen({ navigation }) {
       refreshItems();
     }, [refreshItems])
   );
+
+  // Queued writes have landed, so the temporary rows can be replaced by what
+  // the server actually stored.
+  useOnQueueFlushed(() => {
+    refreshItems();
+    refreshCategories();
+  });
 
   function clearDragTransforms() {
     Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
@@ -271,6 +280,7 @@ export default function WishlistScreen({ navigation }) {
             friction: 8,
             tension: 90,
           }).start();
+          tapLight();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
@@ -340,6 +350,14 @@ export default function WishlistScreen({ navigation }) {
     } catch (err) {
       clearTimeout(slowTimer);
       setAddState('idle');
+      if (err.queued) {
+        // The folder is already on screen and the write is waiting its turn;
+        // there is nothing for the user to fix or retype.
+        setAddState('done');
+        setTimeout(() => setAddState('idle'), 1200);
+        toast.success(t('toast.offline'));
+        return;
+      }
       setNewName(name);
       const message = err.response?.data?.error || t('toast.saveFailed');
       setNameError(message);

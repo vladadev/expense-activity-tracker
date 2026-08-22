@@ -66,7 +66,10 @@ export function CategoriesProvider({ children }) {
       patchScope(scope, (list) => list.map((c) => (c._id === tempId ? res.data.category : c)));
       return res.data.category;
     } catch (err) {
-      patchScope(scope, () => previous);
+      // A write the queue has taken over has NOT failed — it has not been sent yet.
+      // Rolling it back here would undo a change in front of someone whose only
+      // mistake was being out of signal.
+      if (!err.queued) patchScope(scope, () => previous);
       throw err;
     }
   }
@@ -87,7 +90,7 @@ export function CategoriesProvider({ children }) {
       const res = await client.put(`/categories/${id}`, { parent: next });
       patchScope(scope, (list) => list.map((c) => (c._id === id ? res.data.category : c)));
     } catch (err) {
-      patchScope(scope, () => previous);
+      if (!err.queued) patchScope(scope, () => previous);
       throw err;
     }
   }
@@ -111,7 +114,7 @@ export function CategoriesProvider({ children }) {
     try {
       await client.delete(`/categories/${id}`);
     } catch (err) {
-      patchScope(scope, () => previous);
+      if (!err.queued) patchScope(scope, () => previous);
       throw err;
     }
   }
@@ -131,7 +134,7 @@ export function CategoriesProvider({ children }) {
     try {
       await client.put('/categories/reorder', { ids });
     } catch (err) {
-      await refresh(scope);
+      if (!err.queued) await refresh(scope);
       throw err;
     }
   }

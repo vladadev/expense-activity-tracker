@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { SkeletonBlock } from '../components/Skeleton';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
 import { getPersonColor } from '../utils/personColor';
@@ -89,7 +90,9 @@ export default function DayDetailScreen({ route, navigation }) {
 
           <View style={styles.cardBody}>
             {!loaded ? (
-              <Text style={styles.subtext}>{t('dayDetail.loading')}</Text>
+              <View style={{ alignItems: 'center', paddingVertical: 6 }}>
+                <SkeletonBlock width={150} height={26} radius={8} y={120} />
+              </View>
             ) : currencies.length === 0 ? (
               <Text style={styles.subtext}>{t('expenseStats.noneYet')}</Text>
             ) : (

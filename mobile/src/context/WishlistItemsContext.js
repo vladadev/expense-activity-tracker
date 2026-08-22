@@ -69,7 +69,10 @@ export function WishlistItemsProvider({ children }) {
       setItems((prev) => prev.map((i) => (i._id === tempId ? res.data.item : i)));
       return res.data.item;
     } catch (err) {
-      revert(previous);
+      // A write the queue has taken over has NOT failed — it has not been sent yet.
+      // Rolling it back here would undo a change in front of someone whose only
+      // mistake was being out of signal.
+      if (!err.queued) revert(previous);
       throw err;
     }
   }, []);
@@ -82,7 +85,7 @@ export function WishlistItemsProvider({ children }) {
       setItems((prev) => prev.map((i) => (i._id === id ? res.data.item : i)));
       return res.data.item;
     } catch (err) {
-      revert(previous);
+      if (!err.queued) revert(previous);
       throw err;
     }
   }, []);
@@ -111,7 +114,7 @@ export function WishlistItemsProvider({ children }) {
           }
         : null;
     } catch (err) {
-      revert(previous);
+      if (!err.queued) revert(previous);
       throw err;
     }
   }, []);
@@ -132,7 +135,7 @@ export function WishlistItemsProvider({ children }) {
       const res = await client.put(`/wishlist/items/${item._id}`, { purchased: next });
       setItems((prev) => prev.map((i) => (i._id === item._id ? res.data.item : i)));
     } catch (err) {
-      revert(previous);
+      if (!err.queued) revert(previous);
       throw err;
     }
   }, []);
@@ -147,7 +150,7 @@ export function WishlistItemsProvider({ children }) {
     try {
       await client.put('/wishlist/items/reorder', { ids });
     } catch (err) {
-      revert(previous);
+      if (!err.queued) revert(previous);
       throw err;
     }
   }, []);

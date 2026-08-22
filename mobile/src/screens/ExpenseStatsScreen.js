@@ -7,6 +7,8 @@ import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import StatsSkeleton from '../components/StatsSkeleton';
+import { useDeferredSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
@@ -102,12 +104,11 @@ export default function ExpenseStatsScreen({ route, navigation }) {
     ]);
   }
 
+  const showSkeleton = useDeferredSkeleton(expenses === null);
   if (expenses === null) {
     return (
       <Screen title={t('nav.expenses')} showPrivacyToggle>
-        <View style={styles.container}>
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        {showSkeleton ? <StatsSkeleton /> : <View />}
       </Screen>
     );
   }

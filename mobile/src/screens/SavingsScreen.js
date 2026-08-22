@@ -5,6 +5,7 @@ import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import PersonTag from '../components/PersonTag';
@@ -47,6 +48,9 @@ export default function SavingsScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  // Queued writes reached the server; take the authoritative version.
+  useOnQueueFlushed(() => load());
 
   // The entry appears at once; the balances come from the server, so the
   // refetch behind it is what makes those right.

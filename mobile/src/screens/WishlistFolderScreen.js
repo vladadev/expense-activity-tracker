@@ -20,6 +20,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import { tapLight } from '../utils/haptics';
 import FormError from '../components/FormError';
 import Money from '../components/AmountText';
 import ListActions from '../components/ListActions';
@@ -191,6 +192,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
           dragMetaRef.current = { id, startIndex, hover: startIndex };
           dragY.setValue(0);
           Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: false, friction: 8, tension: 90 }).start();
+          tapLight();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
