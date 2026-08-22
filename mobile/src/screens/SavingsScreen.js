@@ -6,16 +6,19 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
 import ListSkeleton from '../components/ListSkeleton';
 import { useDeferredSkeleton } from '../components/Skeleton';
+import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
 import { getPersonColor } from '../utils/personColor';
 
 export default function SavingsScreen({ navigation }) {
   const { t, formatAmount, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [summary, setSummary] = useState({ personal: {}, together: {} });
   const [entries, setEntries] = useState([]);
@@ -45,6 +48,14 @@ export default function SavingsScreen({ navigation }) {
     }, [load])
   );
 
+  // The entry appears at once; the balances come from the server, so the
+  // refetch behind it is what makes those right.
+  useOnDataEvent((event) => {
+    if (event.kind !== 'savings') return;
+    setEntries((prev) => applyDataEvent(prev, event));
+    load();
+  });
+
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -59,6 +70,7 @@ export default function SavingsScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/savings/${id}`);
+          emit('savings', 'delete', { _id: id });
           toast.success(t('toast.savingsDeleted'));
           load();
         },

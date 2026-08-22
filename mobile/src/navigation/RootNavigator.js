@@ -12,6 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CategoriesProvider } from '../context/CategoriesContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
 import { WishlistItemsProvider } from '../context/WishlistItemsContext';
+import { DataEventsProvider } from '../context/DataEventsContext';
 import { SkeletonProvider } from '../components/Skeleton';
 import { ToastProvider } from '../components/Toast';
 import DuoLoader from '../components/duo/DuoLoader';
@@ -146,6 +147,7 @@ function MainTabs() {
 function AppStack() {
   return (
     <CategoriesProvider>
+      <DataEventsProvider>
       <WishlistItemsProvider>
         <NotificationsProvider>
           <SkeletonProvider>
@@ -158,6 +160,7 @@ function AppStack() {
           </SkeletonProvider>
         </NotificationsProvider>
       </WishlistItemsProvider>
+      </DataEventsProvider>
     </CategoriesProvider>
   );
 }

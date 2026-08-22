@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef, useState  } from 'react';
+import React, { useMemo, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated, PanResponder, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { formatLongDate, formatTime } from '../i18n/dateFormat';
 const ROW_HEIGHT = 62;
 const ROW_GAP = 8;
 const STEP = ROW_HEIGHT + ROW_GAP;
+// How long a released row takes to fly to its slot before the list reorders.
+const LAND_MS = 170;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -42,6 +44,11 @@ export default function AgendaScreen({ navigation }) {
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
   const shiftsRef = useRef({});
+  const dragScale = useRef(new Animated.Value(1)).current;
+  // See the Lists screens: clearing the transforms before the reordered list
+  // is committed leaves a frame of the old order with the row back in its old
+  // slot, which reads as two rows swapping their text and correcting.
+  const pendingResetRef = useRef(false);
   const dragGroupRef = useRef([]);
   const dragMetaRef = useRef(null);
   const finishDragRef = useRef(() => {});
@@ -66,24 +73,50 @@ export default function AgendaScreen({ navigation }) {
     return shiftsRef.current[id];
   }
 
+  function clearDragTransforms() {
+    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+    dragY.setValue(0);
+    dragScale.setValue(1);
+    setActiveId(null);
+  }
+
+  const orderKey = events.map((e) => e._id).join('|');
+  useLayoutEffect(() => {
+    if (!pendingResetRef.current) return;
+    pendingResetRef.current = false;
+    clearDragTransforms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderKey]);
+
   finishDragRef.current = () => {
     const meta = dragMetaRef.current;
     dragMetaRef.current = null;
-    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
-    dragY.setValue(0);
-    setActiveId(null);
-    if (!meta || meta.hover === meta.startIndex) return;
-    const ids = [...dragGroupRef.current];
-    const [moved] = ids.splice(meta.startIndex, 1);
-    ids.splice(meta.hover, 0, moved);
-    const orderById = {};
-    ids.forEach((id, i) => {
-      orderById[id] = i;
-    });
-    setEvents((prev) => prev.map((e) => (orderById[e._id] != null ? { ...e, order: orderById[e._id] } : e)));
-    client.put('/events/reorder', { ids }).catch(() => {
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
-      load();
+    if (!meta) return;
+
+    // The row flies to the slot it is dropped into while the gap stays open,
+    // so the screen already matches the reordered list before the data moves.
+    const landing = (meta.hover - meta.startIndex) * STEP;
+    Animated.parallel([
+      Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: false }),
+      Animated.timing(dragScale, { toValue: 1, duration: LAND_MS, useNativeDriver: false }),
+    ]).start(() => {
+      if (meta.hover === meta.startIndex) {
+        clearDragTransforms();
+        return;
+      }
+      const ids = [...dragGroupRef.current];
+      const [moved] = ids.splice(meta.startIndex, 1);
+      ids.splice(meta.hover, 0, moved);
+      const orderById = {};
+      ids.forEach((id, i) => {
+        orderById[id] = i;
+      });
+      pendingResetRef.current = true;
+      setEvents((prev) => prev.map((e) => (orderById[e._id] != null ? { ...e, order: orderById[e._id] } : e)));
+      client.put('/events/reorder', { ids }).catch(() => {
+        Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+        load();
+      });
     });
   };
 
@@ -102,6 +135,7 @@ export default function AgendaScreen({ navigation }) {
           if (startIndex === -1) return;
           dragMetaRef.current = { id, startIndex, hover: startIndex };
           dragY.setValue(0);
+          Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: false, friction: 8, tension: 90 }).start();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
@@ -177,7 +211,7 @@ export default function AgendaScreen({ navigation }) {
     const hasReminder = item.reminderEnabled && item.reminderAt;
 
     let transform;
-    if (isActive) transform = [{ translateY: dragY }, { scale: 1.02 }];
+    if (isActive) transform = [{ translateY: dragY }, { scale: dragScale }];
     else if (isAllDay) transform = [{ translateY: shiftFor(item._id) }];
     else transform = [];
 

@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
 import FormError from '../components/FormError';
 
 export default function EventFormScreen({ route, navigation }) {
@@ -17,6 +18,7 @@ export default function EventFormScreen({ route, navigation }) {
   const { eventCategories } = useCategories();
   const { theme } = useTheme();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const isEditing = !!eventId;
 
@@ -73,10 +75,12 @@ export default function EventFormScreen({ route, navigation }) {
         reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
       };
       if (isEditing) {
-        await client.put(`/events/${eventId}`, payload);
+        const updated = await client.put(`/events/${eventId}`, payload);
+        emit('event', 'update', updated.data.event);
         toast.success(t('toast.eventSaved'));
       } else {
-        await client.post('/events', payload);
+        const created = await client.post('/events', payload);
+        emit('event', 'create', created.data.event);
         toast.success(t('toast.eventAdded'));
       }
       navigation.goBack();
@@ -95,6 +99,7 @@ export default function EventFormScreen({ route, navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/events/${eventId}`);
+          emit('event', 'delete', { _id: eventId });
           toast.success(t('toast.eventDeleted'));
           navigation.goBack();
         },

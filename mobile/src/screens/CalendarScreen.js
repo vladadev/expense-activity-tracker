@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { applyCalendarLocale } from '../i18n/calendarLocale';
 import { formatLongDate } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import { useOnDataEvent } from '../context/DataEventsContext';
 import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
 import { getPersonColor } from '../utils/personColor';
@@ -71,6 +72,13 @@ export default function CalendarScreen({ navigation }) {
       load();
     }, [load])
   );
+
+  // The month grid aggregates per day, so recomputing it from the server is
+  // simpler and no slower than merging a single record into every derived
+  // total — the point here is that it happens without waiting for a revisit.
+  useOnDataEvent((event) => {
+    if (event.kind === 'expense' || event.kind === 'event') load();
+  });
 
   // Two-tone dots: money on the left, plans on the right, so a glance at the
   // month tells you which kind of day it was without opening anything.

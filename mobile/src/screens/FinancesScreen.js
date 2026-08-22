@@ -12,6 +12,7 @@ import Money from '../components/AmountText';
 import TransactionsSection from '../components/TransactionsSection';
 import FinancesSkeleton from '../components/FinancesSkeleton';
 import { useDeferredSkeleton } from '../components/Skeleton';
+import { useOnDataEvent, applyDataEvent, useDataEvents } from '../context/DataEventsContext';
 import { getPersonColor } from '../utils/personColor';
 import { formatMonthYear } from '../i18n/dateFormat';
 
@@ -82,6 +83,7 @@ export default function FinancesScreen({ navigation }) {
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const { user } = useAuth();
   const styles = useMemo(() => createStyles(theme), [theme]);
   // Full history, not just the visible month: the transactions section below
@@ -171,6 +173,15 @@ export default function FinancesScreen({ navigation }) {
     }, [load])
   );
 
+  // A record saved from a form lands here before this screen's own refetch
+  // does, so the list on screen already contains it when the form closes.
+  // The refetch still runs behind it and reconciles the totals.
+  useOnDataEvent((event) => {
+    if (event.kind === 'expense') setAllExpenses((prev) => applyDataEvent(prev, event));
+    if (event.kind === 'income') setAllIncome((prev) => applyDataEvent(prev, event));
+    if (event.kind !== 'event') load();
+  });
+
   async function onRefresh() {
     setRefreshing(true);
     await load();
@@ -182,6 +193,7 @@ export default function FinancesScreen({ navigation }) {
   async function handleDelete(type, id) {
     try {
       await client.delete(type === 'income' ? `/income/${id}` : `/expenses/${id}`);
+      emit(type === 'income' ? 'income' : 'expense', 'delete', { _id: id });
       toast.success(t(type === 'income' ? 'toast.incomeDeleted' : 'toast.expenseDeleted'));
       load();
     } catch (err) {

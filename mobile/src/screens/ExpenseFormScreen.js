@@ -7,11 +7,13 @@ import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
 
 export default function ExpenseFormScreen({ route, navigation }) {
   const { date, expense } = route.params;
   const { t, currency: defaultCurrency } = useSettings();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const { expenseCategories } = useCategories();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -35,10 +37,12 @@ export default function ExpenseFormScreen({ route, navigation }) {
     try {
       const payload = { amount: parsedAmount, category, type, currency, description, date };
       if (isEditing) {
-        await client.put(`/expenses/${expense._id}`, payload);
+        const updated = await client.put(`/expenses/${expense._id}`, payload);
+        emit('expense', 'update', updated.data.expense);
         toast.success(t('toast.expenseSaved'));
       } else {
-        await client.post('/expenses', payload);
+        const created = await client.post('/expenses', payload);
+        emit('expense', 'create', created.data.expense);
         toast.success(t('toast.expenseAdded'));
       }
       navigation.goBack();

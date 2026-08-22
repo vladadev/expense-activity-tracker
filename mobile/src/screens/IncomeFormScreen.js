@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
 import { formatLongDate } from '../i18n/dateFormat';
 
 export default function IncomeFormScreen({ route, navigation }) {
@@ -14,6 +15,7 @@ export default function IncomeFormScreen({ route, navigation }) {
   const isEditing = !!entry;
   const { t, language, currency: defaultCurrency } = useSettings();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -35,10 +37,12 @@ export default function IncomeFormScreen({ route, navigation }) {
     try {
       const payload = { amount: parsedAmount, currency, description, date: date.toISOString() };
       if (isEditing) {
-        await client.put(`/income/${entry._id}`, payload);
+        const updated = await client.put(`/income/${entry._id}`, payload);
+        emit('income', 'update', updated.data.entry);
         toast.success(t('toast.incomeSaved'));
       } else {
-        await client.post('/income', payload);
+        const created = await client.post('/income', payload);
+        emit('income', 'create', created.data.entry);
         toast.success(t('toast.incomeAdded'));
       }
       navigation.goBack();

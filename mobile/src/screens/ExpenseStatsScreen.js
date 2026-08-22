@@ -8,6 +8,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
+import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
 import DonutChart from '../components/DonutChart';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
@@ -31,6 +33,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   const { t, formatAmount, language } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [expenses, setExpenses] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -54,6 +57,16 @@ export default function ExpenseStatsScreen({ route, navigation }) {
       load();
     }, [load])
   );
+
+  // Only records belonging to the day being shown.
+  useOnDataEvent((event) => {
+    if (event.kind !== 'expense') return;
+    setExpenses((prev) =>
+      applyDataEvent(prev || [], event, {
+        belongs: (r) => String(r.date).slice(0, 10) === date,
+      })
+    );
+  });
 
   function animateContent() {
     fade.setValue(0);
@@ -81,6 +94,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
         style: 'destructive',
         onPress: async () => {
           await client.delete(`/expenses/${id}`);
+          emit('expense', 'delete', { _id: id });
           toast.success(t('toast.expenseDeleted'));
           load();
         },

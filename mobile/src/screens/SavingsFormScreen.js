@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import { useToast } from '../components/Toast';
+import { useDataEvents } from '../context/DataEventsContext';
 import { formatLongDate } from '../i18n/dateFormat';
 
 export default function SavingsFormScreen({ route, navigation }) {
@@ -15,6 +16,7 @@ export default function SavingsFormScreen({ route, navigation }) {
   const isEditing = !!entry;
   const { t, language, currency: defaultCurrency } = useSettings();
   const toast = useToast();
+  const { emit } = useDataEvents();
   const { user } = useAuth();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -53,10 +55,12 @@ export default function SavingsFormScreen({ route, navigation }) {
         date: date.toISOString(),
       };
       if (isEditing) {
-        await client.put(`/savings/${entry._id}`, payload);
+        const updated = await client.put(`/savings/${entry._id}`, payload);
+        emit('savings', 'update', updated.data.entry);
         toast.success(t('toast.savingsSaved'));
       } else {
-        await client.post('/savings', payload);
+        const created = await client.post('/savings', payload);
+        emit('savings', 'create', created.data.entry);
         toast.success(t('toast.savingsAdded'));
       }
       navigation.goBack();
