@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState  } from 'react';
 import { View, Text, Modal, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DuoLoader from './duo/DuoLoader';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import useKeyboardHeight from '../utils/useKeyboardHeight';
@@ -27,12 +28,14 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [saveState, setSaveState] = useState('idle'); // 'idle' | 'working' | 'done'
 
   useEffect(() => {
     if (target) {
       setPhase('menu');
       setName(target.name || '');
       setError('');
+      setSaveState('idle');
     }
   }, [target]);
 
@@ -51,13 +54,18 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
       return;
     }
     setBusy(true);
+    const slowTimer = setTimeout(() => setSaveState('working'), 400);
     try {
       await onRename(target, next);
-      onClose();
+      clearTimeout(slowTimer);
+      // Held briefly so the tick is actually seen before the sheet goes.
+      setSaveState('done');
+      setTimeout(onClose, 550);
     } catch (err) {
-      setError(err.response?.data?.error || t('manageCategories.duplicateError'));
-    } finally {
+      clearTimeout(slowTimer);
+      setSaveState('idle');
       setBusy(false);
+      setError(err.response?.data?.error || t('manageCategories.duplicateError'));
     }
   }
 
@@ -179,8 +187,19 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
                 <TouchableOpacity style={styles.secondaryButton} onPress={onClose} activeOpacity={0.8}>
                   <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryButton} onPress={submitRename} disabled={busy} activeOpacity={0.8}>
-                  <Text style={styles.primaryButtonText}>{t('common.save')}</Text>
+                <TouchableOpacity
+                  style={[styles.primaryButton, saveState === 'done' && { backgroundColor: theme.success }]}
+                  onPress={submitRename}
+                  disabled={busy}
+                  activeOpacity={0.8}
+                >
+                  {saveState === 'working' ? (
+                    <DuoLoader size={20} />
+                  ) : saveState === 'done' ? (
+                    <Ionicons name="checkmark" size={20} color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>{t('common.save')}</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -219,7 +238,11 @@ export default function ListActions({ target, folders, onClose, onRename, onMove
                   );
                 })}
               </ScrollView>
-              <TouchableOpacity style={styles.secondaryButton} onPress={onClose} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, styles.secondaryButtonSpaced]}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
                 <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </>
@@ -280,6 +303,8 @@ function createStyles(theme) {
       borderRadius: 10,
       paddingVertical: 13,
       alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 48,
     },
     primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     secondaryButton: {
@@ -289,8 +314,12 @@ function createStyles(theme) {
       borderRadius: 10,
       paddingVertical: 13,
       alignItems: 'center',
-      marginTop: 10,
+      justifyContent: 'center',
+      minHeight: 48,
     },
+    // Only the standalone Cancel under the move list needs the gap; inside the
+    // button row it made the two buttons different heights.
+    secondaryButtonSpaced: { marginTop: 10 },
     secondaryButtonText: { color: theme.text, fontSize: 15 },
     destinationList: { maxHeight: 320, marginTop: 4 },
     destination: {

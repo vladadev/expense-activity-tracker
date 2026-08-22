@@ -9,6 +9,7 @@ import {
   Alert,
   Animated,
   PanResponder,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,14 @@ const FOLDER_HEIGHT = 84;
 const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
 // The dragged card shrinks so it stops covering the row underneath it.
-const DRAG_SCALE = 0.9;
+const DRAG_SCALE = 0.95;
+// Dragging within this far of the top or bottom of the screen scrolls the list
+// under the finger, so a folder can be carried from the bottom of a long list
+// to the top without letting go.
+const EDGE_TOP = 170;
+const EDGE_BOTTOM = 210;
+const EDGE_SPEED = 10; // px per tick
+const EDGE_TICK = 16;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -81,10 +89,14 @@ export default function WishlistScreen({ navigation }) {
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
   const [activeId, setActiveId] = useState(null);
-  // Where the card would land if released now. Drawn as a line between rows
-  // instead of opening a gap, so nothing under the finger moves.
-  const [insertIndex, setInsertIndex] = useState(null);
-  const insertIndexRef = useRef(null);
+  const shiftsRef = useRef({});
+  // Auto-scroll bookkeeping. The list moving under the finger changes where
+  // the card sits in list coordinates, so the scroll delta since the drag
+  // began has to be added back in or the drop lands on the wrong row.
+  const scrollYRef = useRef(0);
+  const grantScrollYRef = useRef(0);
+  const lastDyRef = useRef(0);
+  const autoScrollRef = useRef(null);
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
   const folderIdsRef = useRef([]);
@@ -108,13 +120,64 @@ export default function WishlistScreen({ navigation }) {
     }, [refreshItems])
   );
 
+  function shiftFor(id) {
+    if (!shiftsRef.current[id]) shiftsRef.current[id] = new Animated.Value(0);
+    return shiftsRef.current[id];
+  }
+
+  // Rows step aside to open a gap where the card would land — the list shows
+  // the outcome rather than describing it.
+  function applyShifts(meta, hover) {
+    folderIdsRef.current.forEach((otherId, position) => {
+      if (otherId === meta.id) return;
+      let target = 0;
+      if (position > meta.startIndex && position <= hover) target = -STEP;
+      else if (position < meta.startIndex && position >= hover) target = STEP;
+      Animated.timing(shiftFor(otherId), { toValue: target, duration: 130, useNativeDriver: true }).start();
+    });
+  }
+
+  function stopAutoScroll() {
+    if (autoScrollRef.current) clearInterval(autoScrollRef.current);
+    autoScrollRef.current = null;
+  }
+
+  // Recomputed from the finger AND the scroll position, so carrying a card
+  // while the list slides underneath still targets the row you can see.
+  function updateHover() {
+    const meta = dragMetaRef.current;
+    if (!meta) return;
+    const scrolled = scrollYRef.current - grantScrollYRef.current;
+    const center = meta.startIndex * STEP + FOLDER_HEIGHT / 2 + lastDyRef.current + scrolled;
+    const row = clamp(Math.floor(center / STEP), 0, folderIdsRef.current.length - 1);
+    if (row === meta.hover) return;
+    meta.hover = row;
+    applyShifts(meta, row);
+  }
+
+  function maybeAutoScroll(touchY) {
+    const { height } = Dimensions.get('window');
+    const direction = touchY < EDGE_TOP ? -1 : touchY > height - EDGE_BOTTOM ? 1 : 0;
+    if (direction === 0) {
+      stopAutoScroll();
+      return;
+    }
+    if (autoScrollRef.current) return;
+    autoScrollRef.current = setInterval(() => {
+      const next = Math.max(0, scrollYRef.current + direction * EDGE_SPEED);
+      if (next === scrollYRef.current) return; // already at the top
+      listRef.current?.scrollTo({ y: next, animated: false });
+      updateHover();
+    }, EDGE_TICK);
+  }
+
   finishDragRef.current = () => {
     const meta = dragMetaRef.current;
     dragMetaRef.current = null;
-    insertIndexRef.current = null;
+    stopAutoScroll();
+    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
     dragY.setValue(0);
     setActiveId(null);
-    setInsertIndex(null);
     if (!meta) return;
     if (meta.hover === meta.startIndex) return;
     const ids = [...folderIdsRef.current];
@@ -137,23 +200,20 @@ export default function WishlistScreen({ navigation }) {
           const startIndex = ids.indexOf(id);
           if (startIndex === -1) return;
           dragMetaRef.current = { id, startIndex, hover: startIndex };
+          grantScrollYRef.current = scrollYRef.current;
+          lastDyRef.current = 0;
           dragY.setValue(0);
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
           const meta = dragMetaRef.current;
           if (!meta) return;
-          dragY.setValue(gesture.dy);
-          const ids = folderIdsRef.current;
-          // Hit-test from the centre of the dragged card so every position on
-          // the list maps to exactly one slot.
-          const center = meta.startIndex * STEP + FOLDER_HEIGHT / 2 + gesture.dy;
-          const row = clamp(Math.floor(center / STEP), 0, ids.length - 1);
-          meta.hover = row;
-          if (row !== insertIndexRef.current) {
-            insertIndexRef.current = row;
-            setInsertIndex(row);
-          }
+          lastDyRef.current = gesture.dy;
+          // The card follows the finger AND the scroll, so it stays under the
+          // thumb while the list travels.
+          dragY.setValue(gesture.dy + (scrollYRef.current - grantScrollYRef.current));
+          updateHover();
+          maybeAutoScroll(gesture.moveY);
         },
         onPanResponderRelease: () => finishDragRef.current(),
         onPanResponderTerminate: () => finishDragRef.current(),
@@ -364,6 +424,10 @@ export default function WishlistScreen({ navigation }) {
 
         <ScrollView
           ref={listRef}
+          onScroll={(e) => {
+            scrollYRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           contentContainerStyle={{ padding: 16, paddingTop: 0 }}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!activeId}
@@ -396,9 +460,6 @@ export default function WishlistScreen({ navigation }) {
             )
           ) : (
             <View style={{ position: 'relative' }}>
-          {insertIndex != null && insertIndex !== dragMetaRef.current?.startIndex && (
-            <View style={[styles.insertLine, { top: insertIndex * STEP - FOLDER_GAP / 2 - 1 }]} />
-          )}
           {rootFolders.length === 0 && (
             <Text style={styles.emptyText}>
               {listType === 'wishlist' ? t('wishlist.noneYet') : t('todo.noneYet')}
@@ -415,10 +476,9 @@ export default function WishlistScreen({ navigation }) {
                 style={[
                   styles.folderCard,
                   isFlashing && { borderColor: theme.success, borderWidth: 2 },
-                  isActive && {
-                    transform: [{ translateY: dragY }, { scale: DRAG_SCALE }],
-                    opacity: 0.94,
-                  },
+                  isActive
+                    ? { transform: [{ translateY: dragY }, { scale: DRAG_SCALE }], opacity: 0.96 }
+                    : { transform: [{ translateY: shiftFor(item._id) }] },
                   isActive && {
                     zIndex: 10,
                     elevation: 8,
