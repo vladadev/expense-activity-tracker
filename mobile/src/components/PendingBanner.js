@@ -1,22 +1,40 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useOfflineQueue } from '../context/OfflineQueueContext';
 import useKeyboardHeight from '../utils/useKeyboardHeight';
+import { useToast } from './Toast';
 import DuoLoader from './duo/DuoLoader';
 
 // Visible only while something is waiting to be sent. Standing state rather
 // than a message: the user should be able to look at any moment and know
 // whether their changes are safely away, without having caught a toast.
+// How long the retry spinner stays up regardless of how fast the attempt was.
+const MIN_SPIN_MS = 1100;
+// Distance the banner rises by when a toast is sharing the bottom of the screen.
+const TOAST_CLEARANCE = 62;
+
 export default function PendingBanner() {
   const { t } = useSettings();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const { count, flush, discardAll } = useOfflineQueue();
   const keyboardHeight = useKeyboardHeight();
+  const { visible: toastVisible } = useToast();
   const [trying, setTrying] = useState(false);
+  // Animated rather than jumped: the banner slides down into the space the
+  // toast leaves instead of teleporting.
+  const lift = useRef(new Animated.Value(toastVisible ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(lift, {
+      toValue: toastVisible ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [toastVisible, lift]);
 
   if (count === 0) return null;
 
@@ -25,15 +43,31 @@ export default function PendingBanner() {
   async function retry() {
     if (trying) return;
     setTrying(true);
+    // Held for a moment even when the attempt returns instantly. A spinner
+    // that flashes for 40ms reads as nothing having happened, which is the
+    // opposite of what pressing the button is meant to communicate.
+    const started = Date.now();
     try {
       await flush();
     } finally {
-      setTrying(false);
+      const elapsed = Date.now() - started;
+      setTimeout(() => setTrying(false), Math.max(0, MIN_SPIN_MS - elapsed));
     }
   }
 
   return (
-    <View style={[styles.wrap, { bottom: 140 + keyboardHeight }]} pointerEvents="box-none">
+    <Animated.View
+      style={[
+        styles.wrap,
+        {
+          bottom: 78 + keyboardHeight,
+          transform: [
+            { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -TOAST_CLEARANCE] }) },
+          ],
+        },
+      ]}
+      pointerEvents="box-none"
+    >
       <View style={styles.banner}>
         <Ionicons name="cloud-offline-outline" size={17} color={theme.textSecondary} />
         <Text style={styles.text} numberOfLines={1}>
@@ -52,7 +86,7 @@ export default function PendingBanner() {
           <Ionicons name="close" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

@@ -61,19 +61,21 @@ export function ToastProvider({ children }) {
 
   const api = useMemo(
     () => ({
+      // Read by PendingBanner so the two never overlap or leave a gap.
+      isShowing: () => toast != null,
       success: (message) => show({ kind: 'success', message }),
       error: (message, onRetry) => show({ kind: 'error', message, actionLabel: 'retry', onAction: onRetry }),
       // `onUndo` runs if the user taps; nothing happens otherwise.
       undo: (message, onUndo) => show({ kind: 'undo', message, actionLabel: 'undo', onAction: onUndo }),
       dismiss,
     }),
-    [show, dismiss]
+    [show, dismiss, toast]
   );
 
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
   return (
-    <ToastContext.Provider value={api}>
+    <ToastContext.Provider value={{ ...api, visible: toast != null }}>
       {children}
       <ToastView toast={toast} anim={anim} countdown={countdown} onDismiss={dismiss} />
     </ToastContext.Provider>
