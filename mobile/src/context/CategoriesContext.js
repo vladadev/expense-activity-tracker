@@ -122,6 +122,11 @@ export function CategoriesProvider({ children }) {
   // Optimistic: reorders locally right away, then persists; reverts via
   // refresh if the server rejects it.
   async function reorderCategories(scope, ids) {
+    // Ids the server has not issued yet cannot be sent to it: a placeholder like
+    // "temp-cat-1" is not an ObjectId, and asking Mongo to cast one throws. The
+    // pending ones are simply left out — a record the server does not have yet has
+    // no order to persist, and it gets one the moment it is created.
+    const realIds = ids.filter((id) => !String(id).startsWith('temp-'));
     const orderById = {};
     ids.forEach((id, i) => {
       orderById[id] = i;
@@ -132,7 +137,7 @@ export function CategoriesProvider({ children }) {
       return { ...prev, [scope]: next };
     });
     try {
-      await client.put('/categories/reorder', { ids });
+      if (realIds.length > 0) await client.put('/categories/reorder', { ids: realIds });
     } catch (err) {
       if (!err.queued) await refresh(scope);
       throw err;

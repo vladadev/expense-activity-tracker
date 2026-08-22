@@ -20,9 +20,13 @@ import { setOfflineHandler } from '../api/offlineHooks';
 
 const QUEUE_KEY = 'offline_queue_v1';
 const RETRY_MS = 15000;
-// Long enough that a bad request cannot spin forever, generous enough to
-// survive a commute.
-const MAX_ATTEMPTS = 60;
+// Generous enough to survive a commute, finite so nothing can sit in here
+// forever. At 15s a piece this is roughly five minutes of trying.
+const MAX_ATTEMPTS = 20;
+// A queued write gets its own timeout. Without one, a server that accepts the
+// connection and then never answers looks identical to having no signal, and
+// the entry retries against a request that never resolves.
+const QUEUED_TIMEOUT_MS = 15000;
 
 const OfflineQueueContext = createContext(null);
 
@@ -102,6 +106,7 @@ export function OfflineQueueProvider({ children }) {
             url: entry.url,
             data: entry.data ? JSON.parse(entry.data) : undefined,
             params: entry.params || undefined,
+            timeout: QUEUED_TIMEOUT_MS,
             // Marks it so a second failure cannot re-queue the same write.
             __fromQueue: true,
           });
@@ -122,11 +127,14 @@ export function OfflineQueueProvider({ children }) {
             });
             continue;
           }
-          // Still no connection: stop here and keep the order intact.
+          // Still no answer: count the attempt, stop here so the order is
+          // preserved, and give up on this entry once it has had its chances.
+          // An entry that can never succeed must not be able to block the ones
+          // behind it indefinitely.
           setPending((prev) => {
-            const next = prev.map((e) =>
-              e.id === entry.id ? { ...e, attempts: e.attempts + 1 } : e
-            ).filter((e) => e.attempts < MAX_ATTEMPTS);
+            const next = prev
+              .map((e) => (e.id === entry.id ? { ...e, attempts: e.attempts + 1 } : e))
+              .filter((e) => e.attempts < MAX_ATTEMPTS);
             persist(next);
             return next;
           });
@@ -162,8 +170,16 @@ export function OfflineQueueProvider({ children }) {
     return () => listenersRef.current.delete(fn);
   }, []);
 
+  // Nothing in this app should ever be unclearable. If a queued write cannot
+  // be sent for reasons the user cannot influence, they can drop it rather
+  // than live with a banner that never goes away.
+  const discardAll = useCallback(() => {
+    setPending([]);
+    persist([]);
+  }, [persist]);
+
   return (
-    <OfflineQueueContext.Provider value={{ pending, count: pending.length, flush, onFlushed }}>
+    <OfflineQueueContext.Provider value={{ pending, count: pending.length, flush, discardAll, onFlushed }}>
       {children}
     </OfflineQueueContext.Provider>
   );

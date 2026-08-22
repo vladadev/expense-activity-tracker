@@ -1,3 +1,6 @@
+// Must come before the routes: it patches Express's router so a rejected
+// async handler becomes a normal 500 instead of a request that hangs.
+require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import useKeyboardHeight from '../utils/useKeyboardHeight';
 import { notifyError, notifySuccess } from '../utils/haptics';
 
 // Every action the user takes gets an answer.
@@ -86,6 +87,7 @@ const LABELS = {
 
 function ToastView({ toast, anim, countdown, onDismiss }) {
   const { theme } = useTheme();
+  const keyboardHeight = useKeyboardHeight();
   const styles = useMemo(() => createStyles(theme), [theme]);
   if (!toast) return null;
 
@@ -100,6 +102,7 @@ function ToastView({ toast, anim, countdown, onDismiss }) {
       style={[
         styles.wrap,
         {
+          bottom: 78 + keyboardHeight,
           opacity: anim,
           transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
         },
@@ -151,7 +154,7 @@ function createStyles(theme) {
     wrap: {
       position: 'absolute',
       // Clear of the tab bar, so it never covers the thing you just tapped.
-      bottom: 78,
+      // The concrete offset is applied at render, lifted by the keyboard.
       left: 12,
       right: 12,
       alignItems: 'center',

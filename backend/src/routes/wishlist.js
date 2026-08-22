@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const WishlistItem = require('../models/WishlistItem');
 const Category = require('../models/Category');
 const requireAuth = require('../middleware/auth');
@@ -25,6 +26,12 @@ router.put('/items/reorder', async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array is required' });
+  }
+  // A client that reorders while a create is still in flight can send the
+  // placeholder id it is using locally. Casting that to an ObjectId throws,
+  // so it is refused up front with an answer the caller can act on.
+  if (!ids.every((id) => mongoose.Types.ObjectId.isValid(id))) {
+    return res.status(400).json({ error: 'ids must all be valid ids' });
   }
   await Promise.all(ids.map((id, index) => WishlistItem.updateOne({ _id: id, household: req.householdId }, { order: index })));
   res.json({ ok: true });

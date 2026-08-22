@@ -141,6 +141,9 @@ export function WishlistItemsProvider({ children }) {
   }, []);
 
   const reorderItems = useCallback(async (ids) => {
+    // Same reason as the folder list: a placeholder id is not something the
+    // server can cast, so pending records are left out of the payload.
+    const realIds = ids.filter((id) => !String(id).startsWith('temp-'));
     const previous = itemsRef.current;
     const orderById = {};
     ids.forEach((id, i) => {
@@ -148,7 +151,7 @@ export function WishlistItemsProvider({ children }) {
     });
     setItems((prev) => prev.map((i) => (orderById[i._id] != null ? { ...i, order: orderById[i._id] } : i)));
     try {
-      await client.put('/wishlist/items/reorder', { ids });
+      if (realIds.length > 0) await client.put('/wishlist/items/reorder', { ids: realIds });
     } catch (err) {
       if (!err.queued) revert(previous);
       throw err;
