@@ -9,7 +9,6 @@ import {
   Alert,
   Animated,
   PanResponder,
-  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,13 +28,17 @@ const FOLDER_GAP = 10;
 const STEP = FOLDER_HEIGHT + FOLDER_GAP;
 // The dragged card shrinks so it stops covering the row underneath it.
 const DRAG_SCALE = 0.95;
-// Dragging within this far of the top or bottom of the screen scrolls the list
-// under the finger, so a folder can be carried from the bottom of a long list
-// to the top without letting go.
-const EDGE_TOP = 170;
-const EDGE_BOTTOM = 210;
-const EDGE_SPEED = 10; // px per tick
+// Dragging within this far of the list's OWN top or bottom edge scrolls it
+// under the finger, so a folder can be carried from the end of a long list to
+// the front without letting go. Measured against the list rather than the
+// window: the header, the segment row and the add field sit above it, so a
+// window-relative threshold put the trigger up in the header where the finger
+// never goes.
+const EDGE_ZONE = 72;
+const EDGE_SPEED = 11; // px per tick
 const EDGE_TICK = 16;
+// How long the card takes to fly to its slot when released.
+const LAND_MS = 170;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -97,6 +100,14 @@ export default function WishlistScreen({ navigation }) {
   const grantScrollYRef = useRef(0);
   const lastDyRef = useRef(0);
   const autoScrollRef = useRef(null);
+  // The list's position in window coordinates, so the scroll zones can be
+  // expressed relative to what the user can actually see.
+  const listBoxRef = useRef({ top: 0, height: 0 });
+  // A plain View is measured rather than the ScrollView: measureInWindow is
+  // not part of ScrollView's public ref surface, and a silent miss here would
+  // just disable edge scrolling with no error to notice.
+  const listBoxViewRef = useRef(null);
+  const dragScale = useRef(new Animated.Value(1)).current;
   const dragY = useRef(new Animated.Value(0)).current;
   const respondersRef = useRef({});
   const folderIdsRef = useRef([]);
@@ -156,8 +167,9 @@ export default function WishlistScreen({ navigation }) {
   }
 
   function maybeAutoScroll(touchY) {
-    const { height } = Dimensions.get('window');
-    const direction = touchY < EDGE_TOP ? -1 : touchY > height - EDGE_BOTTOM ? 1 : 0;
+    const { top, height } = listBoxRef.current;
+    if (!height) return;
+    const direction = touchY < top + EDGE_ZONE ? -1 : touchY > top + height - EDGE_ZONE ? 1 : 0;
     if (direction === 0) {
       stopAutoScroll();
       return;
@@ -175,16 +187,34 @@ export default function WishlistScreen({ navigation }) {
     const meta = dragMetaRef.current;
     dragMetaRef.current = null;
     stopAutoScroll();
-    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
-    dragY.setValue(0);
-    setActiveId(null);
     if (!meta) return;
-    if (meta.hover === meta.startIndex) return;
-    const ids = [...folderIdsRef.current];
-    const [moved] = ids.splice(meta.startIndex, 1);
-    ids.splice(meta.hover, 0, moved);
-    reorderCategories(listTypeRef.current, ids).catch(() => {
-      Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+
+    // Everything below exists to make the handover invisible. Snapping the
+    // transforms to zero and reordering in the same breath left one frame
+    // where the card had jumped back to its old slot in the OLD order — which
+    // is what read as the row swapping places with itself and flickering.
+    //
+    // Instead the card flies to the slot it is being dropped into while the
+    // gap stays open. At the end of that flight the picture on screen is
+    // already pixel-for-pixel what the reordered list looks like at rest, so
+    // the data can be swapped and every transform zeroed in the same instant
+    // without anything appearing to move.
+    const landing = (meta.hover - meta.startIndex) * STEP;
+    Animated.parallel([
+      Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: true }),
+      Animated.timing(dragScale, { toValue: 1, duration: LAND_MS, useNativeDriver: true }),
+    ]).start(() => {
+      if (meta.hover !== meta.startIndex) {
+        const ids = [...folderIdsRef.current];
+        const [moved] = ids.splice(meta.startIndex, 1);
+        ids.splice(meta.hover, 0, moved);
+        reorderCategories(listTypeRef.current, ids).catch(() => {
+          Alert.alert(t('common.error'), t('wishlist.saveFailed'));
+        });
+      }
+      Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+      dragY.setValue(0);
+      setActiveId(null);
     });
   };
 
@@ -203,6 +233,14 @@ export default function WishlistScreen({ navigation }) {
           grantScrollYRef.current = scrollYRef.current;
           lastDyRef.current = 0;
           dragY.setValue(0);
+          // Picked up rather than snapped: the shrink is what says "this is in
+          // your hand now", and it has to be reversed on landing anyway.
+          Animated.spring(dragScale, {
+            toValue: DRAG_SCALE,
+            useNativeDriver: true,
+            friction: 8,
+            tension: 90,
+          }).start();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
@@ -422,6 +460,15 @@ export default function WishlistScreen({ navigation }) {
         </View>
         )}
 
+        <View
+          style={{ flex: 1 }}
+          ref={listBoxViewRef}
+          onLayout={() => {
+            listBoxViewRef.current?.measureInWindow((x, y, w, h) => {
+              listBoxRef.current = { top: y, height: h };
+            });
+          }}
+        >
         <ScrollView
           ref={listRef}
           onScroll={(e) => {
@@ -477,7 +524,7 @@ export default function WishlistScreen({ navigation }) {
                   styles.folderCard,
                   isFlashing && { borderColor: theme.success, borderWidth: 2 },
                   isActive
-                    ? { transform: [{ translateY: dragY }, { scale: DRAG_SCALE }], opacity: 0.96 }
+                    ? { transform: [{ translateY: dragY }, { scale: dragScale }] }
                     : { transform: [{ translateY: shiftFor(item._id) }] },
                   isActive && {
                     zIndex: 10,
@@ -530,6 +577,7 @@ export default function WishlistScreen({ navigation }) {
             </View>
           )}
         </ScrollView>
+        </View>
       </View>
 
       <ListActions
