@@ -30,6 +30,10 @@ import { formatShortDateTime } from '../i18n/dateFormat';
 const ROW_HEIGHT = 58;
 const ROW_GAP = 8;
 const STEP = ROW_HEIGHT + ROW_GAP;
+// How long a released row takes to fly to its slot before the list reorders
+// underneath it. See the folder list for why the swap must happen at the END
+// of that flight rather than at the start.
+const LAND_MS = 170;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -81,6 +85,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   // state mid-gesture resets the responder and makes the row glitch/stick.
   const [activeId, setActiveId] = useState(null); // re-render only on grant/release
   const dragY = useRef(new Animated.Value(0)).current;
+  const dragScale = useRef(new Animated.Value(1)).current;
   const respondersRef = useRef({});
   const shiftsRef = useRef({});
   const uncheckedIdsRef = useRef([]);
@@ -130,14 +135,24 @@ export default function WishlistFolderScreen({ route, navigation }) {
   finishDragRef.current = () => {
     const meta = dragMetaRef.current;
     dragMetaRef.current = null;
-    Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
-    dragY.setValue(0);
-    setActiveId(null);
-    if (!meta || meta.hover === meta.startIndex) return;
-    const ids = [...uncheckedIdsRef.current];
-    const [moved] = ids.splice(meta.startIndex, 1);
-    ids.splice(meta.hover, 0, moved);
-    cacheReorder(ids).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+    if (!meta) return;
+
+    // The row flies to the slot it is being dropped into while the gap stays
+    // open, so that by the time the list reorders, the screen already matches
+    // what the reordered list looks like at rest and nothing appears to move.
+    const landing = (meta.hover - meta.startIndex) * STEP;
+    Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: false }).start(() => {
+      if (meta.hover !== meta.startIndex) {
+        const ids = [...uncheckedIdsRef.current];
+        const [moved] = ids.splice(meta.startIndex, 1);
+        ids.splice(meta.hover, 0, moved);
+        cacheReorder(ids).catch(() => Alert.alert(t('common.error'), t('wishlist.saveFailed')));
+      }
+      Object.values(shiftsRef.current).forEach((v) => v.setValue(0));
+      dragY.setValue(0);
+      dragScale.setValue(1);
+      setActiveId(null);
+    });
   };
 
   function responderFor(id) {
@@ -154,6 +169,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
           if (startIndex === -1) return;
           dragMetaRef.current = { id, startIndex, hover: startIndex };
           dragY.setValue(0);
+          Animated.spring(dragScale, { toValue: 1.03, useNativeDriver: false, friction: 8, tension: 90 }).start();
           setActiveId(id);
         },
         onPanResponderMove: (_, gesture) => {
@@ -278,7 +294,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
     const hasSubtitle = item.price != null || !!item.notes || !!reminderText(item);
 
     let transform;
-    if (isActive) transform = [{ translateY: dragY }, { scale: 1.03 }];
+    if (isActive) transform = [{ translateY: dragY }, { scale: dragScale }];
     else if (!isPurchasedRow) transform = [{ translateY: shiftFor(item._id) }];
     else transform = [];
 

@@ -138,13 +138,18 @@ export default function WishlistScreen({ navigation }) {
 
   // Rows step aside to open a gap where the card would land — the list shows
   // the outcome rather than describing it.
+  //
+  // Deliberately JS-driven. The native driver applies values on the native
+  // module's own schedule, which does not line up with the React render that
+  // reorders the list; the mismatch shows as rows overlapping and their text
+  // smearing for a frame at the moment of the swap.
   function applyShifts(meta, hover) {
     folderIdsRef.current.forEach((otherId, position) => {
       if (otherId === meta.id) return;
       let target = 0;
       if (position > meta.startIndex && position <= hover) target = -STEP;
       else if (position < meta.startIndex && position >= hover) target = STEP;
-      Animated.timing(shiftFor(otherId), { toValue: target, duration: 130, useNativeDriver: true }).start();
+      Animated.timing(shiftFor(otherId), { toValue: target, duration: 130, useNativeDriver: false }).start();
     });
   }
 
@@ -201,8 +206,8 @@ export default function WishlistScreen({ navigation }) {
     // without anything appearing to move.
     const landing = (meta.hover - meta.startIndex) * STEP;
     Animated.parallel([
-      Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: true }),
-      Animated.timing(dragScale, { toValue: 1, duration: LAND_MS, useNativeDriver: true }),
+      Animated.timing(dragY, { toValue: landing, duration: LAND_MS, useNativeDriver: false }),
+      Animated.timing(dragScale, { toValue: 1, duration: LAND_MS, useNativeDriver: false }),
     ]).start(() => {
       if (meta.hover !== meta.startIndex) {
         const ids = [...folderIdsRef.current];
@@ -237,7 +242,7 @@ export default function WishlistScreen({ navigation }) {
           // your hand now", and it has to be reversed on landing anyway.
           Animated.spring(dragScale, {
             toValue: DRAG_SCALE,
-            useNativeDriver: true,
+            useNativeDriver: false,
             friction: 8,
             tension: 90,
           }).start();
