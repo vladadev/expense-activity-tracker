@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } 
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import LoadFailed from '../components/LoadFailed';
 import { SkeletonBlock } from '../components/Skeleton';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
@@ -30,18 +32,21 @@ export default function DayDetailScreen({ route, navigation }) {
   const [events, setEvents] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const [statsRes, eventsRes] = await Promise.all([
-        client.get(`/stats/${date}`),
-        client.get('/events', { params: { date } }),
+        cachedGet(`/stats/${date}`),
+        cachedGet('/events', { params: { date } }),
       ]);
       setByCurrency(statsRes.data.byCurrency);
       setEvents(eventsRes.data.events);
       setLoaded(true);
+      setLoadFailed(false);
     } catch (err) {
       console.log('Failed to load day detail:', err.message);
+      setLoadFailed(true);
     }
   }, [date]);
 
@@ -89,7 +94,9 @@ export default function DayDetailScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <View style={styles.cardBody}>
-            {!loaded ? (
+            {!loaded && loadFailed ? (
+              <LoadFailed onRetry={load} />
+            ) : !loaded ? (
               <View style={{ alignItems: 'center', paddingVertical: 6 }}>
                 <SkeletonBlock width={150} height={26} radius={8} y={120} />
               </View>

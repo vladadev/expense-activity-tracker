@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Share 
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,7 +42,7 @@ export default function HouseholdScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get('/households/mine');
+      const res = await cachedGet('/households/mine');
       setHousehold(res.data.household);
     } catch (err) {
       console.log('Failed to load household:', err.message);

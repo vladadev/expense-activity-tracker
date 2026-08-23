@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated, PanRes
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { getPersonColor } from '../utils/personColor';
@@ -56,7 +57,7 @@ export default function AgendaScreen({ navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get('/events');
+      const res = await cachedGet('/events');
       setEvents(res.data.events);
     } catch (err) {
       console.log('Failed to load agenda:', err.message);

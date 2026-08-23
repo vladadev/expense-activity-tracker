@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState  } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
@@ -35,7 +36,7 @@ export default function SavingsFormScreen({ route, navigation }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    client.get('/auth/users').then((res) => setUsers(res.data.users));
+    cachedGet('/auth/users').then((res) => setUsers(res.data.users));
   }, []);
 
   async function handleSave() {

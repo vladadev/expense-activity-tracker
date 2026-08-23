@@ -97,6 +97,7 @@ export default function FinancesScreen({ navigation }) {
   const [allData, setAllData] = useState({ byCurrency: {}, byOwner: {} });
   const [partner, setPartner] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   // Set when the screen is showing its last good copy instead of live data.
   const [staleAt, setStaleAt] = useState(null);
   const partnerLoaded = useRef(false);
@@ -147,7 +148,7 @@ export default function FinancesScreen({ navigation }) {
         cachedGet('/expenses', { params: { from: '2000-01-01', to: today } }),
         // The household's members do not change while the app is open, so this
         // is fetched once rather than on every visit to the tab.
-        partnerLoaded.current ? Promise.resolve(null) : client.get('/auth/users'),
+        partnerLoaded.current ? Promise.resolve(null) : cachedGet('/auth/users'),
       ]);
 
       if (usersRes) {
@@ -168,8 +169,13 @@ export default function FinancesScreen({ navigation }) {
       setMonthData(buildBuckets(monthIncome, monthSavings, statsMonthRes.data.byCurrency));
       setAllData(buildBuckets(incomeRes.data.entries, savingsRes.data.entries, statsAllRes.data.byCurrency));
       setLoaded(true);
+      setLoadFailed(false);
     } catch (err) {
+      // Reaching here means nothing at all could be read — not even from the
+      // cache. The screen says so rather than pretending the household has no
+      // money in it.
       console.log('Failed to load finances overview:', err.message);
+      setLoadFailed(true);
     }
   }, [user.id, monthOffset]);
 
@@ -245,7 +251,7 @@ export default function FinancesScreen({ navigation }) {
   if (!loaded) {
     return (
       <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
-        {showSkeleton ? <FinancesSkeleton /> : <View />}
+        {loadFailed ? <LoadFailed onRetry={load} /> : showSkeleton ? <FinancesSkeleton /> : <View />}
       </Screen>
     );
   }

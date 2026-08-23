@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
@@ -43,7 +44,7 @@ export default function EventFormScreen({ route, navigation }) {
 
   useEffect(() => {
     if (!isEditing) return;
-    client.get(`/events/${eventId}`).then((res) => {
+    cachedGet(`/events/${eventId}`).then((res) => {
       const e = res.data.event;
       setTitle(e.title);
       setType(e.type);

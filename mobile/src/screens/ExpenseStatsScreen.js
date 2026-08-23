@@ -4,10 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import StatsSkeleton from '../components/StatsSkeleton';
+import LoadFailed from '../components/LoadFailed';
 import { useDeferredSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
@@ -38,6 +40,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   const { emit } = useDataEvents();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const [expenses, setExpenses] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
   // personFilter can arrive preselected from the Stats screen's person chips.
@@ -47,10 +50,12 @@ export default function ExpenseStatsScreen({ route, navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get(`/stats/${date}`);
+      const res = await cachedGet(`/stats/${date}`);
       setExpenses(res.data.expenses);
+      setLoadFailed(false);
     } catch (err) {
       console.log('Failed to load expense stats:', err.message);
+      setLoadFailed(true);
     }
   }, [date]);
 
@@ -108,7 +113,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
   if (expenses === null) {
     return (
       <Screen title={t('nav.expenses')} showPrivacyToggle>
-        {showSkeleton ? <StatsSkeleton /> : <View />}
+        {loadFailed ? <LoadFailed onRetry={load} /> : showSkeleton ? <StatsSkeleton /> : <View />}
       </Screen>
     );
   }

@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
@@ -30,7 +31,7 @@ export default function ActivityLogScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await client.get('/audit-log', { params: { limit: 200 } });
+      const res = await cachedGet('/audit-log', { params: { limit: 200 } });
       setLogs(res.data.logs);
     } catch (err) {
       console.log('Failed to load activity log:', err.message);

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 
 const NotificationsContext = createContext(null);
 const POLL_INTERVAL_MS = 30000;
@@ -12,7 +13,7 @@ export function NotificationsProvider({ children }) {
 
   const refreshUnreadCount = useCallback(async () => {
     try {
-      const res = await client.get('/notifications/unread-count');
+      const res = await cachedGet('/notifications/unread-count');
       setUnreadCount(res.data.count);
     } catch (err) {
       console.log('Failed to refresh unread notification count:', err.message);
@@ -21,7 +22,7 @@ export function NotificationsProvider({ children }) {
 
   const loadNotifications = useCallback(async () => {
     try {
-      const res = await client.get('/notifications', { params: { limit: 100 } });
+      const res = await cachedGet('/notifications', { params: { limit: 100 } });
       setNotifications(res.data.notifications);
     } catch (err) {
       console.log('Failed to load notifications:', err.message);

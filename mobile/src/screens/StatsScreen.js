@@ -8,6 +8,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import StaleNotice from '../components/StaleNotice';
+import LoadFailed from '../components/LoadFailed';
 import DonutChart from '../components/DonutChart';
 import DayBarChart from '../components/DayBarChart';
 import Money from '../components/AmountText';
@@ -99,6 +100,8 @@ export default function StatsScreen({ navigation }) {
   // First load only: a filter change already has a page to change, so redrawing
   // it as placeholders would be a step backwards.
   const [everLoaded, setEverLoaded] = useState(false);
+  // Distinguishes "this really is empty" from "I could not find out".
+  const [loadFailed, setLoadFailed] = useState(false);
   // Set when the screen is showing its last good copy instead of live data.
   const [staleAt, setStaleAt] = useState(null);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
@@ -141,8 +144,10 @@ export default function StatsScreen({ navigation }) {
         const res = await cachedGet('/savings', { params: { from, to } });
         setEntries(res.data.entries);
       }
+      setLoadFailed(false);
     } catch (err) {
       console.log('Failed to load stats:', err.message);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
       setEverLoaded(true);
@@ -713,7 +718,7 @@ export default function StatsScreen({ navigation }) {
           );
         })}
 
-        {!loading && !hasData && <Text style={styles.emptyText}>{t('stats.noneYet')}</Text>}
+        {!loading && !hasData && (loadFailed ? <LoadFailed onRetry={load} /> : <Text style={styles.emptyText}>{t('stats.noneYet')}</Text>)}
       </ScrollView>
     </Screen>
   );
