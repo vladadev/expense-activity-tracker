@@ -4,11 +4,13 @@ import { Calendar } from 'react-native-calendars';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { applyCalendarLocale } from '../i18n/calendarLocale';
 import { formatLongDate } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useOnDataEvent } from '../context/DataEventsContext';
 import { BlurredText } from '../components/AmountText';
@@ -46,6 +48,8 @@ export default function CalendarScreen({ navigation }) {
   const [view, setView] = useState('calendar');
   const today = todayString();
   const [selected, setSelected] = useState(today);
+  // Set when the screen is showing its last good copy instead of live data.
+  const [staleAt, setStaleAt] = useState(null);
 
   applyCalendarLocale(language);
 
@@ -58,10 +62,11 @@ export default function CalendarScreen({ navigation }) {
 
     try {
       const [expensesRes, eventsRes] = await Promise.all([
-        client.get('/expenses', { params: { from, to } }),
-        client.get('/events', { params: { from, to } }),
+        cachedGet('/expenses', { params: { from, to } }),
+        cachedGet('/events', { params: { from, to } }),
       ]);
       setExpenses(expensesRes.data.expenses);
+      setStaleAt(expensesRes.stale || eventsRes.stale ? expensesRes.at || eventsRes.at : null);
       setEvents(eventsRes.data.events);
     } catch (err) {
       console.log('Failed to load calendar data:', err.message);
@@ -153,6 +158,7 @@ export default function CalendarScreen({ navigation }) {
         </View>
       </View>
 
+      <StaleNotice at={staleAt} />
       {view === 'list' ? (
         <AgendaScreen navigation={navigation} />
       ) : (

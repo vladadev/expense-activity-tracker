@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client, { TOKEN_KEY } from '../api/client';
 import { identifyUser, clearUser } from '../utils/errorReporting';
+import { clearOfflineCache } from '../api/cachedGet';
 
 const AuthContext = createContext(null);
 
@@ -88,6 +89,7 @@ export function AuthProvider({ children }) {
     // Logging out deliberately clears the cached account too, or the next
     // launch would restore it from storage.
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+    await clearOfflineCache();
     setUser(null);
   }
 

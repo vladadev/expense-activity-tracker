@@ -2,9 +2,11 @@ import React, { useMemo, useCallback, useState  } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
@@ -26,15 +28,18 @@ export default function SavingsScreen({ navigation }) {
   const [users, setUsers] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Set when the screen is showing its last good copy instead of live data.
+  const [staleAt, setStaleAt] = useState(null);
 
   const load = useCallback(async () => {
     try {
       const [summaryRes, entriesRes, usersRes] = await Promise.all([
-        client.get('/savings/summary'),
-        client.get('/savings'),
-        client.get('/auth/users'),
+        cachedGet('/savings/summary'),
+        cachedGet('/savings'),
+        cachedGet('/auth/users'),
       ]);
       setSummary(summaryRes.data);
+      setStaleAt(summaryRes.stale ? summaryRes.at : null);
       setEntries(entriesRes.data.entries);
       setUsers(usersRes.data.users);
       setLoaded(true);
@@ -99,6 +104,7 @@ export default function SavingsScreen({ navigation }) {
 
   return (
     <Screen title={t('nav.savings')} showPrivacyToggle>
+      <StaleNotice at={staleAt} />
       <ScrollView
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

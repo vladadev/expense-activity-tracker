@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshCon
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useToast } from '../components/Toast';
 import Money from '../components/AmountText';
@@ -95,6 +97,8 @@ export default function FinancesScreen({ navigation }) {
   const [allData, setAllData] = useState({ byCurrency: {}, byOwner: {} });
   const [partner, setPartner] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  // Set when the screen is showing its last good copy instead of live data.
+  const [staleAt, setStaleAt] = useState(null);
   const partnerLoaded = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('RSD');
@@ -136,11 +140,11 @@ export default function FinancesScreen({ navigation }) {
       // All-time income/savings lists (filtered to the month client-side),
       // plus expense rollups for the month and for all time.
       const [incomeRes, savingsRes, statsMonthRes, statsAllRes, expensesRes, usersRes] = await Promise.all([
-        client.get('/income'),
-        client.get('/savings'),
-        client.get(`/stats/range/${from}/${to}`),
-        client.get(`/stats/range/2000-01-01/${today}`),
-        client.get('/expenses', { params: { from: '2000-01-01', to: today } }),
+        cachedGet('/income'),
+        cachedGet('/savings'),
+        cachedGet(`/stats/range/${from}/${to}`),
+        cachedGet(`/stats/range/2000-01-01/${today}`),
+        cachedGet('/expenses', { params: { from: '2000-01-01', to: today } }),
         // The household's members do not change while the app is open, so this
         // is fetched once rather than on every visit to the tab.
         partnerLoaded.current ? Promise.resolve(null) : client.get('/auth/users'),
@@ -159,6 +163,7 @@ export default function FinancesScreen({ navigation }) {
       const monthSavings = savingsRes.data.entries.filter(inMonth);
 
       setAllIncome(incomeRes.data.entries);
+      setStaleAt(incomeRes.stale ? incomeRes.at : null);
       setAllExpenses(expensesRes.data.expenses);
       setMonthData(buildBuckets(monthIncome, monthSavings, statsMonthRes.data.byCurrency));
       setAllData(buildBuckets(incomeRes.data.entries, savingsRes.data.entries, statsAllRes.data.byCurrency));
@@ -247,6 +252,7 @@ export default function FinancesScreen({ navigation }) {
 
   return (
     <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
+      <StaleNotice at={staleAt} />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ padding: 16 }}

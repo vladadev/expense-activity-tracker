@@ -3,9 +3,11 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Anima
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import DonutChart from '../components/DonutChart';
 import DayBarChart from '../components/DayBarChart';
 import Money from '../components/AmountText';
@@ -97,6 +99,8 @@ export default function StatsScreen({ navigation }) {
   // First load only: a filter change already has a page to change, so redrawing
   // it as placeholders would be a step backwards.
   const [everLoaded, setEverLoaded] = useState(false);
+  // Set when the screen is showing its last good copy instead of live data.
+  const [staleAt, setStaleAt] = useState(null);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
   const [typeFilter, setTypeFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
@@ -125,15 +129,16 @@ export default function StatsScreen({ navigation }) {
     const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
     try {
       if (dataType === 'expenses') {
-        const res = await client.get(`/stats/range/${from}/${to}`);
+        const res = await cachedGet(`/stats/range/${from}/${to}`);
         setByDay(res.data.byDay);
+        setStaleAt(res.stale ? res.at : null);
         setByCurrency(res.data.byCurrency);
         setExpenses(res.data.expenses || null);
       } else if (dataType === 'income') {
-        const res = await client.get('/income', { params: { from, to } });
+        const res = await cachedGet('/income', { params: { from, to } });
         setEntries(res.data.entries);
       } else {
-        const res = await client.get('/savings', { params: { from, to } });
+        const res = await cachedGet('/savings', { params: { from, to } });
         setEntries(res.data.entries);
       }
     } catch (err) {
@@ -302,6 +307,7 @@ export default function StatsScreen({ navigation }) {
 
   return (
     <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle>
+      <StaleNotice at={staleAt} />
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <View style={styles.segmentRow}>
           {[

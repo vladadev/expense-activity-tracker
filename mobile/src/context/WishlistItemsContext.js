@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 
 // One cache for every wishlist and to-do item in the household.
 //
@@ -23,6 +24,8 @@ export function WishlistItemsProvider({ children }) {
   // only the first deserves a skeleton.
   const [loaded, setLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // When the list on screen came from the cache rather than the server.
+  const [staleAt, setStaleAt] = useState(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -31,8 +34,9 @@ export function WishlistItemsProvider({ children }) {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await client.get('/wishlist/items');
+      const res = await cachedGet('/wishlist/items');
       setItems(res.data.items);
+      setStaleAt(res.stale ? res.at : null);
       setLoaded(true);
     } catch (err) {
       console.log('Failed to load wishlist items:', err.message);
@@ -171,6 +175,7 @@ export function WishlistItemsProvider({ children }) {
         items,
         loaded,
         refreshing,
+        staleAt,
         refresh,
         addItem,
         updateItem,

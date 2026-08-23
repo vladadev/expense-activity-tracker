@@ -20,6 +20,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import { tapLight } from '../utils/haptics';
 import FormError from '../components/FormError';
 import Money from '../components/AmountText';
@@ -70,6 +71,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
     updateItem: cacheUpdateItem,
     togglePurchased: cacheToggle,
     reorderItems: cacheReorder,
+    staleAt,
   } = useWishlistItems();
   const toast = useToast();
   const { theme } = useTheme();
@@ -406,6 +408,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
   return (
     <Screen title={parentFolder ? `${parentFolder.name} › ${folder.name}` : folder.name} showPrivacyToggle>
       <View style={styles.container}>
+        <StaleNotice at={staleAt} />
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 8 }} scrollEnabled={!activeId}>
           {total > 0 && (
             <View style={styles.progressCard}>

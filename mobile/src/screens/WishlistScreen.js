@@ -17,6 +17,7 @@ import { useCategories } from '../context/CategoriesContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
+import StaleNotice from '../components/StaleNotice';
 import { tapLight } from '../utils/haptics';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
@@ -88,8 +89,14 @@ export default function WishlistScreen({ navigation }) {
   const [actionTarget, setActionTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
-  const { items: allItems, loaded: itemsLoaded, refresh: refreshItems, togglePurchased, dropItemsIn } =
-    useWishlistItems();
+  const {
+    items: allItems,
+    loaded: itemsLoaded,
+    refresh: refreshItems,
+    togglePurchased,
+    dropItemsIn,
+    staleAt,
+  } = useWishlistItems();
   const nameInputRef = useRef(null);
 
   // ---- drag machinery (refs + Animated only; no re-render mid-gesture) ----
@@ -435,6 +442,7 @@ export default function WishlistScreen({ navigation }) {
   return (
     <Screen title={t('nav.wishlist')} showBack={false}>
       <View style={{ flex: 1 }}>
+        <StaleNotice at={staleAt} />
         <View style={styles.segmentRow}>
           {[
             { key: 'wishlist', label: t('wishlist.segmentWishlist'), icon: 'gift-outline' },

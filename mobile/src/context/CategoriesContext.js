@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
+import { cachedGet } from '../api/cachedGet';
 
 const CategoriesContext = createContext(null);
 
@@ -19,7 +20,7 @@ export function CategoriesProvider({ children }) {
     // allSettled: one scope failing (e.g. a backend that doesn't know a newly
     // added scope yet) must never blank out every other category list.
     const results = await Promise.allSettled(
-      scopesToLoad.map((s) => client.get('/categories', { params: { scope: s } }))
+      scopesToLoad.map((s) => cachedGet('/categories', { params: { scope: s } }))
     );
     setByScope((prev) => {
       const next = { ...prev };
