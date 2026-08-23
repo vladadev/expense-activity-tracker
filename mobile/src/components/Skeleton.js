@@ -22,6 +22,12 @@ const MAX_LAG = 0.45; // never delay a block more than this share of one sweep
 
 const SweepContext = createContext(null);
 
+// Gradient ids are GLOBAL in react-native-svg on Android. A page of
+// placeholders mounts a dozen of these at once, and every one of them
+// declaring the same id is a collision — the same fault that had to be fixed
+// in the splash, here multiplied by the number of blocks on screen.
+let gradientSeq = 0;
+
 export function SkeletonProvider({ children }) {
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -42,6 +48,7 @@ export function SkeletonProvider({ children }) {
 }
 
 export function SkeletonBlock({ width, height, radius = 6, y = 0, style }) {
+  const gradientId = useMemo(() => `skSweep${++gradientSeq}`, []);
   const { theme } = useTheme();
   const progress = useContext(SweepContext);
   const [measured, setMeasured] = useState(0);
@@ -75,13 +82,13 @@ export function SkeletonBlock({ width, height, radius = 6, y = 0, style }) {
         >
           <Svg width="100%" height="100%">
             <Defs>
-              <LinearGradient id="skSweep" x1="0" y1="0" x2="1" y2="0">
+              <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor={high} stopOpacity="0" />
                 <Stop offset="0.5" stopColor={high} stopOpacity="1" />
                 <Stop offset="1" stopColor={high} stopOpacity="0" />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#skSweep)" />
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId})`} />
           </Svg>
         </Animated.View>
       ) : null}
