@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Constants from 'expo-constants';
 import { useFonts, Outfit_300Light, Outfit_500Medium } from '@expo-google-fonts/outfit';
 import { StatusBar } from 'expo-status-bar';
@@ -8,12 +8,22 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
-import { initErrorReporting } from './src/utils/errorReporting';
+import { initErrorReporting, reportError } from './src/utils/errorReporting';
 import DuoSplash from './src/components/duo/DuoSplash';
 
 // Started before the tree renders so a crash during startup is still caught.
 // No-ops safely when the DSN is unset or the native module isn't in this build.
 initErrorReporting(Constants.expoConfig?.extra?.sentryDsn);
+
+// How long the splash will wait for its typeface before going ahead without
+// it. Long enough for a normal load, short enough that nobody stares at a
+// blank screen wondering whether the app is broken.
+const FONT_DEADLINE_MS = 2500;
+
+// And a ceiling on the intro itself. The animation reports its own completion,
+// but nothing that stands between the user and their app should depend on a
+// callback firing — if it ever does not, this hands over anyway.
+const INTRO_DEADLINE_MS = 6000;
 
 function ThemedStatusBar() {
   const { theme } = useTheme();
@@ -22,15 +32,37 @@ function ThemedStatusBar() {
 
 export default function App() {
   // The splash plays once per launch and hands over when it finishes.
-  const [fontsLoaded] = useFonts({ Outfit_300Light, Outfit_500Medium });
+  const [fontsLoaded, fontError] = useFonts({ Outfit_300Light, Outfit_500Medium });
   const [introDone, setIntroDone] = useState(false);
+  const [waitedForFont, setWaitedForFont] = useState(false);
 
-  // It must not START until the font is there. Rendering it first and swapping
-  // the typeface a few frames in was the seam: the name appeared in the system
-  // font, re-measured, and jumped. The fonts are bundled, so this is a frame or
-  // two of flat navy — the same colour as the native splash it follows, which
-  // makes the handover invisible rather than visible.
-  if (!introDone && !fontsLoaded) {
+  // Waiting for the font avoids a visible seam: without it the name renders in
+  // the system face, then re-measures and jumps when the real one arrives.
+  //
+  // But waiting must have an end. This gate previously had neither an error
+  // path nor a deadline, so a font that never resolved left the app sitting on
+  // a blank navy screen with no way forward — a hang, which is worse than the
+  // seam it was avoiding and worse than a crash, since nothing is even
+  // reported. A missing typeface is a cosmetic problem; it must never be able
+  // to hold the whole app.
+  useEffect(() => {
+    const fontTimer = setTimeout(() => setWaitedForFont(true), FONT_DEADLINE_MS);
+    const introTimer = setTimeout(() => setIntroDone(true), INTRO_DEADLINE_MS);
+    return () => {
+      clearTimeout(fontTimer);
+      clearTimeout(introTimer);
+    };
+  }, []);
+
+  const fontSettled = fontsLoaded || !!fontError || waitedForFont;
+
+  // Worth knowing about: the app still works, but the splash is not what it
+  // was designed to be, and silence would hide that indefinitely.
+  useEffect(() => {
+    if (fontError) reportError(fontError, { stage: 'font-load' });
+  }, [fontError]);
+
+  if (!introDone && !fontSettled) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: '#0C447C' }} />
@@ -50,7 +82,7 @@ export default function App() {
           loop={false}
           showTagline={false}
           onFinish={() => setIntroDone(true)}
-          fontFamily="Outfit_500Medium"
+          fontFamily={fontsLoaded ? 'Outfit_500Medium' : undefined}
         />
         <StatusBar style="light" />
       </SafeAreaProvider>
