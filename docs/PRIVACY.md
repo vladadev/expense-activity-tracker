@@ -2,6 +2,10 @@
 
 **Poslednja izmena:** 3. avgust 2026.
 
+> Ovaj dokument je izvor istine. Javna verzija koju vidi Play Store generiše se
+> iz njega komandom `node docs/build-privacy.mjs` — posle svake izmene pokreni
+> je i commituj oba fajla, da se dve verzije ne raziđu.
+
 Duo Tracker je aplikacija za zajedničko praćenje troškova, prihoda, štednje i
 planova unutar jednog domaćinstva. Ovaj dokument objašnjava koje podatke
 prikupljamo, zašto, gde se čuvaju i koja su vaša prava.

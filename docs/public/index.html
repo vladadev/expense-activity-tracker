@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politika privatnosti — Duo Tracker</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem;
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1a1a1a; background: #ffffff;
+  }
+  h1 { font-size: 1.7rem; line-height: 1.3; margin: 0 0 .5rem; }
+  h2 { font-size: 1.2rem; margin: 2.2rem 0 .6rem; }
+  h3 { font-size: 1rem; margin: 1.4rem 0 .4rem; }
+  p { margin: 0 0 1rem; }
+  hr { border: 0; border-top: 1px solid #e3e3e3; margin: 2rem 0; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 1.2rem; font-size: .95rem; }
+  th, td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid #e3e3e3; vertical-align: top; }
+  th { font-weight: 600; }
+  ul { margin: 0 0 1rem; padding-left: 1.3rem; }
+  li { margin: .3rem 0; }
+  code { font-size: .9em; background: #f2f2f2; padding: .1em .35em; border-radius: 3px; }
+  a { color: #0C447C; }
+  .note { font-size: .9rem; color: #666; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e8e8e8; background: #141618; }
+    hr, th, td { border-color: #2c3034; }
+    code { background: #23272b; }
+    a { color: #7fb2f0; }
+    .note { color: #9aa0a6; }
+  }
+</style>
+</head>
+<body>
+<h1>Politika privatnosti — Duo Tracker</h1>
+<p><strong>Poslednja izmena:</strong> 3. avgust 2026.</p>
+<p>Duo Tracker je aplikacija za zajedničko praćenje troškova, prihoda, štednje i planova unutar jednog domaćinstva. Ovaj dokument objašnjava koje podatke prikupljamo, zašto, gde se čuvaju i koja su vaša prava.</p>
+<p>Podaci koje unosite su <strong>finansijski i lični</strong>. Prema njima se odnosimo u skladu s tim.</p>
+<hr>
+<h2>1. Ko je odgovoran za podatke</h2>
+<p>Aplikaciju razvija i održava pojedinac (Vladimir), i on je rukovalac podacima u smislu Opšte uredbe o zaštiti podataka (GDPR) i Zakona o zaštiti podataka o ličnosti Republike Srbije.</p>
+<p><strong>Kontakt:</strong> vladimir.business0@gmail.com</p>
+<hr>
+<h2>2. Koje podatke prikupljamo</h2>
+<p>Prikupljamo <strong>samo ono što sami unesete</strong> u aplikaciju, plus najmanju tehničku količinu potrebnu da aplikacija radi.</p>
+<h3>Podaci naloga</h3>
+<table><thead><tr><th>Podatak</th><th>Zašto</th></tr></thead><tbody>
+<tr><td>Ime</td><td>Prikazuje se partneru uz svaki vaš unos</td></tr>
+<tr><td>Email adresa</td><td>Prijava na nalog</td></tr>
+<tr><td>Lozinka</td><td>Čuva se <strong>isključivo kao bcrypt heš</strong> — originalna lozinka se nigde ne zapisuje i ne može se povratiti</td></tr>
+</tbody></table>
+<h3>Podaci koje unosite</h3>
+<p>Troškovi (iznos, valuta, kategorija, opis, datum), prihodi, štednja, aktivnosti i planovi u kalendaru, podsetnici, liste želja i obaveza.</p>
+<h3>Tehnički podaci</h3>
+<table><thead><tr><th>Podatak</th><th>Zašto</th></tr></thead><tbody>
+<tr><td>Token za obaveštenja (Expo push token)</td><td>Slanje podsetnika i obaveštenja na telefon</td></tr>
+<tr><td>Dnevnik aktivnosti</td><td>Ko je šta promenio u domaćinstvu — deo je transparentnosti između partnera</td></tr>
+<tr><td>Izveštaji o greškama</td><td>Otkrivanje kvarova u aplikaciji (vidi tačku 4)</td></tr>
+</tbody></table>
+<p><strong>Ne prikupljamo:</strong> lokaciju, kontakte, fotografije, sadržaj drugih aplikacija, reklamne identifikatore. <strong>Ne koristimo kolačiće za praćenje</strong> i <strong>ne prodajemo podatke</strong> — nikome, ni u kom obliku.</p>
+<hr>
+<h2>3. Ko još vidi vaše podatke</h2>
+<h3>Vaš partner u domaćinstvu</h3>
+<p>Aplikacija je namerno napravljena tako da <strong>oba člana domaćinstva vide sve unose</strong> — i lične i zajedničke. To je njena svrha: potpuna finansijska transparentnost između dvoje ljudi koji vode zajedničko domaćinstvo.</p>
+<p>Pridruživanje domaćinstvu je uvek dobrovoljno, preko koda koji vam partner pošalje. Niko vas ne može dodati bez vaše radnje.</p>
+<h3>Druga domaćinstva</h3>
+<p><strong>Nikada.</strong> Svaki zapis pripada tačno jednom domaćinstvu, a svaki upit ka bazi je ograničen na domaćinstvo korisnika koji ga postavlja.</p>
+<hr>
+<h2>4. Servisi koje koristimo</h2>
+<p>Da bi aplikacija radila, podaci prolaze kroz nekoliko servisa. Svaki od njih ima svoju politiku privatnosti i ugovorne obaveze zaštite podataka.</p>
+<table><thead><tr><th>Servis</th><th>Šta radi</th><th>Šta vidi</th></tr></thead><tbody>
+<tr><td><strong>MongoDB Atlas</strong> (EU)</td><td>Baza podataka</td><td>Sve vaše unose</td></tr>
+<tr><td><strong>Render</strong> (EU)</td><td>Server aplikacije</td><td>Podatke u prolazu kroz zahteve</td></tr>
+<tr><td><strong>Cloudflare R2</strong></td><td>Noćne rezervne kopije</td><td>Samo <strong>šifrovanu</strong> arhivu (AES-256) — sadržaj im nije čitljiv</td></tr>
+<tr><td><strong>Sentry</strong> (EU)</td><td>Prijava grešaka</td><td><strong>Ne vidi finansijske podatke</strong> — iznosi, opisi, imena, email adrese, lozinke i tokeni se uklanjaju pre slanja. Šalje se samo tekst greške i mesto u kodu</td></tr>
+<tr><td><strong>Expo / Firebase</strong></td><td>Isporuka obaveštenja</td><td>Token uređaja i tekst obaveštenja (npr. „Novi trošak: 1.200 RSD")</td></tr>
+</tbody></table>
+<p>Obaveštenja koja stižu na zaključan ekran mogu sadržati iznos i naziv kategorije. Ako to ne želite, isključite prikaz sadržaja obaveštenja u podešavanjima telefona.</p>
+<hr>
+<h2>5. Koliko dugo čuvamo podatke</h2>
+<table><thead><tr><th>Podatak</th><th>Rok</th></tr></thead><tbody>
+<tr><td>Troškovi, prihodi, štednja, planovi, liste</td><td>Dok ih sami ne obrišete</td></tr>
+<tr><td>Dnevnik aktivnosti</td><td><strong>12 meseci</strong>, pa se briše automatski</td></tr>
+<tr><td>Rezervne kopije</td><td><strong>90 dana</strong>, pa se brišu automatski</td></tr>
+<tr><td>Nalog</td><td>Dok ne zatražite brisanje</td></tr>
+</tbody></table>
+<h3>Ako napustite domaćinstvo</h3>
+<p>Vaši unosi <strong>ostaju domaćinstvu</strong>. Razlog: troškovi su zajednička finansijska istorija — brisanje vaših stavki bi retroaktivno iskrivilo sve prethodne mesečne obračune osobi koja ostaje. Vi gubite pristup, ali podaci ostaju tačni.</p>
+<p>Ako želite da se i vaši lični podaci uklone, zatražite brisanje naloga (tačka 6) — tada se ime i email brišu, a zapisi anonimiziraju.</p>
+<hr>
+<h2>6. Vaša prava</h2>
+<p>Prema GDPR-u imate pravo da:</p>
+<ul>
+<li><strong>zatražite kopiju</strong> svih svojih podataka, u čitljivom formatu</li>
+<li><strong>ispravite</strong> netačne podatke (sve je izmenjivo direktno u aplikaciji)</li>
+<li><strong>obrišete nalog</strong> i lične podatke</li>
+<li><strong>povučete pristanak</strong> i prestanete da koristite aplikaciju u bilo kom trenutku</li>
+<li><strong>uložite pritužbu</strong> Povereniku za informacije od javnog značaja i zaštitu</li>
+</ul>
+<p>podataka o ličnosti</p>
+<p>Zahtev pošaljite na <strong>vladimir.business0@gmail.com</strong>. Odgovaramo u roku od 30 dana.</p>
+<hr>
+<h2>7. Bezbednost</h2>
+<ul>
+<li>Lozinke se čuvaju kao <strong>bcrypt heš</strong>, nikada u čitljivom obliku</li>
+<li>Sva komunikacija ide preko <strong>HTTPS-a</strong></li>
+<li>Rezervne kopije su <strong>šifrovane AES-256</strong> pre napuštanja servera</li>
+<li>Prijava je zaštićena od napada pogađanjem lozinke (ograničen broj pokušaja)</li>
+<li>Podaci jednog domaćinstva su tehnički nedostupni drugom</li>
+</ul>
+<p>Nijedan sistem nije apsolutno bezbedan. U slučaju povrede podataka koja ugrožava vaša prava, obavestićemo vas i nadležni organ u roku od 72 sata.</p>
+<hr>
+<h2>8. Deca</h2>
+<p>Aplikacija nije namenjena osobama mlađim od 16 godina i svesno ne prikupljamo njihove podatke.</p>
+<hr>
+<h2>9. Izmene ove politike</h2>
+<p>Ako se politika bitno promeni, obavestićemo vas kroz aplikaciju pre nego što izmena stupi na snagu. Datum poslednje izmene je na vrhu dokumenta.</p>
+<hr>
+<p>*Napomena: ovaj dokument je pisan za aplikaciju u ličnoj upotrebi. Pre komercijalne objave na Google Play prodavnici preporučuje se pravna provera.*</p>
+</body>
+</html>
