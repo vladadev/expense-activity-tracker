@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -32,4 +32,27 @@ jobs:
           # database, so pointing it at production cannot silently happen.
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: npm test
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: mobile
+        # Not "npm ci": the Expo dependency tree has peer conflicts that the
+        # Expo CLI resolves for us during install, and a plain ci run trips
+        # over them.
+        run: npm install --legacy-peer-deps
+
+      - name: Run tests
+        working-directory: mobile
+        # No database and no secrets — these are pure unit tests over
+        # formatting, search, translations, the offline cache and the
+        # optimistic merge.
         run: npm test

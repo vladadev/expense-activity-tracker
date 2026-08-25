@@ -7,9 +7,6 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "env": {
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      },
       "android": {
         "buildType": "apk"
       }
@@ -17,9 +14,6 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
-      "env": {
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
-      },
       "android": {
         "buildType": "app-bundle"
       }
