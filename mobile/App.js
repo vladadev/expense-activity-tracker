@@ -8,6 +8,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import { initErrorReporting, reportError } from './src/utils/errorReporting';
 import DuoSplash from './src/components/duo/DuoSplash';
 
@@ -91,16 +92,21 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {/* AuthProvider must wrap Theme/Settings — both personalize their
-          storage per logged-in account, so they need to know who's logged in. */}
-      <AuthProvider>
-        <ThemeProvider>
-          <SettingsProvider>
-            <RootNavigator />
-            <ThemedStatusBar />
-          </SettingsProvider>
-        </ThemeProvider>
-      </AuthProvider>
+      {/* The outer boundary catches what the per-tab ones cannot: a provider
+          or the navigator itself throwing. Without it such an error unmounts
+          everything and the app vanishes off the screen. */}
+      <ErrorBoundary name="app">
+        {/* AuthProvider must wrap Theme/Settings — both personalize their
+            storage per logged-in account, so they need to know who's logged in. */}
+        <AuthProvider>
+          <ThemeProvider>
+            <SettingsProvider>
+              <RootNavigator />
+              <ThemedStatusBar />
+            </SettingsProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

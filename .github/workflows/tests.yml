@@ -50,6 +50,13 @@ jobs:
         # over them.
         run: npm install --legacy-peer-deps
 
+      # Runs before the tests because it is the cheaper signal and catches a
+      # whole class the tests cannot: a name used without being imported
+      # compiles and bundles fine, then crashes the screen that uses it.
+      - name: Lint
+        working-directory: mobile
+        run: npm run lint
+
       - name: Run tests
         working-directory: mobile
         # No database and no secrets — these are pure unit tests over

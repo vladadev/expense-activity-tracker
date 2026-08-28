@@ -8,6 +8,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { getPersonColor } from '../utils/personColor';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
+import { useToast } from '../components/Toast';
+import { tapLight } from '../utils/haptics';
 
 const ROW_HEIGHT = 62;
 const ROW_GAP = 8;

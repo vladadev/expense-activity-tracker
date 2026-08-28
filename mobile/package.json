@@ -37,10 +37,15 @@
     "test:watch": "jest --watch",
     "ota:export": "expo export --dump-sourcemap --platform android",
     "ota:maps": "sentry-expo-upload-sourcemaps dist",
-    "ota:publish": "eas update --branch preview --input-dir dist --skip-bundler"
+    "ota:publish": "eas update --branch preview --input-dir dist --skip-bundler",
+    "lint": "eslint ."
   },
   "private": true,
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.11.0",
     "jest": "~29.7.0",
     "jest-expo": "~54.0.18"
   },

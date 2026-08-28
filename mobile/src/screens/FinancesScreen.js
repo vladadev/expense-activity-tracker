@@ -9,6 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import Screen from '../components/Screen';
 import StaleNotice from '../components/StaleNotice';
+import LoadFailed from '../components/LoadFailed';
 import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useToast } from '../components/Toast';
 import Money from '../components/AmountText';

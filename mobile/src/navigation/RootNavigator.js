@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -110,6 +111,27 @@ function SettingsStack() {
   );
 }
 
+// Each tab is wrapped on its own. A boundary around the whole navigator would
+// work, but it would replace the tab bar too — and being able to step into
+// another tab is the difference between a broken screen and a broken app.
+function guarded(name, Component) {
+  return function GuardedTab(props) {
+    return (
+      <ErrorBoundary name={name}>
+        <Component {...props} />
+      </ErrorBoundary>
+    );
+  };
+}
+
+const GUARDED = {
+  Calendar: guarded('Calendar', CalendarStack),
+  Stats: guarded('Stats', StatsStack),
+  Finances: guarded('Finances', FinancesStack),
+  Wishlist: guarded('Wishlist', WishlistStack),
+  Settings: guarded('Settings', SettingsStack),
+};
+
 const TAB_ICONS = {
   Calendar: 'calendar-outline',
   Stats: 'stats-chart-outline',
@@ -133,11 +155,11 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Calendar" component={CalendarStack} options={{ tabBarLabel: t('nav.calendar') }} />
-      <Tab.Screen name="Stats" component={StatsStack} options={{ tabBarLabel: t('nav.stats') }} />
-      <Tab.Screen name="Finances" component={FinancesStack} options={{ tabBarLabel: t('nav.finances') }} />
-      <Tab.Screen name="Wishlist" component={WishlistStack} options={{ tabBarLabel: t('nav.wishlist') }} />
-      <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarLabel: t('nav.settings') }} />
+      <Tab.Screen name="Calendar" component={GUARDED.Calendar} options={{ tabBarLabel: t('nav.calendar') }} />
+      <Tab.Screen name="Stats" component={GUARDED.Stats} options={{ tabBarLabel: t('nav.stats') }} />
+      <Tab.Screen name="Finances" component={GUARDED.Finances} options={{ tabBarLabel: t('nav.finances') }} />
+      <Tab.Screen name="Wishlist" component={GUARDED.Wishlist} options={{ tabBarLabel: t('nav.wishlist') }} />
+      <Tab.Screen name="Settings" component={GUARDED.Settings} options={{ tabBarLabel: t('nav.settings') }} />
     </Tab.Navigator>
   );
 }
