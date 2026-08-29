@@ -37,7 +37,7 @@
     "test:watch": "jest --watch",
     "ota:export": "expo export --dump-sourcemap --platform android",
     "ota:maps": "sentry-expo-upload-sourcemaps dist",
-    "ota:publish": "eas update --branch preview --input-dir dist --skip-bundler",
+    "ota:publish": "npx eas-cli update --branch preview --input-dir dist --skip-bundler",
     "lint": "eslint ."
   },
   "private": true,

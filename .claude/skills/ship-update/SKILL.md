@@ -41,8 +41,11 @@ cd mobile && npm run ota:maps
 ```
 
 ```bash
-cd mobile && npm run ota:publish -- -m "what changed"
+cd mobile && npm run ota:publish -- --message "what changed"
 ```
+
+`--message` rather than `-m`: npm on Windows splits the value on spaces and
+only the first word reaches the message.
 
 Needs `SENTRY_AUTH_TOKEN` in `mobile/.env.local` — see `docs/SENTRY.md`.
 

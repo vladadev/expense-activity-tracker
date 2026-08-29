@@ -31,21 +31,37 @@ the same code.
 
 ### 1. Create a Sentry auth token
 
-In Sentry: **Settings → Auth Tokens → Create New Token**, with the scopes
-`project:read`, `project:releases` and `org:read`. Copy it once — Sentry will
-not show it again.
+Create an **organization** auth token, at
+`https://sentry.io/settings/<org>/auth-tokens/` → *Create New Token*. It comes
+with the scopes source maps need, so there is nothing to tick. Copy it once —
+Sentry will not show it again.
+
+A valid one starts with `sntrys_` and is roughly 190 characters. Several other
+values in Sentry look like tokens and are not — a client secret from an
+internal integration is 64 hex characters and will be refused with
+`Invalid token (http status: 401)`. If an upload fails, check the token before
+anything else:
+
+```bash
+cd mobile && npx sentry-cli info
+```
 
 ### 2. Store it for EAS builds
 
 Run this yourself so the token never lands in a file or in a chat log:
 
 ```bash
-npx eas-cli secret:create --scope project --name SENTRY_AUTH_TOKEN --type string
+cd mobile && npx eas-cli env:set --name SENTRY_AUTH_TOKEN --visibility secret --environment production --environment preview --environment development
 ```
 
-It prompts for the value. From then on every `eas build` has the token in its
-environment and the Sentry Expo plugin uploads the map for that build on its
-own — nothing else to do for native builds.
+It prompts for the value and stores it as a secret, readable only by the EAS
+builder. From then on every `eas build` has the token in its environment and
+the Sentry Expo plugin uploads the map for that build on its own — nothing
+else to do for native builds.
+
+The same command updates an existing one, so a token that turns out to be
+wrong is replaced rather than deleted first. `eas secret:create` is the old
+name for this and no longer exists in EAS CLI 23.
 
 ### 3. Store it for local OTA updates
 
@@ -70,8 +86,11 @@ cd mobile && npm run ota:maps
 ```
 
 ```bash
-cd mobile && npm run ota:publish -- -m "what changed"
+cd mobile && npm run ota:publish -- --message "what changed"
 ```
+
+Use `--message`, not `-m`: npm on Windows splits the argument on spaces, and
+only the first word survives as the message.
 
 - `ota:export` — `expo export --dump-sourcemap`, writes `dist/` with the bundle
   and its `.map` files
