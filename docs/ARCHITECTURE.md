@@ -35,27 +35,23 @@ The part worth understanding: **reads and writes take different paths**, and
 that is what makes the app usable with no connection.
 
 ```mermaid
-flowchart LR
+flowchart TD
   user(("Household user")) --> nav
 
   subgraph shell["App shell"]
-    direction TB
-    providers["Providers + error boundary<br/>[App.js, ErrorBoundary.js]"]
-    nav["Tabs and stacks<br/>[RootNavigator.js]"]
-    providers --> nav
+    providers["Providers + error boundary<br/>[App.js, ErrorBoundary.js]"] --> nav["Tabs and stacks<br/>[RootNavigator.js]"]
   end
 
   nav --> screens["Screens<br/>calendar · finances · savings<br/>statistics · lists · settings"]
+  screens --> state["Shared state<br/>7 React contexts<br/>[src/context/*.js]"]
 
-  screens --> state["Shared state — React contexts<br/>[AuthContext, SettingsContext, ThemeContext,<br/>CategoriesContext, WishlistItemsContext,<br/>DataEventsContext, NotificationsContext]"]
   state -->|"confirms with"| toast["Toasts, undo, banners<br/>[Toast.js]"]
-
   state -->|"reads"| reads["Cached reads<br/>[cachedGet.js]"]
   state -->|"writes"| client["HTTP + JWT client<br/>[client.js]"]
 
-  reads -->|"caches every success;<br/>serves last copy when no reply"| client
-  client -->|"write with no response"| queue["Offline write queue<br/>[OfflineQueueContext.js]"]
-  queue -->|"retries later"| client
+  reads -->|"no reply → last copy"| client
+  client -->|"no response"| queue["Offline write queue<br/>[OfflineQueueContext.js]"]
+  queue -->|"retries"| client
   client -->|"HTTPS + JWT"| api["Backend API"]
 
   classDef blue fill:#dbeafe,stroke:#2563eb,color:#172554
@@ -63,6 +59,12 @@ flowchart LR
   class user,providers,nav,screens,state,toast,reads,client,queue blue
   class api amber
 ```
+
+The seven contexts are `AuthContext` (session), `SettingsContext` and
+`ThemeContext` (language, currency, theme), `CategoriesContext` and
+`WishlistItemsContext` (the optimistic caches behind the lists),
+`DataEventsContext` (a write announces itself so an open screen merges it
+instead of refetching) and `NotificationsContext` (reminders).
 
 A write updates the screen first and is only then sent. If it cannot reach the
 server it goes into the queue and is retried, and it is **not** rolled back —
