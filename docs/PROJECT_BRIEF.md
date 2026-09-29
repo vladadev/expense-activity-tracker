@@ -89,6 +89,59 @@ goes; the guard against the errors TS would catch is ESLint plus tests.
 - bumping `version` in `app.json` cuts OTA updates to older installs, because
   `runtimeVersion` follows `appVersion`
 
+## Questions already answered
+
+Written as questions on purpose. A retrieval search matches a question to a
+question far better than to a bullet point, and every one of these has been
+answered wrongly at least once by a tool reasoning from general React Native
+advice instead of reading this project.
+
+**Why does drag and drop use `useNativeDriver: false`?**
+Because the drag also reorders the list. A native-driven value is applied on
+the native module's own schedule, which does not line up with the React render
+that commits the new order; the mismatch shows as rows overlapping and their
+text smearing for one frame at the swap. It is not that the native driver
+cannot animate `translateY` — it can, and normally should. It is that it
+cannot be kept in step with a data reorder.
+
+**Does `cachedGet` serve the cache first and refresh behind it?**
+No. That is stale-while-revalidate, and this is not that. It calls the network
+first. On success it stores the response and returns it fresh. Only when the
+request gets **no response at all** does it return the last stored copy, marked
+stale so the screen can say how old it is.
+
+**When must a cached read never be served?**
+Whenever the server answered. A 401, a 404, a 500 — all of them are answers,
+and replying to an answer with old data is a lie. The fallback exists for
+silence, not for errors.
+
+**Why is a failed write sometimes not rolled back?**
+Because it is not lost, it is queued. A write that got no response is accepted
+into the offline queue and will be retried, so reverting the screen would show
+the user the old value and then flip it back minutes later. The `err.queued`
+flag on the error says which case this is.
+
+**Why is there no TypeScript?**
+One developer, learning as he goes, on an app with two users. The guard against
+the class of error TypeScript would catch is ESLint plus the test suites — and
+ESLint earns its place: it found two crashing screens the day it was added.
+
+**Why are there no modals for confirmation?**
+They were removed. A modal stops the person to ask about something the app
+could simply do and offer to undo. The 24 that existed are down to the few that
+guard something genuinely irreversible; deletes offer undo instead of asking.
+
+**Why is date formatting hand-written instead of using `Intl`?**
+Hermes ships without full ICU data. `Intl` and `toLocaleDateString` look
+correct in a browser and in jest, then silently fall back to English on the
+phone. The formatting in `src/i18n/dateFormat.js` is manual and covered by
+tests for exactly that reason.
+
+**Why does bumping the version number matter so much?**
+`runtimeVersion` follows `appVersion`, so raising `version` in `app.json` stops
+over-the-air updates from reaching every install still on the old number. It is
+raised when an APK is actually being shipped, not as housekeeping.
+
 ## Conventions
 
 - comments explain **why**, not what; a comment that restates the code is noise
