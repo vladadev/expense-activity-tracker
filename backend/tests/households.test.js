@@ -1,4 +1,5 @@
 const { test, before, after, describe } = require('node:test');
+const { MAX_MEMBERS } = require('../src/utils/household');
 const assert = require('node:assert/strict');
 const { startTestServer, stopTestServer, api, createUser } = require('./helpers');
 
@@ -140,13 +141,33 @@ describe('invites', () => {
   });
 
   test('a full household refuses further invites', async () => {
+    // Six is the limit, so the household has to actually be filled rather
+    // than assumed full at two. The point of the test is the refusal, not
+    // the number, so it reads the number from the code.
     const a = await createUser('FullA');
-    const b = await createUser('FullB');
+    for (let i = 0; i < MAX_MEMBERS - 1; i++) {
+      const joiner = await createUser(`FullJoiner${i}`);
+      const invite = await api('/api/households/invite', { method: 'POST' }, a.token);
+      const joined = await api(
+        '/api/households/join',
+        { method: 'POST', body: { code: invite.body.inviteCode } },
+        joiner.token
+      );
+      assert.equal(joined.status, 200, `joiner ${i} should have been let in`);
+    }
+
+    const another = await api('/api/households/invite', { method: 'POST' }, a.token);
+    assert.equal(another.status, 409);
+  });
+
+  test('a household below the limit still accepts invites', async () => {
+    const a = await createUser('RoomA');
+    const b = await createUser('RoomB');
     const invite = await api('/api/households/invite', { method: 'POST' }, a.token);
     await api('/api/households/join', { method: 'POST', body: { code: invite.body.inviteCode } }, b.token);
 
     const another = await api('/api/households/invite', { method: 'POST' }, a.token);
-    assert.equal(another.status, 409);
+    assert.equal(another.status, 200);
   });
 });
 

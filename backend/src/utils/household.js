@@ -1,5 +1,7 @@
 const Household = require('../models/Household');
 const Category = require('../models/Category');
+const Membership = require('../models/Membership');
+const User = require('../models/User');
 const { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_EVENT_CATEGORIES } = require('../config/categories');
 
 // Unambiguous alphabet: no O/0, I/1, or similar-looking pairs, because these
@@ -7,8 +9,9 @@ const { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_EVENT_CATEGORIES } = require('../con
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
 const INVITE_TTL_HOURS = 72;
-// Two people per household for now; raising this is a one-line change.
-const MAX_MEMBERS = 2;
+// Six is a household, not a company. The number exists so an invite code
+// cannot quietly become a public door.
+const MAX_MEMBERS = 6;
 
 function generateCode() {
   let code = '';
@@ -51,9 +54,36 @@ async function createHouseholdFor(user, name) {
     }))
   );
 
-  user.household = household._id;
-  await user.save();
+  await Membership.create({ user: user._id, household: household._id });
+
+  // The legacy field records a person's FIRST household and is not maintained
+  // after that. It survives only so a request from an app version that does
+  // not send the household header still has somewhere to land; membership is
+  // the real answer.
+  if (!user.household) {
+    user.household = household._id;
+    await user.save();
+  }
   return household;
 }
 
-module.exports = { generateUniqueCode, createHouseholdFor, INVITE_TTL_HOURS, MAX_MEMBERS };
+// Live members of a household, oldest first. The order is not decoration: a
+// member's colour comes from their position in this list.
+async function membersOf(householdId) {
+  const memberships = await Membership.find({ household: householdId, status: 'active' })
+    .sort({ joinedAt: 1 })
+    .select('user joinedAt');
+
+  const users = await User.find({ _id: { $in: memberships.map((m) => m.user) } }).select('name email');
+  const byId = new Map(users.map((u) => [String(u._id), u]));
+
+  return memberships
+    .map((m) => {
+      const user = byId.get(String(m.user));
+      if (!user) return null;
+      return { _id: user._id, name: user.name, email: user.email, joinedAt: m.joinedAt };
+    })
+    .filter(Boolean);
+}
+
+module.exports = { generateUniqueCode, createHouseholdFor, membersOf, INVITE_TTL_HOURS, MAX_MEMBERS };

@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
-    "test": "cross-env NODE_ENV=test node --test tests/auth.test.js tests/households.test.js tests/password.test.js tests/categories.test.js",
+    "test": "cross-env NODE_ENV=test node --test tests/auth.test.js tests/households.test.js tests/password.test.js tests/categories.test.js tests/memberships.test.js",
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "dev:prod-db": "nodemon src/server.js",
     "start": "node src/server.js",
@@ -15,7 +15,8 @@
     "backup": "node src/utils/backup.js",
     "restore": "node src/utils/restore.js",
     "verify:backup": "node src/utils/verifyBackup.js",
-    "migrate:households": "node src/utils/migrateToHouseholds.js"
+    "migrate:households": "node src/utils/migrateToHouseholds.js",
+    "migrate:memberships": "node src/utils/migrateToMemberships.js"
   },
   "dependencies": {
     "@sentry/node": "^10.69.0",

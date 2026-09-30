@@ -8,6 +8,12 @@ the reason kept.
 
 Last updated: 30 September 2026
 
+**Deploying phase 1:** run the migration BEFORE the new backend goes out.
+`cd backend && npm run migrate:memberships -- --prod`, from a machine with the
+production URI. The old code ignores the collection entirely, so there is no
+window where anything is broken; deploying first would leave members lists
+empty until it ran.
+
 ---
 
 ## Where the project stands
@@ -49,7 +55,7 @@ The largest change in the plan, and it comes first because the new interface
 has to be drawn on top of it. Doing the interface first means drawing every
 screen twice.
 
-- [ ] **Many households per user.** Smaller than it looks: `req.householdId`
+- [~] **Many households per user.** Backend done. Smaller than it looks: `req.householdId`
       is assigned in exactly one place, `backend/src/middleware/auth.js`, and
       the 88 uses across 11 routes only read it. Change how that one value is
       resolved and no route changes at all.
@@ -67,6 +73,15 @@ screen twice.
       - **`cachedGet` keys must include the household.** They do not today, so
         switching would show the other household's figures out of the cache
         until the network answered. Same change, plus clearing on switch.
+
+      Done on the server: a `Membership` collection, an idempotent migration,
+      the header resolved and checked in `auth.js`, `GET /api/households` and
+      `POST /api/households`, joining that adds instead of moves, leaving that
+      marks rather than deletes, and members listed in join order. No route was
+      touched, as expected. 15 new tests, 67 in total.
+
+      Still to do: the app. A context for the active household, the header on
+      every request, the household in the cache key, and a switcher.
 - [ ] **Switching households in the app.** One active household at a time, a
       visible switcher, every screen following it.
 - [ ] **Solo is the default.** A new account is already a household of one,
@@ -75,10 +90,13 @@ screen twice.
 - [ ] **What personal-versus-together means alone.** `stats.js` splits every
       total into `personalTotal` and `togetherTotal`. For one person that
       split is empty ceremony and has to go somewhere else or disappear.
-- [ ] **Raise `MAX_MEMBERS`.** Currently 2, in `backend/src/utils/household.js`.
-      The backend change is one constant; the interface is the real work.
-- [ ] **Decide what happens to a leaving member's records.** Open question
-      below, not settled.
+- [x] **Raise `MAX_MEMBERS`.** Now 6. The test that checked a full household
+      refuses invites reads the limit from the code rather than assuming two,
+      so it will not need editing again.
+- [x] **Decide what happens to a leaving member's records.** They stay with
+      the household. Leaving now marks the membership rather than deleting it,
+      so a shared cost keeps its author and the months it belongs to keep their
+      totals. A test asserts exactly that.
 
 ## Phase 2 — The interface
 

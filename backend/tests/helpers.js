@@ -110,12 +110,25 @@ async function cleanupTestData() {
   if (!db) return;
 
   const users = await db.collection('users').find({ email: { $in: createdEmails } }).toArray();
-  const householdIds = [...new Set(users.map((u) => u.household).filter(Boolean))];
+  const userIds = users.map((u) => u._id);
+
+  // Households come from memberships, not from the user document. That field
+  // only ever holds the first one, so relying on it would leave every
+  // household a test created or joined behind in the database.
+  const memberships = await db
+    .collection('memberships')
+    .find({ user: { $in: userIds } })
+    .toArray();
+  const householdIds = [
+    ...new Set([...users.map((u) => u.household), ...memberships.map((m) => m.household)].filter(Boolean)),
+  ];
 
   const scoped = ['expenses', 'events', 'incomes', 'savings', 'categories', 'wishlistitems', 'auditlogs'];
   for (const name of scoped) {
     await db.collection(name).deleteMany({ household: { $in: householdIds } });
   }
+  await db.collection('memberships').deleteMany({ household: { $in: householdIds } });
+  await db.collection('memberships').deleteMany({ user: { $in: userIds } });
   await db.collection('households').deleteMany({ _id: { $in: householdIds } });
   await db.collection('users').deleteMany({ email: { $in: createdEmails } });
   createdEmails.length = 0;

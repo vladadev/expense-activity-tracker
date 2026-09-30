@@ -4,7 +4,7 @@ const User = require('../models/User');
 const { signToken } = require('../utils/jwt');
 const requireAuth = require('../middleware/auth');
 const { logAction } = require('../utils/audit');
-const { createHouseholdFor } = require('../utils/household');
+const { createHouseholdFor, membersOf } = require('../utils/household');
 
 const router = express.Router();
 
@@ -141,11 +141,10 @@ router.get('/me', requireAuth, async (req, res) => {
 // etc. Scoped: unscoped, this leaked every account on the server.
 router.get('/users', requireAuth, async (req, res) => {
   if (!req.householdId) return res.json({ users: [] });
-  // Sorted by id, which encodes creation time: the colour each member gets
-  // is their position in this list, so the order cannot be left to chance.
-  const users = await User.find({ household: req.householdId })
-    .select('name email')
-    .sort({ _id: 1 });
+  // In join order, because the colour each member gets is their position in
+  // this list. Membership carries that order per household; a user document
+  // cannot, since somebody can be first in one household and third in another.
+  const users = await membersOf(req.householdId);
   res.json({ users });
 });
 
