@@ -7,12 +7,13 @@ import { useNotifications } from '../context/NotificationsContext';
 import Screen from '../components/Screen';
 import PersonTag from '../components/PersonTag';
 import { maskAmounts } from '../components/AmountText';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
 const ENTITY_ICONS = { expense: '💰', event: '📅', savings: '🐷', income: '💵', wishlistItem: '🎁' };
 
 export default function NotificationsScreen() {
+  const personColor = usePersonColor();
   const { t, language, formatAmount, hideAmounts } = useSettings();
   const money = (amount, currency) => {
     const formatted = formatAmount(amount, currency);
@@ -94,7 +95,7 @@ export default function NotificationsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={[styles.row, { borderLeftWidth: 4, borderLeftColor: getPersonColor(item.userName) }]}>
+          <View style={[styles.row, { borderLeftWidth: 4, borderLeftColor: personColor(item.userName) }]}>
             <Text style={styles.icon}>{ENTITY_ICONS[item.entityType] || '🔔'}</Text>
             <View style={{ flex: 1 }}>
               <PersonTag name={item.userName} />

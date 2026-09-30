@@ -12,7 +12,7 @@ import LoadFailed from '../components/LoadFailed';
 import { SkeletonBlock } from '../components/Skeleton';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -24,6 +24,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export default function DayDetailScreen({ route, navigation }) {
+  const personColor = usePersonColor();
   const { date } = route.params;
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
@@ -157,7 +158,7 @@ export default function DayDetailScreen({ route, navigation }) {
               sortedEvents.map((e) => (
                 <TouchableOpacity
                   key={e._id}
-                  style={[styles.eventRow, { borderLeftColor: getPersonColor(e.owner?.name) }]}
+                  style={[styles.eventRow, { borderLeftColor: personColor(e.owner?.name) }]}
                   onPress={() => navigation.navigate('EventForm', { date, eventId: e._id })}
                   activeOpacity={0.7}
                 >

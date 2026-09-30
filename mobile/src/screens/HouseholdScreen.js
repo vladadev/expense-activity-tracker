@@ -11,7 +11,7 @@ import Screen from '../components/Screen';
 import ListSkeleton from '../components/ListSkeleton';
 import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -23,6 +23,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export default function HouseholdScreen() {
+  const personColor = usePersonColor();
   const { t } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
@@ -144,7 +145,7 @@ export default function HouseholdScreen() {
           {t('household.members')} · {household.members.length}/2
         </Text>
         {household.members.map((m) => {
-          const color = getPersonColor(m.name);
+          const color = personColor(m.name);
           return (
             <View key={m._id} style={styles.memberRow}>
               <View style={[styles.avatar, { backgroundColor: color }]}>

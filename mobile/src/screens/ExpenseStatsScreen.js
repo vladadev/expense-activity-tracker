@@ -17,7 +17,7 @@ import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
 import DonutChart from '../components/DonutChart';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { formatLongDate } from '../i18n/dateFormat';
 
 const CATEGORY_COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280'];
@@ -33,6 +33,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export default function ExpenseStatsScreen({ route, navigation }) {
+  const personColor = usePersonColor();
   const { date } = route.params;
   const { t, formatAmount, language } = useSettings();
   const { theme } = useTheme();
@@ -178,7 +179,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
             </Text>
           </TouchableOpacity>
           {persons.map((name) => {
-            const color = getPersonColor(name);
+            const color = personColor(name);
             const active = personFilter === name;
             return (
               <TouchableOpacity
@@ -290,10 +291,10 @@ export default function ExpenseStatsScreen({ route, navigation }) {
                   {Object.entries(byOwner).map(([name, breakdown]) => (
                     <View
                       key={name}
-                      style={[styles.ownerCard, { borderLeftWidth: 4, borderLeftColor: getPersonColor(name) }]}
+                      style={[styles.ownerCard, { borderLeftWidth: 4, borderLeftColor: personColor(name) }]}
                     >
                       <View style={styles.ownerHeader}>
-                        <View style={[styles.ownerDot, { backgroundColor: getPersonColor(name) }]} />
+                        <View style={[styles.ownerDot, { backgroundColor: personColor(name) }]} />
                         <Text style={styles.ownerName}>{name}</Text>
                         <Money value={breakdown.total} currency={currency} style={styles.ownerTotal} />
                       </View>
@@ -332,7 +333,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
             filteredExpenses.map((e) => (
               <TouchableOpacity
                 key={e._id}
-                style={[styles.expenseRow, { borderLeftWidth: 4, borderLeftColor: getPersonColor(e.owner?.name) }]}
+                style={[styles.expenseRow, { borderLeftWidth: 4, borderLeftColor: personColor(e.owner?.name) }]}
                 onLongPress={() => handleDelete(e._id)}
                 onPress={() => navigation.navigate('ExpenseForm', { date, expense: e })}
               >

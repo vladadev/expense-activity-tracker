@@ -22,7 +22,7 @@ import { tapLight } from '../utils/haptics';
 import FormError from '../components/FormError';
 import ListActions from '../components/ListActions';
 import DuoLoader from '../components/duo/DuoLoader';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { useToast } from '../components/Toast';
 import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 
@@ -57,6 +57,7 @@ function clamp(value, min, max) {
 }
 
 export default function WishlistScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t } = useSettings();
   const toast = useToast();
   // Id of the row that just appeared, so it can glow briefly — confirmation
@@ -547,7 +548,7 @@ export default function WishlistScreen({ navigation }) {
                   {group.items.map((item) => (
                     <TouchableOpacity
                       key={item._id}
-                      style={[styles.taskRow, { borderLeftColor: getPersonColor(item.addedBy?.name) }]}
+                      style={[styles.taskRow, { borderLeftColor: personColor(item.addedBy?.name) }]}
                       onPress={() => toggleTask(item)}
                       activeOpacity={0.6}
                     >
@@ -555,7 +556,7 @@ export default function WishlistScreen({ navigation }) {
                       <Text style={styles.taskTitle} numberOfLines={1}>
                         {item.title}
                       </Text>
-                      <View style={[styles.taskPersonDot, { backgroundColor: getPersonColor(item.addedBy?.name) }]} />
+                      <View style={[styles.taskPersonDot, { backgroundColor: personColor(item.addedBy?.name) }]} />
                     </TouchableOpacity>
                   ))}
                 </View>

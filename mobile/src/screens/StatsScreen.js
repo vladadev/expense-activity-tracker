@@ -15,7 +15,7 @@ import Money from '../components/AmountText';
 import StatsSkeleton from '../components/StatsSkeleton';
 import { useDeferredSkeleton } from '../components/Skeleton';
 import { formatMonthYear } from '../i18n/dateFormat';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 const CATEGORY_COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280'];
 const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
@@ -82,6 +82,7 @@ function computeSummary(list) {
 }
 
 export default function StatsScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -387,7 +388,7 @@ export default function StatsScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
             {chipPersons.map((name) => {
-              const color = getPersonColor(name);
+              const color = personColor(name);
               const active = personFilter === name;
               return (
                 <TouchableOpacity
@@ -439,7 +440,7 @@ export default function StatsScreen({ navigation }) {
               .map(([name, b]) => ({
                 name,
                 amount: b.total,
-                color: getPersonColor(name),
+                color: personColor(name),
                 valueLabel: formatAmount(b.total, currency),
               }));
             const pieTotal = personPie.reduce((sum, d) => sum + d.amount, 0);
@@ -530,7 +531,7 @@ export default function StatsScreen({ navigation }) {
                   {dataType === 'savings' && personFilter === 'all' && Object.keys(byOwner).length > 0 && (
                     <View style={styles.sectionWrap}>
                       {Object.entries(byOwner).map(([name, breakdown]) => {
-                        const color = getPersonColor(name);
+                        const color = personColor(name);
                         return (
                           <View key={name} style={[styles.ownerCard, { borderLeftColor: color }]}>
                             <View style={styles.ownerHeader}>
@@ -689,7 +690,7 @@ export default function StatsScreen({ navigation }) {
                   <View style={styles.sectionWrap}>
                     <Text style={styles.sectionTitle}>{t('stats.byPerson')}</Text>
                     {owners.map(([name, breakdown]) => {
-                      const color = getPersonColor(name);
+                      const color = personColor(name);
                       return (
                         <View key={name} style={[styles.ownerCard, { borderLeftColor: color }]}>
                           <View style={styles.ownerHeader}>

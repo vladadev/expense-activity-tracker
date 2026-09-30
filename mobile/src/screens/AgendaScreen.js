@@ -6,7 +6,7 @@ import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import { useToast } from '../components/Toast';
 import { tapLight } from '../utils/haptics';
@@ -35,6 +35,7 @@ function localDayString(d) {
 }
 
 export default function AgendaScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t, language } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
@@ -210,7 +211,7 @@ export default function AgendaScreen({ navigation }) {
 
   // ---- render ------------------------------------------------------------
   function renderItem({ item, section }) {
-    const color = getPersonColor(item.owner?.name);
+    const color = personColor(item.owner?.name);
     const isAllDay = !item.startTime;
     const isActive = activeId === item._id;
     const hasReminder = item.reminderEnabled && item.reminderAt;

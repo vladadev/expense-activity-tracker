@@ -7,7 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 const ACTION_ICONS = { login: '🔓', logout: '🔒', create: '➕', update: '✏️', delete: '🗑️' };
 const ENTITY_KEYS = {
@@ -23,6 +23,7 @@ const ENTITY_KEYS = {
 };
 
 export default function ActivityLogScreen() {
+  const personColor = usePersonColor();
   const { t, language } = useSettings();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -73,11 +74,11 @@ export default function ActivityLogScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={<Text style={styles.emptyText}>{t('activityLog.empty')}</Text>}
         renderItem={({ item }) => (
-          <View style={[styles.row, { borderLeftWidth: 4, borderLeftColor: getPersonColor(item.userName) }]}>
+          <View style={[styles.row, { borderLeftWidth: 4, borderLeftColor: personColor(item.userName) }]}>
             <Text style={styles.icon}>{ACTION_ICONS[item.action] || '•'}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.line}>
-                <Text style={[styles.name, { color: getPersonColor(item.userName) }]}>{item.userName}</Text>{' '}
+                <Text style={[styles.name, { color: personColor(item.userName) }]}>{item.userName}</Text>{' '}
                 {describeLog(item)}
               </Text>
               <Text style={styles.when}>{formatWhen(item.createdAt)}</Text>

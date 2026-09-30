@@ -26,7 +26,7 @@ import FormError from '../components/FormError';
 import Money from '../components/AmountText';
 import ListActions from '../components/ListActions';
 import { useToast } from '../components/Toast';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 
 const ROW_HEIGHT = 58;
@@ -59,6 +59,7 @@ function animateLayout() {
 }
 
 export default function WishlistFolderScreen({ route, navigation }) {
+  const personColor = usePersonColor();
   const { folder } = route.params;
   const { t, language, formatAmount } = useSettings();
   const { wishlistCategories, todoCategories, addCategory, renameCategory, moveCategory, deleteCategory } =
@@ -314,7 +315,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   // ---- row renderer ------------------------------------------------------
   function renderRow(item, isPurchasedRow) {
-    const personColor = getPersonColor(item.addedBy?.name);
+    const personColor = personColor(item.addedBy?.name);
     const isActive = !isPurchasedRow && activeId === item._id;
     const hasSubtitle = item.price != null || !!item.notes || !!reminderText(item);
 

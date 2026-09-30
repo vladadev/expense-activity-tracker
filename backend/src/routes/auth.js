@@ -141,7 +141,11 @@ router.get('/me', requireAuth, async (req, res) => {
 // etc. Scoped: unscoped, this leaked every account on the server.
 router.get('/users', requireAuth, async (req, res) => {
   if (!req.householdId) return res.json({ users: [] });
-  const users = await User.find({ household: req.householdId }).select('name email');
+  // Sorted by id, which encodes creation time: the colour each member gets
+  // is their position in this list, so the order cannot be left to chance.
+  const users = await User.find({ household: req.householdId })
+    .select('name email')
+    .sort({ _id: 1 });
   res.json({ users });
 });
 

@@ -17,7 +17,7 @@ import TransactionsSection from '../components/TransactionsSection';
 import FinancesSkeleton from '../components/FinancesSkeleton';
 import { useDeferredSkeleton } from '../components/Skeleton';
 import { useOnDataEvent, applyDataEvent, useDataEvents } from '../context/DataEventsContext';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { formatMonthYear } from '../i18n/dateFormat';
 
 const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
@@ -84,6 +84,7 @@ function buildBuckets(incomeList, savingsList, statsByCurrency) {
 }
 
 export default function FinancesScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
@@ -222,8 +223,8 @@ export default function FinancesScreen({ navigation }) {
   );
   const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0];
 
-  const myColor = getPersonColor(user.name);
-  const partnerColor = partner ? getPersonColor(partner.name) : theme.primary;
+  const myColor = personColor(user.name);
+  const partnerColor = partner ? personColor(partner.name) : theme.primary;
   const activeName = viewTab === 'mine' ? user.name : viewTab === 'partner' ? partner?.name : null;
 
   function bucketFor(data) {

@@ -9,6 +9,7 @@ import { SettingsProvider } from './src/context/SettingsContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { PersonColorsProvider } from './src/context/PersonColorsContext';
 import { initErrorReporting, reportError } from './src/utils/errorReporting';
 import DuoSplash from './src/components/duo/DuoSplash';
 
@@ -101,7 +102,11 @@ export default function App() {
         <AuthProvider>
           <ThemeProvider>
             <SettingsProvider>
-              <RootNavigator />
+              {/* Inside AuthProvider: the member list it reads is the logged-in
+                  account's household, and it must be dropped on sign out. */}
+              <PersonColorsProvider>
+                <RootNavigator />
+              </PersonColorsProvider>
               <ThemedStatusBar />
             </SettingsProvider>
           </ThemeProvider>

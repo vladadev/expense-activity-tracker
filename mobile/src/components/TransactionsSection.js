@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 import { matches } from '../utils/search';
 import { formatDayHeader } from '../i18n/dateFormat';
 import Money from './AmountText';
@@ -38,6 +38,7 @@ export default function TransactionsSection({
   onDeleted,
   onSearchFocus,
 }) {
+  const personColor = usePersonColor();
   const { t, language } = useSettings();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -248,7 +249,7 @@ export default function TransactionsSection({
             {group.items.map((row) => (
               <TouchableOpacity
                 key={`${row.type}-${row.id}`}
-                style={[styles.row, { borderLeftColor: getPersonColor(row.owner) }]}
+                style={[styles.row, { borderLeftColor: personColor(row.owner) }]}
                 onPress={() => (row.type === 'expense' ? onEditExpense(row.raw) : onEditIncome(row.raw))}
                 onLongPress={() => confirmDelete(row)}
                 activeOpacity={0.7}

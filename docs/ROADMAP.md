@@ -26,13 +26,17 @@ strangers. Everything below follows from that one change.
 
 Small, and none of it optional.
 
-- [ ] **Take the two names out of the code.** `mobile/src/utils/personColor.js`
-      hardcodes `vladimir` and `tijana` as known colours. It will not crash for
-      a third person, there is a hash fallback, but a private detail has no
-      business inside a public product.
-- [ ] **Decide the Render plan.** The free tier sleeps after inactivity and
-      takes the better part of a minute to wake. Two people tolerate that; a
-      stranger opening the app for the first time decides it is broken.
+- [x] **Take the two names out of the code.** Done. Colour now comes from a
+      member's position in their household rather than from their name, so two
+      people in one household can never share one — a hash cannot promise that.
+      `usePersonColor()` replaced the old plain function across 14 files, the
+      member list is sorted by id on the server so the order cannot drift, and
+      9 tests cover it. Vladimir and Tijana keep the exact colours they had,
+      being first and second in their household.
+- [x] **Decide the Render plan.** Already on the paid plan at 7 USD a month,
+      and has been from the start, so the service does not sleep. Nothing to
+      do; noted here because a sleeping free tier would have looked like a
+      broken app to a first-time user.
 - [ ] **Play Store submission.** Everything is prepared in `PLAY_STORE.md`
       except the public privacy policy URL and a production build. This was
       planned for 10 September and has not happened yet.
@@ -124,15 +128,23 @@ only if there is demand to convert.
   people who live together. Not bank links, not financial advice, not bill
   splitting between friends, not investments or crypto.
 - English and Serbian only. More languages when users ask for them.
+- Money and plans are equal halves of the product, not one with an extra
+- A member who leaves keeps their history with the household; they lose
+  access, the household does not lose its past
 
 ## Open questions
 
-- **A new name.** Duo Tracker says two, and the product now serves one to many.
-  One word, the way Wise and Revolut are one word.
-- **What happens to a leaving member's records?** The first instinct was to
-  delete all of theirs. That quietly rewrites history: the household's past
-  totals change, and a shared expense from March disappears from March. The
-  alternative is that records stay with the household and their author becomes
-  a former member. Not settled.
-- **Are activities half the product or an extra?** It changes how the app is
-  described in the store and what the first screen shows.
+- **A new name.** Working name **Pond** — one word, carries the mascot without
+  naming it, and says nothing about two people. Not final; other options are
+  still being considered. Before it is committed to: check it is free in the
+  Play Store and that a domain exists.
+- ~~What happens to a leaving member's records?~~ **Settled: they stay.**
+  Deleting them would rewrite history — a shared expense from March would
+  vanish from March and that month's total would change. The code already
+  behaves this way: `POST /households/leave` moves the person into a fresh
+  household of their own and touches no records. What is still missing is the
+  interface saying so, marking them a former member rather than a member.
+- ~~Are activities half the product or an extra?~~ **Settled: equal halves.**
+  The app is for everything a household shares, money and plans alike. That is
+  how it gets described in the store, and neither half may be designed as an
+  afterthought of the other.

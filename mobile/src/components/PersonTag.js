@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 // A small colored dot + the person's name — used everywhere an entry shows
 // who added/owns it (expenses, savings, income, wishlist items, activity log)
 // so the two of you can recognize each other's entries at a glance.
 export default function PersonTag({ name, textStyle }) {
+  const personColor = usePersonColor();
   if (!name) return null;
-  const color = getPersonColor(name);
+  const color = personColor(name);
   return (
     <View style={styles.row}>
       <View style={[styles.dot, { backgroundColor: color }]} />

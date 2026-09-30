@@ -1,29 +1,45 @@
-// Assigns a consistent, distinct color to each person's name so entries can
-// be recognized at a glance regardless of which of the app's themes is
-// active — deliberately NOT theme colors, since this is about telling two
-// people apart, not decorating the UI.
+// A colour per person, so entries can be told apart at a glance.
 //
-// The two known household accounts get intentionally picked colors (rather
-// than whatever the hash below lands on) — Vladimir stays a classic blue,
-// Tijana gets a rose/pink that reads clearly on every theme's background,
-// including the Pink theme itself (picked to not blend into that theme's
-// own #EC4899 primary accent).
-const KNOWN_COLORS = {
-  vladimir: '#3B82F6',
-  tijana: '#DB2777',
-};
+// Deliberately not theme colours: this is about telling people apart, not
+// decorating, so it must stay stable when the theme changes.
+//
+// The colour comes from a person's POSITION in their household — first member
+// gets the first colour, second the second, and so on. That guarantees two
+// people in the same household never share a colour, which a hash of the name
+// cannot promise: with seven colours, two random names collide about one time
+// in seven.
+//
+// Names used to be hardcoded here, which worked for exactly one household.
 
-const FALLBACK_PALETTE = ['#3B82F6', '#DB2777', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4'];
+export const PALETTE = ['#3B82F6', '#DB2777', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4'];
+export const NO_PERSON = '#9CA3AF';
 
-export function getPersonColor(name) {
-  if (!name) return '#9CA3AF';
-
-  const known = KNOWN_COLORS[name.trim().toLowerCase()];
-  if (known) return known;
-
+function hashIndex(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
-  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
+  return Math.abs(hash) % PALETTE.length;
+}
+
+// `order` is the household's member names, in the order they joined. A name
+// that is not in it — someone who has since left, or a list that has not
+// loaded yet — falls back to a hash, which is stable and readable even if it
+// cannot promise uniqueness.
+export function colorFor(name, order = []) {
+  if (!name) return NO_PERSON;
+  const key = String(name).trim().toLowerCase();
+  if (!key) return NO_PERSON;
+  const position = order.indexOf(key);
+  if (position !== -1) return PALETTE[position % PALETTE.length];
+  return PALETTE[hashIndex(key)];
+}
+
+// Normalises a member list into the form colorFor expects.
+export function toColorOrder(members) {
+  if (!Array.isArray(members)) return [];
+  return members
+    .map((m) => (typeof m === 'string' ? m : m?.name))
+    .filter(Boolean)
+    .map((n) => String(n).trim().toLowerCase());
 }

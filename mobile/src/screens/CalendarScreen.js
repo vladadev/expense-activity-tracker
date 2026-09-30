@@ -15,7 +15,7 @@ import { useOnQueueFlushed } from '../context/OfflineQueueContext';
 import { useOnDataEvent } from '../context/DataEventsContext';
 import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 const ACTIVITY_COLOR = '#F59E0B';
 
@@ -39,6 +39,7 @@ function todayString() {
 }
 
 export default function CalendarScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
@@ -236,7 +237,7 @@ export default function CalendarScreen({ navigation }) {
               {dayEvents.map((e) => (
                 <TouchableOpacity
                   key={e._id}
-                  style={[styles.eventRow, { borderLeftColor: getPersonColor(e.owner?.name) }]}
+                  style={[styles.eventRow, { borderLeftColor: personColor(e.owner?.name) }]}
                   onPress={() => navigation.navigate('EventForm', { date: selected, eventId: e._id })}
                   activeOpacity={0.7}
                 >

@@ -15,9 +15,10 @@ import Money from '../components/AmountText';
 import ListSkeleton from '../components/ListSkeleton';
 import { useDeferredSkeleton } from '../components/Skeleton';
 import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
-import { getPersonColor } from '../utils/personColor';
+import { usePersonColor } from '../context/PersonColorsContext';
 
 export default function SavingsScreen({ navigation }) {
+  const personColor = usePersonColor();
   const { t, formatAmount, currency: defaultCurrency } = useSettings();
   const { theme } = useTheme();
   const toast = useToast();
@@ -114,7 +115,7 @@ export default function SavingsScreen({ navigation }) {
           const balances = summary.personal[u.name] || {};
           const currenciesForUser = Object.keys(balances);
           return (
-            <View key={u._id} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: getPersonColor(u.name) }]}>
+            <View key={u._id} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: personColor(u.name) }]}>
               <PersonTag name={u.name} />
               {currenciesForUser.length === 0 ? (
                 <Money value={0} currency={defaultCurrency} style={styles.balance} />
@@ -146,7 +147,7 @@ export default function SavingsScreen({ navigation }) {
         {entries.map((e) => (
           <TouchableOpacity
             key={e._id}
-            style={[styles.entryRow, { borderLeftWidth: 4, borderLeftColor: getPersonColor(e.owner?.name) }]}
+            style={[styles.entryRow, { borderLeftWidth: 4, borderLeftColor: personColor(e.owner?.name) }]}
             onLongPress={() => handleDelete(e._id)}
             onPress={() => navigation.navigate('SavingsForm', { entry: e })}
           >
