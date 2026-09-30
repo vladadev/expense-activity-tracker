@@ -7,6 +7,7 @@ import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useHouseholds } from '../context/HouseholdContext';
 import Screen from '../components/Screen';
 import StaleNotice from '../components/StaleNotice';
 import LoadFailed from '../components/LoadFailed';
@@ -90,6 +91,7 @@ export default function FinancesScreen({ navigation }) {
   const toast = useToast();
   const { emit } = useDataEvents();
   const { user } = useAuth();
+  const { activeId } = useHouseholds();
   const styles = useMemo(() => createStyles(theme), [theme]);
   // Full history, not just the visible month: the transactions section below
   // searches across every month, and the month view is a filter over these.
@@ -102,7 +104,11 @@ export default function FinancesScreen({ navigation }) {
   const [loadFailed, setLoadFailed] = useState(false);
   // Set when the screen is showing its last good copy instead of live data.
   const [staleAt, setStaleAt] = useState(null);
-  const partnerLoaded = useRef(false);
+  // Which household the partner was fetched for. It used to be a plain "have
+  // we fetched yet" flag, on the reasoning that members do not change while
+  // the app is open — true when there was one household, and wrong now that
+  // the household itself can change under the screen.
+  const partnerLoadedFor = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState('RSD');
   // 'combined' | 'mine' | 'partner' — visible tabs instead of a swipe carousel.
@@ -148,14 +154,13 @@ export default function FinancesScreen({ navigation }) {
         cachedGet(`/stats/range/${from}/${to}`),
         cachedGet(`/stats/range/2000-01-01/${today}`),
         cachedGet('/expenses', { params: { from: '2000-01-01', to: today } }),
-        // The household's members do not change while the app is open, so this
-        // is fetched once rather than on every visit to the tab.
-        partnerLoaded.current ? Promise.resolve(null) : cachedGet('/auth/users'),
+        // Fetched once per household rather than on every visit to the tab.
+        partnerLoadedFor.current === activeId ? Promise.resolve(null) : cachedGet('/auth/users'),
       ]);
 
       if (usersRes) {
         setPartner(usersRes.data.users.find((u) => u._id !== user.id) || null);
-        partnerLoaded.current = true;
+        partnerLoadedFor.current = activeId;
       }
 
       const inMonth = (entry) => {
@@ -179,7 +184,10 @@ export default function FinancesScreen({ navigation }) {
       console.log('Failed to load finances overview:', err.message);
       setLoadFailed(true);
     }
-  }, [user.id, monthOffset]);
+    // activeId is a dependency, not decoration: without it this closure keeps
+    // the household it was created with, and reloading after a switch would
+    // fetch the previous one.
+  }, [user.id, monthOffset, activeId]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
+import { useHouseholds } from './HouseholdContext';
 
 // One cache for every wishlist and to-do item in the household.
 //
@@ -19,6 +20,7 @@ const WishlistItemsContext = createContext(null);
 let tempSeq = 0;
 
 export function WishlistItemsProvider({ children }) {
+  const { activeId, loaded: householdsLoaded } = useHouseholds();
   const [items, setItems] = useState([]);
   // Distinguishes "nothing loaded yet" from "loaded and genuinely empty" —
   // only the first deserves a skeleton.
@@ -45,9 +47,16 @@ export function WishlistItemsProvider({ children }) {
     }
   }, []);
 
+  // Same as the categories: the list belongs to one household, so switching
+  // empties it before loading the next one. Refreshing without clearing is
+  // right when returning to a tab, and wrong here.
   useEffect(() => {
+    if (!householdsLoaded) return;
+    setItems([]);
+    setLoaded(false);
+    setStaleAt(null);
     refresh();
-  }, [refresh]);
+  }, [refresh, activeId, householdsLoaded]);
 
   function revert(previous) {
     setItems(previous);

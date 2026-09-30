@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
+import { useHouseholds } from './HouseholdContext';
 
 const CategoriesContext = createContext(null);
 
@@ -8,6 +9,7 @@ let tempSeq = 0;
 const SCOPES = ['expense', 'event', 'wishlist', 'todo'];
 
 export function CategoriesProvider({ children }) {
+  const { activeId, loaded: householdsLoaded } = useHouseholds();
   const [byScope, setByScope] = useState({ expense: [], event: [], wishlist: [], todo: [] });
   const [loading, setLoading] = useState(true);
   // Mirrors byScope so an optimistic update can capture the pre-change list to
@@ -31,7 +33,17 @@ export function CategoriesProvider({ children }) {
     });
   }, []);
 
+  // Reloaded whenever the household being looked at changes, and CLEARED
+  // first rather than merged. These lists belong to a particular household:
+  // keeping them while the next one loads would show both households' folders
+  // at once, which reads as the folders having been copied across.
+  //
+  // Held until the household list has settled, so the first request is not
+  // sent before the app knows which household it is asking about.
   useEffect(() => {
+    if (!householdsLoaded) return;
+    setByScope({ expense: [], event: [], wishlist: [], todo: [] });
+    setLoading(true);
     (async () => {
       try {
         await refresh();
@@ -41,7 +53,7 @@ export function CategoriesProvider({ children }) {
         setLoading(false);
       }
     })();
-  }, [refresh]);
+  }, [refresh, activeId, householdsLoaded]);
 
   // Every mutation below used to POST/PUT and then refetch the whole scope:
   // two round trips before the screen changed, which at ~250ms each is the

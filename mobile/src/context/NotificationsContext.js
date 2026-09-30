@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
+import { useHouseholds } from './HouseholdContext';
 import { AppState } from 'react-native';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
@@ -7,6 +8,7 @@ const NotificationsContext = createContext(null);
 const POLL_INTERVAL_MS = 30000;
 
 export function NotificationsProvider({ children }) {
+  const { activeId } = useHouseholds();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const intervalRef = useRef(null);
@@ -38,7 +40,11 @@ export function NotificationsProvider({ children }) {
     }
   }, []);
 
+  // The badge counts activity in one household, so it resets and recounts on
+  // a switch rather than carrying the other household's number across.
   useEffect(() => {
+    setUnreadCount(0);
+    setNotifications([]);
     refreshUnreadCount();
     intervalRef.current = setInterval(refreshUnreadCount, POLL_INTERVAL_MS);
 
@@ -52,7 +58,7 @@ export function NotificationsProvider({ children }) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       sub.remove();
     };
-  }, [refreshUnreadCount]);
+  }, [refreshUnreadCount, activeId]);
 
   return (
     <NotificationsContext.Provider
