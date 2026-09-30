@@ -37,9 +37,11 @@ Small, and none of it optional.
       and has been from the start, so the service does not sleep. Nothing to
       do; noted here because a sleeping free tier would have looked like a
       broken app to a first-time user.
-- [ ] **Play Store submission.** Everything is prepared in `PLAY_STORE.md`
-      except the public privacy policy URL and a production build. This was
-      planned for 10 September and has not happened yet.
+- [ ] **Open the Google Play developer account.** 25 USD once. Does not depend
+      on the name or the code, and identity verification can take days, so it
+      is the one thing worth starting before it is needed.
+- [ ] **Start a list of twelve testers.** See the release plan below: they are
+      the part that cannot be hurried later.
 
 ## Phase 1 — One person, many households
 
@@ -111,6 +113,30 @@ only if there is demand to convert.
       lifetime purchase near 35 EUR early on is worth considering: someone who
       paid files bug reports.
 
+## Releasing
+
+Publishing is not a button pressed when the work feels done. A personal Google
+Play account has to run a **closed test with at least twelve testers, enrolled
+continuously for fourteen days**, before it may even apply for production
+access. Verify it in the Play Console, but plan as though it holds.
+
+The package name — `com.something.name` — is chosen when the app is first
+created in the Play Console and **can never be changed afterwards**. The store
+listing name can change freely; the package name is permanent. That is why
+nothing is published until the name is settled.
+
+| When | What |
+|---|---|
+| During phase 1 | Settle the name. It needs no code and blocks everything else. |
+| Now | Open the developer account, and start collecting the twelve testers. |
+| End of phase 2 | Create the app with its final package name, begin closed testing. |
+| During phase 3 | The fourteen days run while onboarding is being built. |
+| After phase 3 | Production. |
+
+Everything else is already prepared in `PLAY_STORE.md`: the data safety
+answers, the permissions, the store copy. What is missing is the public
+privacy policy URL and a production build.
+
 ---
 
 ## Decided, and not to be relitigated
@@ -134,10 +160,10 @@ only if there is demand to convert.
 
 ## Open questions
 
-- **A new name.** Working name **Pond** — one word, carries the mascot without
-  naming it, and says nothing about two people. Not final; other options are
-  still being considered. Before it is committed to: check it is free in the
-  Play Store and that a domain exists.
+- **A new name.** **Pond** is a candidate, not a decision — deliberately not
+  settling on the first idea. Whatever it becomes has to be free in the Play
+  Store with a domain available, and it has to be decided before the app is
+  created there, because the package name that comes with it is permanent.
 - ~~What happens to a leaving member's records?~~ **Settled: they stay.**
   Deleting them would rewrite history — a shared expense from March would
   vanish from March and that month's total would change. The code already
