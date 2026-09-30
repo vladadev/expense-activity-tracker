@@ -91,7 +91,7 @@ export default function FinancesScreen({ navigation }) {
   const toast = useToast();
   const { emit } = useDataEvents();
   const { user } = useAuth();
-  const { activeId } = useHouseholds();
+  const { activeId, isSolo } = useHouseholds();
   const styles = useMemo(() => createStyles(theme), [theme]);
   // Full history, not just the visible month: the transactions section below
   // searches across every month, and the month view is a filter over these.
@@ -277,22 +277,26 @@ export default function FinancesScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <View style={styles.personRow}>
-          {tabs.map((tab) => {
-            const active = viewTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.personChip, active && { borderColor: tab.color, backgroundColor: hexToRgba(tab.color, 0.12) }]}
-                onPress={() => changeTab(tab.key)}
-                activeOpacity={0.7}
-              >
-                {tab.dot && <View style={[styles.personChipDot, { backgroundColor: tab.color }]} />}
-                <Text style={[styles.personChipText, active && { color: tab.color, fontWeight: '700' }]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* Mine, theirs, both. Alone there is only one answer, so the row
+            would be three ways of saying the same thing. */}
+        {!isSolo && (
+          <View style={styles.personRow}>
+            {tabs.map((tab) => {
+              const active = viewTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.personChip, active && { borderColor: tab.color, backgroundColor: hexToRgba(tab.color, 0.12) }]}
+                  onPress={() => changeTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  {tab.dot && <View style={[styles.personChipDot, { backgroundColor: tab.color }]} />}
+                  <Text style={[styles.personChipText, active && { color: tab.color, fontWeight: '700' }]}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {currencies.length === 0 ? (
           <Text style={styles.emptyText}>{t('finance.noneYet')}</Text>

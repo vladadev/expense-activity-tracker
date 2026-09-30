@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 
 import client from '../api/client';
 import { EXPENSE_TYPES, CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
+import { useHouseholds } from '../context/HouseholdContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
@@ -11,6 +12,7 @@ import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 
 export default function ExpenseFormScreen({ route, navigation }) {
+  const { isSolo } = useHouseholds();
   const { date, expense } = route.params;
   const { t, currency: defaultCurrency } = useSettings();
   const toast = useToast();
@@ -108,20 +110,27 @@ export default function ExpenseFormScreen({ route, navigation }) {
         <Text style={styles.manageLink}>{t('expenseForm.manageCategories')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.label}>{t('expenseForm.type')}</Text>
-      <View style={styles.chipRow}>
-        {EXPENSE_TYPES.map((typeOption) => (
-          <TouchableOpacity
-            key={typeOption}
-            style={[styles.chip, type === typeOption && styles.chipActive]}
-            onPress={() => setType(typeOption)}
-          >
-            <Text style={[styles.chipText, type === typeOption && styles.chipTextActive]}>
-              {typeOption === 'personal' ? t('dayDetail.personal') : t('dayDetail.together')}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Alone there is no "ours", so the choice is not offered and every
+          expense stays personal. The field remains on the record, so nothing
+          needs migrating if somebody joins later. */}
+      {!isSolo && (
+        <>
+          <Text style={styles.label}>{t('expenseForm.type')}</Text>
+          <View style={styles.chipRow}>
+            {EXPENSE_TYPES.map((typeOption) => (
+              <TouchableOpacity
+                key={typeOption}
+                style={[styles.chip, type === typeOption && styles.chipActive]}
+                onPress={() => setType(typeOption)}
+              >
+                <Text style={[styles.chipText, type === typeOption && styles.chipTextActive]}>
+                  {typeOption === 'personal' ? t('dayDetail.personal') : t('dayDetail.together')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
       <Text style={styles.label}>{t('expenseForm.description')}</Text>
       <TextInput

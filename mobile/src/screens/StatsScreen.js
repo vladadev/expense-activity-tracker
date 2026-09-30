@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
+import { useHouseholds } from '../context/HouseholdContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
 import StaleNotice from '../components/StaleNotice';
@@ -82,6 +83,7 @@ function computeSummary(list) {
 }
 
 export default function StatsScreen({ navigation }) {
+  const { isSolo } = useHouseholds();
   const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
@@ -373,7 +375,9 @@ export default function StatsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {chipPersons.length > 0 && (
+        {/* More than one, not more than zero: a filter offering "everyone" and
+            a single name is three taps that change nothing. */}
+        {chipPersons.length > 1 && (
           <View style={styles.personRow}>
             <TouchableOpacity
               style={[
@@ -474,26 +478,32 @@ export default function StatsScreen({ navigation }) {
                         active={typeFilter === 'all'}
                         onPress={() => changeTypeFilter('all')}
                       />
-                      <SummaryBox
-                        styles={styles}
-                        theme={theme}
-                        label={t('expenseStats.personal')}
-                        value={personalTotal}
-                        currency={currency}
-                        formatAmount={formatAmount}
-                        active={typeFilter === 'personal'}
-                        onPress={() => changeTypeFilter('personal')}
-                      />
-                      <SummaryBox
-                        styles={styles}
-                        theme={theme}
-                        label={t('expenseStats.together')}
-                        value={togetherTotal}
-                        currency={currency}
-                        formatAmount={formatAmount}
-                        active={typeFilter === 'together'}
-                        onPress={() => changeTypeFilter('together')}
-                      />
+                      {/* Splitting a total into mine and ours answers a question only a
+                          shared household asks. */}
+                      {!isSolo && (
+                        <>
+                        <SummaryBox
+                          styles={styles}
+                          theme={theme}
+                          label={t('expenseStats.personal')}
+                          value={personalTotal}
+                          currency={currency}
+                          formatAmount={formatAmount}
+                          active={typeFilter === 'personal'}
+                          onPress={() => changeTypeFilter('personal')}
+                        />
+                        <SummaryBox
+                          styles={styles}
+                          theme={theme}
+                          label={t('expenseStats.together')}
+                          value={togetherTotal}
+                          currency={currency}
+                          formatAmount={formatAmount}
+                          active={typeFilter === 'together'}
+                          onPress={() => changeTypeFilter('together')}
+                        />
+                        </>
+                      )}
                     </>
                   )}
                 </View>
@@ -621,26 +631,32 @@ export default function StatsScreen({ navigation }) {
                   active={typeFilter === 'all'}
                   onPress={() => changeTypeFilter('all')}
                 />
-                <SummaryBox
-                  styles={styles}
-                  theme={theme}
-                  label={t('expenseStats.personal')}
-                  value={summary.personalTotal}
-                  currency={currency}
-                  formatAmount={formatAmount}
-                  active={typeFilter === 'personal'}
-                  onPress={() => changeTypeFilter('personal')}
-                />
-                <SummaryBox
-                  styles={styles}
-                  theme={theme}
-                  label={t('expenseStats.together')}
-                  value={summary.togetherTotal}
-                  currency={currency}
-                  formatAmount={formatAmount}
-                  active={typeFilter === 'together'}
-                  onPress={() => changeTypeFilter('together')}
-                />
+                {/* Splitting a total into mine and ours answers a question only a
+                    shared household asks. */}
+                {!isSolo && (
+                  <>
+                  <SummaryBox
+                    styles={styles}
+                    theme={theme}
+                    label={t('expenseStats.personal')}
+                    value={summary.personalTotal}
+                    currency={currency}
+                    formatAmount={formatAmount}
+                    active={typeFilter === 'personal'}
+                    onPress={() => changeTypeFilter('personal')}
+                  />
+                  <SummaryBox
+                    styles={styles}
+                    theme={theme}
+                    label={t('expenseStats.together')}
+                    value={summary.togetherTotal}
+                    currency={currency}
+                    formatAmount={formatAmount}
+                    active={typeFilter === 'together'}
+                    onPress={() => changeTypeFilter('together')}
+                  />
+                  </>
+                )}
               </View>
 
               <Animated.View style={{ opacity: fade }}>
@@ -686,7 +702,7 @@ export default function StatsScreen({ navigation }) {
                   </View>
                 )}
 
-                {personFilter === 'all' && owners.length > 0 && (
+                {personFilter === 'all' && owners.length > 1 && (
                   <View style={styles.sectionWrap}>
                     <Text style={styles.sectionTitle}>{t('stats.byPerson')}</Text>
                     {owners.map(([name, breakdown]) => {

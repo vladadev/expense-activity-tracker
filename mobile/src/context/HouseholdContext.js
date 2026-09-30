@@ -116,9 +116,18 @@ export function HouseholdProvider({ children }) {
     [households, activeId]
   );
 
+  // Whether this household is one person. Everything about sharing — who paid,
+  // mine versus ours, the person filters — is machinery that means nothing
+  // alone, and hiding it is most of what "solo" is.
+  //
+  // Unknown counts as NOT solo. When the list has not loaded, hiding features
+  // from a couple who use them is a worse mistake than showing a person alone
+  // something they can ignore.
+  const isSolo = useMemo(() => (active ? (active.memberCount ?? 2) <= 1 : false), [active]);
+
   const value = useMemo(
-    () => ({ households, active, activeId, loaded, switchTo, create, join, leave, refresh: load }),
-    [households, active, activeId, loaded, switchTo, create, join, leave, load]
+    () => ({ households, active, activeId, isSolo, loaded, switchTo, create, join, leave, refresh: load }),
+    [households, active, activeId, isSolo, loaded, switchTo, create, join, leave, load]
   );
 
   return <HouseholdContext.Provider value={value}>{children}</HouseholdContext.Provider>;

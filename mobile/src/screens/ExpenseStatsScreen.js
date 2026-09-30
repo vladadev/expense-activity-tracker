@@ -164,7 +164,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
         />
       )}
 
-      {persons.length > 0 && (
+      {persons.length > 1 && (
         <View style={styles.personRow}>
           <TouchableOpacity
             style={[
@@ -285,7 +285,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
                 <Text style={styles.emptyText}>{t('expenseStats.noneYet')}</Text>
               )}
 
-              {personFilter === 'all' && Object.keys(byOwner).length > 0 && (
+              {personFilter === 'all' && Object.keys(byOwner).length > 1 && (
                 <View style={styles.sectionWrap}>
                   <Text style={styles.sectionTitle}>{t('expenseStats.byPerson')}</Text>
                   {Object.entries(byOwner).map(([name, breakdown]) => (

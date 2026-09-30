@@ -5,6 +5,7 @@ import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
+import { useHouseholds } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import Screen from '../components/Screen';
@@ -14,6 +15,7 @@ import { useDataEvents } from '../context/DataEventsContext';
 import { formatLongDate } from '../i18n/dateFormat';
 
 export default function SavingsFormScreen({ route, navigation }) {
+  const { isSolo } = useHouseholds();
   const { entry } = route.params || {};
   const isEditing = !!entry;
   const { t, language, currency: defaultCurrency } = useSettings();
@@ -84,23 +86,28 @@ export default function SavingsFormScreen({ route, navigation }) {
   return (
     <Screen title={isEditing ? t('expenseForm.saveChanges') : t('nav.addSavingsEntry')}>
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>{t('savings.entryType')}</Text>
-      <View style={styles.chipRow}>
-        <TouchableOpacity
-          style={[styles.chip, type === 'personal' && styles.chipActive]}
-          onPress={() => setType('personal')}
-        >
-          <Text style={[styles.chipText, type === 'personal' && styles.chipTextActive]}>{t('savings.personal')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, type === 'together' && styles.chipActive]}
-          onPress={() => setType('together')}
-        >
-          <Text style={[styles.chipText, type === 'together' && styles.chipTextActive]}>{t('savings.together')}</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Alone, saving is neither personal nor shared — it is just saving. */}
+      {!isSolo && (
+        <>
+          <Text style={styles.label}>{t('savings.entryType')}</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, type === 'personal' && styles.chipActive]}
+              onPress={() => setType('personal')}
+            >
+              <Text style={[styles.chipText, type === 'personal' && styles.chipTextActive]}>{t('savings.personal')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, type === 'together' && styles.chipActive]}
+              onPress={() => setType('together')}
+            >
+              <Text style={[styles.chipText, type === 'together' && styles.chipTextActive]}>{t('savings.together')}</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
-      {type === 'personal' && (
+      {type === 'personal' && users.length > 1 && (
         <>
           <Text style={styles.label}>{t('dayDetail.personal')}</Text>
           <View style={styles.chipRow}>

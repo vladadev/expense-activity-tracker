@@ -93,12 +93,20 @@ screen twice.
       household rather than moving between them, so it has to be reachable
       from anywhere. Good enough to use, and deliberately plain — phase 2
       decides where a switcher really belongs.
-- [ ] **Solo is the default.** A new account is already a household of one,
-      `createHouseholdFor` runs on signup. What is missing is the app saying
-      so, and hiding what makes no sense alone.
-- [ ] **What personal-versus-together means alone.** `stats.js` splits every
-      total into `personalTotal` and `togetherTotal`. For one person that
-      split is empty ceremony and has to go somewhere else or disappear.
+- [x] **Solo is the default.** A household of one no longer shows the
+      machinery of sharing: no personal-versus-shared choice when adding an
+      expense or a saving, no mine/theirs/both tabs on finances, no split under
+      a day's total, no person filters. `isSolo` comes from the active
+      household's member count, and an unknown count counts as not solo —
+      hiding a feature from a couple who use it is the worse mistake.
+- [x] **What personal-versus-together means alone.** It disappears from the
+      interface and stays in the data, so nothing needs migrating if somebody
+      joins later. Every expense a solo household records is personal.
+
+      Two filters were also wrong for couples, not only for people alone: the
+      person chips appeared whenever there was at least one person in the
+      data, so a filter offering "everyone" and a single name was three taps
+      that changed nothing. They now need more than one.
 - [x] **Raise `MAX_MEMBERS`.** Now 6. The test that checked a full household
       refuses invites reads the limit from the code rather than assuming two,
       so it will not need editing again.

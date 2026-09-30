@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
+import { useHouseholds } from '../context/HouseholdContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatLongDate, formatTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
@@ -24,6 +25,7 @@ function hexToRgba(hex, alpha) {
 }
 
 export default function DayDetailScreen({ route, navigation }) {
+  const { isSolo } = useHouseholds();
   const personColor = usePersonColor();
   const { date } = route.params;
   const { t, language, formatAmount } = useSettings();
@@ -107,25 +109,29 @@ export default function DayDetailScreen({ route, navigation }) {
               currencies.map((currency) => (
                 <View key={currency} style={styles.totalBlock}>
                   <Money value={byCurrency[currency].total} currency={currency} style={styles.totalValue} />
-                  <View style={styles.splitRow}>
-                    <View style={styles.splitItem}>
-                      <Text style={styles.splitLabel}>{t('dayDetail.personal')}</Text>
-                      <Money
-                        value={byCurrency[currency].personalTotal}
-                        currency={currency}
-                        style={styles.splitValue}
-                      />
+                  {/* The split between personal and shared is the answer to a
+                      question only a shared household asks. */}
+                  {!isSolo && (
+                    <View style={styles.splitRow}>
+                      <View style={styles.splitItem}>
+                        <Text style={styles.splitLabel}>{t('dayDetail.personal')}</Text>
+                        <Money
+                          value={byCurrency[currency].personalTotal}
+                          currency={currency}
+                          style={styles.splitValue}
+                        />
+                      </View>
+                      <View style={styles.splitDivider} />
+                      <View style={styles.splitItem}>
+                        <Text style={styles.splitLabel}>{t('dayDetail.together')}</Text>
+                        <Money
+                          value={byCurrency[currency].togetherTotal}
+                          currency={currency}
+                          style={styles.splitValue}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.splitDivider} />
-                    <View style={styles.splitItem}>
-                      <Text style={styles.splitLabel}>{t('dayDetail.together')}</Text>
-                      <Money
-                        value={byCurrency[currency].togetherTotal}
-                        currency={currency}
-                        style={styles.splitValue}
-                      />
-                    </View>
-                  </View>
+                  )}
                 </View>
               ))
             )}
