@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from '../src/api/client';
 import { cachedGet, clearOfflineCache } from '../src/api/cachedGet';
+import { setActiveHouseholdId } from '../src/api/activeHousehold';
 
 jest.mock('../src/api/client', () => ({ get: jest.fn() }));
 
@@ -20,6 +21,7 @@ function serverError(status) {
 beforeEach(async () => {
   await AsyncStorage.clear();
   client.get.mockReset();
+  setActiveHouseholdId(null);
 });
 
 describe('cachedGet', () => {
@@ -89,8 +91,44 @@ describe('cachedGet', () => {
   });
 });
 
+// A person can belong to several households and look at one at a time. The
+// same URL means different data in each, so the household has to be part of
+// the cache key — otherwise switching shows the previous household's figures
+// out of the cache until the network answers, which in an app about money is
+// not a cosmetic problem.
+describe('cachedGet across households', () => {
+  it('does not serve one household data to another', async () => {
+    setActiveHouseholdId('household-a');
+    client.get.mockResolvedValueOnce({ data: { total: 111 } });
+    await cachedGet('/stats/2026-08-24');
+
+    setActiveHouseholdId('household-b');
+    client.get.mockRejectedValueOnce(noResponse());
+    await expect(cachedGet('/stats/2026-08-24')).rejects.toThrow('Network Error');
+  });
+
+  it('keeps each household own copy', async () => {
+    setActiveHouseholdId('household-a');
+    client.get.mockResolvedValueOnce({ data: { total: 111 } });
+    await cachedGet('/stats/2026-08-24');
+
+    setActiveHouseholdId('household-b');
+    client.get.mockResolvedValueOnce({ data: { total: 222 } });
+    await cachedGet('/stats/2026-08-24');
+
+    client.get.mockRejectedValue(noResponse());
+    const b = await cachedGet('/stats/2026-08-24');
+    setActiveHouseholdId('household-a');
+    const a = await cachedGet('/stats/2026-08-24');
+
+    expect(b.data).toEqual({ total: 222 });
+    expect(a.data).toEqual({ total: 111 });
+  });
+});
+
 describe('clearOfflineCache', () => {
   it('removes cached reads but leaves other keys alone', async () => {
+    setActiveHouseholdId('household-a');
     client.get.mockResolvedValue({ data: { total: 10 } });
     await cachedGet('/stats/2026-08-24');
     await AsyncStorage.setItem('settings_language', 'sr');

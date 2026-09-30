@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { cachedGet } from '../api/cachedGet';
 import { useAuth } from './AuthContext';
+import { useHouseholds } from './HouseholdContext';
 import { colorFor, toColorOrder } from '../utils/personColor';
 
 // Holds the household's member list so a person's colour can be decided by
@@ -16,6 +17,9 @@ const PersonColorsContext = createContext(null);
 
 export function PersonColorsProvider({ children }) {
   const { user } = useAuth();
+  // Somebody can be first in one household and third in another, so the order
+  // is refetched whenever the household being looked at changes.
+  const { activeId } = useHouseholds();
   const [order, setOrder] = useState([]);
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export function PersonColorsProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, activeId]);
 
   const value = useMemo(() => ({ order }), [order]);
   return <PersonColorsContext.Provider value={value}>{children}</PersonColorsContext.Provider>;

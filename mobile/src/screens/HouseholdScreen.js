@@ -12,6 +12,7 @@ import ListSkeleton from '../components/ListSkeleton';
 import { useToast } from '../components/Toast';
 import FormError from '../components/FormError';
 import { usePersonColor } from '../context/PersonColorsContext';
+import { useHouseholds } from '../context/HouseholdContext';
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -28,6 +29,7 @@ export default function HouseholdScreen() {
   const { theme } = useTheme();
   const toast = useToast();
   const { user, refreshUser } = useAuth();
+  const { households, activeId, switchTo, join: joinHousehold, leave: leaveHousehold, create } = useHouseholds();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [household, setHousehold] = useState(null);
@@ -36,6 +38,10 @@ export default function HouseholdScreen() {
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState('');
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [createError, setCreateError] = useState('');
 
   const [showLeave, setShowLeave] = useState(false);
   const [leaveText, setLeaveText] = useState('');
@@ -88,15 +94,41 @@ export default function HouseholdScreen() {
     setBusy(true);
     setJoinError('');
     try {
-      const res = await client.post('/households/join', { code: joinCode.trim() });
-      toast.success(t('toast.householdJoined'));
+      const joined = await joinHousehold(joinCode.trim());
       await refreshUser();
       setShowJoin(false);
       setJoinCode('');
       await load();
-      toast.success(t('household.joined', { name: res.data.household.name }));
+      toast.success(t('household.joined', { name: joined.name }));
     } catch (err) {
       setJoinError(err.response?.data?.error || t('wishlist.saveFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSwitch(target) {
+    if (String(target.id) === String(activeId)) return;
+    await switchTo(target.id);
+    await load();
+    toast.success(t('household.switched', { name: target.name }));
+  }
+
+  async function handleCreate() {
+    if (!newName.trim()) {
+      setCreateError(t('household.nameRequired'));
+      return;
+    }
+    setBusy(true);
+    setCreateError('');
+    try {
+      const created = await create(newName.trim());
+      setShowCreate(false);
+      setNewName('');
+      await load();
+      toast.success(t('household.created', { name: created.name }));
+    } catch (err) {
+      setCreateError(err.response?.data?.error || t('toast.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -110,7 +142,7 @@ export default function HouseholdScreen() {
     setBusy(true);
     setLeaveError('');
     try {
-      await client.post('/households/leave', { confirmName: leaveText.trim() });
+      await leaveHousehold(leaveText.trim());
       toast.success(t('toast.householdLeft'));
       await refreshUser();
       setShowLeave(false);
@@ -139,10 +171,78 @@ export default function HouseholdScreen() {
   return (
     <Screen title={t('household.title')}>
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+        {households.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>{t('household.yours')}</Text>
+            <View style={styles.chipRow}>
+              {households.map((h) => {
+                const isActive = String(h.id) === String(activeId);
+                return (
+                  <TouchableOpacity
+                    key={h.id}
+                    style={[styles.chip, isActive && { borderColor: theme.primary, backgroundColor: hexToRgba(theme.primary, 0.12) }]}
+                    onPress={() => handleSwitch(h)}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons
+                      name={isActive ? 'home' : 'home-outline'}
+                      size={14}
+                      color={isActive ? theme.primary : theme.textSecondary}
+                    />
+                    <Text style={[styles.chipText, isActive && { color: theme.primary, fontWeight: '700' }]} numberOfLines={1}>
+                      {h.name}
+                    </Text>
+                    <Text style={styles.chipCount}>{h.memberCount}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity style={styles.chipAdd} onPress={() => setShowCreate(true)} activeOpacity={0.75}>
+                <Ionicons name="add" size={15} color={theme.textSecondary} />
+                <Text style={styles.chipText}>{t('household.createNew')}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {showCreate && (
+          <View style={styles.joinCard}>
+            <Text style={styles.joinTitle}>{t('household.createTitle')}</Text>
+            <Text style={styles.joinBody}>{t('household.createBody')}</Text>
+            <TextInput
+              style={[styles.codeInput, { letterSpacing: 0, fontSize: 15 }, !!createError && styles.inputError]}
+              placeholder={t('household.namePlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              value={newName}
+              onChangeText={(v) => {
+                setNewName(v);
+                if (createError) setCreateError('');
+              }}
+              autoCorrect={false}
+              autoFocus
+            />
+            <FormError message={createError} />
+            <View style={styles.joinActions}>
+              <TouchableOpacity
+                style={styles.ghostButton}
+                onPress={() => {
+                  setShowCreate(false);
+                  setNewName('');
+                  setCreateError('');
+                }}
+              >
+                <Text style={styles.ghostButtonText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.joinButton} onPress={handleCreate} disabled={busy} activeOpacity={0.85}>
+                <Text style={styles.primaryButtonText}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <Text style={styles.householdName}>{household.name}</Text>
 
         <Text style={styles.sectionTitle}>
-          {t('household.members')} · {household.members.length}/2
+          {t('household.members')} · {household.members.length}
         </Text>
         {household.members.map((m) => {
           const color = personColor(m.name);
@@ -168,7 +268,7 @@ export default function HouseholdScreen() {
           </View>
         )}
 
-        {isAlone && (
+        {household.canInvite && (
           <>
             <Text style={styles.sectionTitle}>{t('household.invitePartner')}</Text>
             {household.inviteCode ? (
@@ -187,50 +287,50 @@ export default function HouseholdScreen() {
                 <Text style={styles.primaryButtonText}>{t('household.generateCode')}</Text>
               </TouchableOpacity>
             )}
-
-            {showJoin ? (
-              <View style={styles.joinCard}>
-                <Text style={styles.joinTitle}>{t('household.joinTitle')}</Text>
-                <Text style={styles.joinBody}>{t('household.joinBody')}</Text>
-                <TextInput
-                  style={[styles.codeInput, !!joinError && styles.inputError]}
-                  placeholder={t('household.codePlaceholder')}
-                  placeholderTextColor={theme.textSecondary}
-                  value={joinCode}
-                  onChangeText={(v) => {
-                    setJoinCode(v.toUpperCase());
-                    if (joinError) setJoinError('');
-                  }}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={6}
-                  autoFocus
-                />
-                <FormError message={joinError} />
-                <View style={styles.joinActions}>
-                  <TouchableOpacity
-                    style={styles.ghostButton}
-                    onPress={() => {
-                      setShowJoin(false);
-                      setJoinCode('');
-                      setJoinError('');
-                    }}
-                  >
-                    <Text style={styles.ghostButtonText}>{t('common.cancel')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.joinButton} onPress={handleJoin} disabled={busy} activeOpacity={0.85}>
-                    <Text style={styles.primaryButtonText}>{busy ? t('household.joining') : t('household.join')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.haveCodeRow} onPress={() => setShowJoin(true)}>
-                <Text style={styles.haveCodeText}>
-                  {t('household.haveCode')} <Text style={styles.haveCodeLink}>{t('household.enterIt')}</Text>
-                </Text>
-              </TouchableOpacity>
-            )}
           </>
+        )}
+
+        {showJoin ? (
+          <View style={styles.joinCard}>
+            <Text style={styles.joinTitle}>{t('household.joinTitle')}</Text>
+            <Text style={styles.joinBody}>{t('household.joinBody')}</Text>
+            <TextInput
+              style={[styles.codeInput, !!joinError && styles.inputError]}
+              placeholder={t('household.codePlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              value={joinCode}
+              onChangeText={(v) => {
+                setJoinCode(v.toUpperCase());
+                if (joinError) setJoinError('');
+              }}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={6}
+              autoFocus
+            />
+            <FormError message={joinError} />
+            <View style={styles.joinActions}>
+              <TouchableOpacity
+                style={styles.ghostButton}
+                onPress={() => {
+                  setShowJoin(false);
+                  setJoinCode('');
+                  setJoinError('');
+                }}
+              >
+                <Text style={styles.ghostButtonText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.joinButton} onPress={handleJoin} disabled={busy} activeOpacity={0.85}>
+                <Text style={styles.primaryButtonText}>{busy ? t('household.joining') : t('household.join')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+            ) : (
+          <TouchableOpacity style={styles.haveCodeRow} onPress={() => setShowJoin(true)}>
+            <Text style={styles.haveCodeText}>
+          {t('household.haveCode')} <Text style={styles.haveCodeLink}>{t('household.enterIt')}</Text>
+            </Text>
+          </TouchableOpacity>
         )}
 
         {!isAlone && (
@@ -341,6 +441,43 @@ function createStyles(theme) {
       justifyContent: 'center',
     },
     emptySlotText: { flex: 1, fontSize: 14, color: theme.textSecondary },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      maxWidth: '100%',
+      minHeight: 40,
+    },
+    chipText: { fontSize: 13, color: theme.textSecondary, flexShrink: 1 },
+    chipCount: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.textSecondary,
+      backgroundColor: theme.background,
+      borderRadius: 9,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      overflow: 'hidden',
+    },
+    chipAdd: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: theme.border,
+      minHeight: 40,
+    },
     codeCard: {
       backgroundColor: theme.surface,
       borderRadius: 14,

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config/env';
 import { reportError } from '../utils/errorReporting';
 import { offerToQueue } from './offlineHooks';
+import { getActiveHouseholdId, HOUSEHOLD_HEADER } from './activeHousehold';
 
 export const TOKEN_KEY = 'auth_token';
 
@@ -12,6 +13,18 @@ client.interceptors.request.use(async (config) => {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Which household this request acts in, stamped on now rather than decided
+  // by the server later. A write made offline can sit in the queue for days
+  // and go out after its author has switched elsewhere; because the header
+  // was written here, at the moment they pressed save, it still lands where
+  // they meant it to.
+  //
+  // A queued request already carries its own header and must keep it.
+  const household = getActiveHouseholdId();
+  if (household && !config.headers[HOUSEHOLD_HEADER]) {
+    config.headers[HOUSEHOLD_HEADER] = household;
   }
   return config;
 });

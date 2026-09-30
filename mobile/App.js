@@ -9,6 +9,7 @@ import { SettingsProvider } from './src/context/SettingsContext';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { HouseholdProvider } from './src/context/HouseholdContext';
 import { PersonColorsProvider } from './src/context/PersonColorsContext';
 import { initErrorReporting, reportError } from './src/utils/errorReporting';
 import DuoSplash from './src/components/duo/DuoSplash';
@@ -102,11 +103,15 @@ export default function App() {
         <AuthProvider>
           <ThemeProvider>
             <SettingsProvider>
-              {/* Inside AuthProvider: the member list it reads is the logged-in
-                  account's household, and it must be dropped on sign out. */}
-              <PersonColorsProvider>
-                <RootNavigator />
-              </PersonColorsProvider>
+              {/* Households before colours: a member's colour is their place in
+                  the household being looked at, so the colours have to know
+                  which one that is. Both sit inside AuthProvider, since both
+                  belong to the signed-in account and must go on sign out. */}
+              <HouseholdProvider>
+                <PersonColorsProvider>
+                  <RootNavigator />
+                </PersonColorsProvider>
+              </HouseholdProvider>
               <ThemedStatusBar />
             </SettingsProvider>
           </ThemeProvider>

@@ -55,7 +55,7 @@ The largest change in the plan, and it comes first because the new interface
 has to be drawn on top of it. Doing the interface first means drawing every
 screen twice.
 
-- [~] **Many households per user.** Backend done. Smaller than it looks: `req.householdId`
+- [x] **Many households per user.** Smaller than it looks: `req.householdId`
       is assigned in exactly one place, `backend/src/middleware/auth.js`, and
       the 88 uses across 11 routes only read it. Change how that one value is
       resolved and no route changes at all.
@@ -80,10 +80,19 @@ screen twice.
       marks rather than deletes, and members listed in join order. No route was
       touched, as expected. 15 new tests, 67 in total.
 
-      Still to do: the app. A context for the active household, the header on
-      every request, the household in the cache key, and a switcher.
-- [ ] **Switching households in the app.** One active household at a time, a
-      visible switcher, every screen following it.
+      Done in the app: `HouseholdContext` holding the list and the active one,
+      remembered per account; the header added in the axios request
+      interceptor, so a queued write keeps the household it was written in;
+      the household in the cache key, with a test for the leak that would
+      otherwise have shown one household's figures in another; and colours
+      refetched on switch, since a person can be first in one household and
+      third in another.
+- [x] **Switching households in the app.** Chips on the household screen, one
+      per household with its member count, and a form to start another. Joining
+      by code is no longer hidden once a household is full: joining now adds a
+      household rather than moving between them, so it has to be reachable
+      from anywhere. Good enough to use, and deliberately plain — phase 2
+      decides where a switcher really belongs.
 - [ ] **Solo is the default.** A new account is already a household of one,
       `createHouseholdFor` runs on signup. What is missing is the app saying
       so, and hiding what makes no sense alone.

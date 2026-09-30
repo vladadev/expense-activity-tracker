@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from './client';
+import { getActiveHouseholdId } from './activeHousehold';
 
 // A GET that remembers its last good answer.
 //
@@ -14,9 +15,13 @@ import client from './client';
 
 const PREFIX = 'cache_v1:';
 
+// The household is part of the key. Without it, switching from one household
+// to another would serve the previous one's figures from the cache until the
+// network answered — the same URL, a different household, the same key.
 function keyFor(url, params) {
   const suffix = params ? JSON.stringify(params) : '';
-  return `${PREFIX}${url}${suffix}`;
+  const household = getActiveHouseholdId() || 'none';
+  return `${PREFIX}${household}:${url}${suffix}`;
 }
 
 export async function cachedGet(url, config) {
