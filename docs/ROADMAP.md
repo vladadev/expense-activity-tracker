@@ -117,6 +117,29 @@ screen twice.
 
 ## Phase 2 — The interface
 
+**The shape of the app, decided before anything is drawn.** Five tabs today —
+Calendar, Statistics, Finances, Lists, Settings — of which two are not
+destinations at all. Statistics is the analysis of the data Finances already
+shows, and Settings is opened once a month while taking the same room in the
+bar as the tab opened daily. That is why Statistics reads as the worst screen:
+it is not badly drawn, it has no job, and a screen with no question to answer
+collects everything.
+
+So:
+
+- **Statistics stops being a tab** and becomes the second face of money:
+  where we stand now, and how it has been. Same data, one place.
+- **Settings moves to a gear in the header**, beside the bell already there.
+- **A new home screen takes first place** — neither the calendar nor the
+  finances, but the answer to "where do we stand and what is coming": this
+  month against income, what is on today and tomorrow, and one large button to
+  add an expense.
+
+The bar becomes **Home · Calendar · Money · Lists**. The calendar first said
+this was a planner with money attached; finances first said the opposite. The
+app is for both, equally, and only a home screen showing both tells the truth
+about it.
+
 Not a redraw of the old screens. A design system first, then screens built
 from it.
 
@@ -128,10 +151,12 @@ Duolingo and Monobank both work exactly this way.
 - [ ] **Design system.** Colour tokens, typography, spacing, iconography,
       motion, light and dark. See `design/BRIEF.md`.
 - [ ] **One screen as proof** the system holds together before the rest follow.
-- [ ] **Statistics.** Named as the worst screen: too much at once, circles and
-      charts stacked with no hierarchy.
+- [ ] **Statistics, folded into money.** Not redrawn where it stands: it stops
+      being a destination and becomes the analysis view of the money tab.
 - [ ] **Calendar.** The panel under the month fits barely two entries and needs
       a precise tap on a small arrow to open.
+- [ ] **The home screen**, which does not exist yet.
+- [ ] **Settings into the header**, freeing the fourth tab.
 - [ ] **The remaining screens**, one at a time, each shipped over the air.
 
 ## Phase 3 — Joining without being told how
@@ -227,6 +252,8 @@ Outstanding, and all of it on Vladimir except where noted:
   people who live together. Not bank links, not financial advice, not bill
   splitting between friends, not investments or crypto.
 - English and Serbian only. More languages when users ask for them.
+- Four tabs: Home, Calendar, Money, Lists. Statistics folds into Money,
+  Settings moves to the header
 - Money and plans are equal halves of the product, not one with an extra
 - A member who leaves keeps their history with the household; they lose
   access, the household does not lose its past
