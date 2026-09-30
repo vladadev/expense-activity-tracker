@@ -1,0 +1,105 @@
+# The mascot
+
+A frog, because the app is called Pond and because a household is easier to
+recognise as faces than as colours. It is not decoration: it does a job on four
+screens and is banned from every screen showing an amount.
+
+## Where it appears
+
+The canvas has these as framed slots, at the sizes the screens have room for.
+
+| Moment | Size | Pose |
+|---|---|---|
+| Onboarding | 130 × 130 | Waving, facing the reader |
+| Empty states | 96 × 96 | Sitting, unbothered — never sad, an empty list is not a failure |
+| Privacy mode | covers the figure | Holding a lily pad over the amounts |
+| Moments worth marking | 96 × 96 | Both arms up, celebrating |
+
+**Never beside a figure.** Not next to a total, not in the corner of the money
+screen, not in a transaction row. An amount is read in a hurry and in bad
+light, and anything competing with it costs trust. The frog may cover an
+amount; it may not stand next to one.
+
+**One per household member.** A household of five is five frogs, told apart by
+face as well as by colour. Colour alone stops working past two people, and it
+never worked for anyone who cannot tell two of them apart.
+
+## Colours
+
+Golden yellow body `#F2B33D`, cream belly `#F4F2EC`, deep teal-green for eyes
+and outlines `#0E7C66`.
+
+Warm against the app's cool brand green, so the character stands out without
+fighting anything. It sits one shade richer than the interface accent
+`#E8A33D`, close enough to look like the same family rather than something
+stuck on afterwards.
+
+One thing to watch: that warm tone also carries "something wants your
+attention" — the dot on the bell, the banner for writes waiting on a
+connection. If the two start competing once the frog is real, the alert colour
+moves and the frog stays.
+
+## The prompt
+
+Step one, the character itself:
+
+```
+A friendly frog mascot character for a household finance app.
+Flat vector illustration style, thick rounded shapes, bold clean
+forms, no gradients, no texture, no shading. Body in warm golden
+yellow #F2B33D, belly in soft cream #F4F2EC, eyes and outlines in
+deep teal-green #0E7C66. Calm, warm and trustworthy, slightly
+playful — not childish, not cartoonish, not realistic.
+Front-facing, standing, symmetrical, simple geometric shapes,
+clearly readable at 96 pixels. Plain white background, no scene,
+no shadow, full body visible with margin around it.
+```
+
+Step two, each pose separately, with the character from step one given back as
+a reference or ingredient:
+
+```
+The same frog character, identical colours and proportions:
+waving hello with one arm raised, friendly and open.
+```
+
+```
+The same frog character, identical colours and proportions:
+sitting down calmly, relaxed and content.
+```
+
+```
+The same frog character, identical colours and proportions:
+holding a large green lily pad in front of its body like a shield,
+covering its chest. The lily pad is a separate clear shape.
+```
+
+```
+The same frog character, identical colours and proportions:
+both arms raised, celebrating, happy.
+```
+
+Every pose ends with `Plain white background, flat vector style, no shadow.`
+
+The two words that matter most are **same character**: without them each pose
+comes back as a different frog, and four different frogs is worse than none.
+
+## What the app needs back
+
+SVG where possible — the app already draws with `react-native-svg`, so vector
+scales without loss and can be animated. Otherwise PNG on a transparent
+background, at least 512 × 512, one file per pose.
+
+The lily pad pose is worth having as **two separate shapes**, frog and leaf,
+so the leaf can lift away when privacy mode is switched off. As one flat image
+it still works, just without the movement.
+
+## Which tool
+
+- **Recraft** produces real vector and is the only one whose output drops
+  straight into the app.
+- **Flow, Midjourney, Ideogram** produce raster. Flow's ingredients and
+  Midjourney's character reference both exist to keep a character consistent
+  across images, which is the hard part here.
+- **An illustrator** is the only route that guarantees four poses of one
+  character, at around 50–150 EUR.
