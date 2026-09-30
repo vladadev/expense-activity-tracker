@@ -49,11 +49,24 @@ The largest change in the plan, and it comes first because the new interface
 has to be drawn on top of it. Doing the interface first means drawing every
 screen twice.
 
-- [ ] **Many households per user.** `User.household` is a single `ObjectId`
-      today, read once in `backend/src/middleware/auth.js` and used by all 12
-      routes as the security boundary. It becomes a list, and each request has
-      to say which household it is acting in. Discord's model: you are in
-      several, you look at one at a time, you switch.
+- [ ] **Many households per user.** Smaller than it looks: `req.householdId`
+      is assigned in exactly one place, `backend/src/middleware/auth.js`, and
+      the 88 uses across 11 routes only read it. Change how that one value is
+      resolved and no route changes at all.
+      - **Membership lives in its own collection**, not an array on the user.
+        A record per person per household, with `joinedAt` and `leftAt`. The
+        array cannot say when someone joined *this* household, which is what
+        decides their colour, and it cannot remember a former member, which is
+        what the leaving rule needs.
+      - **The request carries the household** in an `X-Household-Id` header,
+        checked against membership on the server. Not a server-side "active
+        household", because of the offline queue: a write made in one household
+        and sent days later must land where it was written, not wherever the
+        user happens to be standing when it finally goes out. It also lets two
+        phones look at two different households, and leaves the token alone.
+      - **`cachedGet` keys must include the household.** They do not today, so
+        switching would show the other household's figures out of the cache
+        until the network answered. Same change, plus clearing on switch.
 - [ ] **Switching households in the app.** One active household at a time, a
       visible switcher, every screen following it.
 - [ ] **Solo is the default.** A new account is already a household of one,
@@ -133,9 +146,34 @@ nothing is published until the name is settled.
 | During phase 3 | The fourteen days run while onboarding is being built. |
 | After phase 3 | Production. |
 
-Everything else is already prepared in `PLAY_STORE.md`: the data safety
-answers, the permissions, the store copy. What is missing is the public
-privacy policy URL and a production build.
+### What is left
+
+Prepared already, in `PLAY_STORE.md`: the data safety answers derived from the
+code, the four permissions with the rest blocked, the Serbian store
+description, the category and age guidance, and the build and submit commands.
+
+Outstanding, and all of it on Vladimir except where noted:
+
+- [ ] **Developer account**, 25 USD once. Identity verification takes days.
+- [ ] **Twelve testers**, named and willing to keep the app installed for the
+      fourteen days. The only item that cannot be compressed later.
+- [ ] **The name**, and with it the permanent package name.
+- [ ] **Public privacy policy URL.** The page is generated from `PRIVACY.md`
+      into `docs/public/`; GitHub Pages needs enabling and the URL writing into
+      `app.json` under `extra.privacyPolicyUrl`.
+- [ ] **Screenshots**, at least two and better four to eight, at phone
+      resolution. Wait for the new interface — screenshots of the current one
+      would be replaced within weeks.
+- [ ] **Feature graphic**, 1024x500.
+- [ ] **Store icon**, 512x512 PNG.
+- [ ] **A production build** — an AAB rather than an APK:
+      `npx eas-cli build --platform android --profile production`. The profile
+      already auto-increments `versionCode`, which Play requires to differ on
+      every upload.
+- [ ] **Signing** is handled by EAS; Play takes the key on first upload.
+- [ ] **Verify the twelve-tester rule still holds** in the Play Console, and
+      that Serbia is a supported merchant country — the second one decides
+      whether subscriptions are possible at all.
 
 ---
 
@@ -157,6 +195,10 @@ privacy policy URL and a production build.
 - Money and plans are equal halves of the product, not one with an extra
 - A member who leaves keeps their history with the household; they lose
   access, the household does not lose its past
+- Membership is its own collection, with `joinedAt` and `leftAt`
+- The active household travels in a request header, never as server-side state
+- Nothing is published until the name is settled, because the package name
+  that comes with it is permanent
 
 ## Open questions
 
