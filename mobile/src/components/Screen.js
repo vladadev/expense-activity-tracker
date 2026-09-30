@@ -17,6 +17,20 @@ import useKeyboardHeight from '../utils/useKeyboardHeight';
 // Keyboard handling on Android is done by hand — see useKeyboardHeight for why
 // KeyboardAvoidingView and windowSoftInputMode=resize both stopped working.
 
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: { marginRight: 4, padding: 4 },
+  privacyButton: { padding: 4, marginRight: 4 },
+  title: { fontSize: 18, fontWeight: '700', flex: 1 },
+});
+
 // showPrivacyToggle is opt-in: the eye only belongs on screens that actually
 // display amounts, otherwise it is a control that appears to do nothing.
 export default function Screen({ title, children, showBack, showBell = true, showPrivacyToggle = false }) {
@@ -64,17 +78,3 @@ export default function Screen({ title, children, showBack, showBell = true, sho
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: { marginRight: 4, padding: 4 },
-  privacyButton: { padding: 4, marginRight: 4 },
-  title: { fontSize: 18, fontWeight: '700', flex: 1 },
-});

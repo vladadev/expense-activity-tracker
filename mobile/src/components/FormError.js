@@ -12,6 +12,20 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+const styles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  text: { flex: 1, fontSize: 13, fontWeight: '500' },
+});
+
 // Inline validation/error message shown next to the field it belongs to.
 // Modals are reserved for destructive confirmations — a field-level problem
 // should never interrupt the user with a popup they have to dismiss before
@@ -44,17 +58,3 @@ export default function FormError({ message, style }) {
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginTop: 8,
-  },
-  text: { flex: 1, fontSize: 13, fontWeight: '500' },
-});

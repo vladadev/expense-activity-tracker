@@ -36,6 +36,42 @@ const COPY = {
   retry: 'Try again',
 };
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: COLORS.background,
+  },
+  icon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surface,
+    marginBottom: 16,
+  },
+  title: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
+  body: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  button: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+});
+
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -74,39 +110,3 @@ export default class ErrorBoundary extends React.Component {
     );
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    backgroundColor: COLORS.background,
-  },
-  icon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surface,
-    marginBottom: 16,
-  },
-  title: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
-  body: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-});

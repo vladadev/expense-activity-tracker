@@ -5,6 +5,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 
+const styles = StyleSheet.create({
+  button: { padding: 4, marginLeft: 8 },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+});
+
 export default function NotificationBell() {
   const { theme } = useTheme();
   const navigation = useNavigation();
@@ -25,20 +42,3 @@ export default function NotificationBell() {
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  button: { padding: 4, marginLeft: 8 },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    paddingHorizontal: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-});

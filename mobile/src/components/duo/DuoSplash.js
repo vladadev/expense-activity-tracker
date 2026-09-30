@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+
 import Svg, {
   Path, Circle, Line, G, Defs, RadialGradient, Stop,
 } from 'react-native-svg';
@@ -33,6 +34,18 @@ const TOTAL_NO_SPARKLE = CUE_SPARKLE + T_OUT;
 // Gradient ids are global in react-native-svg on Android: two mounted
 // instances sharing 'halo-blue' would resolve each other's definitions.
 let instanceSeq = 0;
+
+const styles = StyleSheet.create({
+  root: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: NAVY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  type: { marginTop: 56, alignItems: 'center' },
+  name: { color: '#F2F6FC' },
+  tag: { color: 'rgba(215,230,248,0.66)', marginTop: 14 },
+});
 
 function Star({ side, p, tint, uid }) {
   if (p <= 0) return null;
@@ -227,15 +240,3 @@ export default function DuoSplash({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: NAVY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  type: { marginTop: 56, alignItems: 'center' },
-  name: { color: '#F2F6FC' },
-  tag: { color: 'rgba(215,230,248,0.66)', marginTop: 14 },
-});

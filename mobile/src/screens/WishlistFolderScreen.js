@@ -315,7 +315,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
 
   // ---- row renderer ------------------------------------------------------
   function renderRow(item, isPurchasedRow) {
-    const personColor = personColor(item.addedBy?.name);
+    const color = personColor(item.addedBy?.name);
     const isActive = !isPurchasedRow && activeId === item._id;
     const hasSubtitle = item.price != null || !!item.notes || !!reminderText(item);
 
@@ -329,7 +329,7 @@ export default function WishlistFolderScreen({ route, navigation }) {
         key={item._id}
         style={[
           styles.row,
-          { borderLeftColor: personColor },
+          { borderLeftColor: color },
           isPurchasedRow && styles.rowPurchased,
           { transform },
           isActive && {

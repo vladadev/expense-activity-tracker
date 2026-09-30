@@ -30,6 +30,11 @@ module.exports = [
     rules: {
       ...js.configs.recommended.rules,
       'no-undef': 'error',
+      // A name used inside its own declaration. `const color = color(x)` is
+      // not undefined to `no-undef` — that line defines it — so it compiles,
+      // bundles, and throws the moment it runs. It happened when a rename
+      // collided with a local variable that already had the new name.
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
       // A hook called conditionally corrupts React's hook order, which shows
       // up as one screen rendering another's state.
       'react-hooks/rules-of-hooks': 'error',

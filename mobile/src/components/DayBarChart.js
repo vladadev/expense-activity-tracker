@@ -33,6 +33,14 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+const styles = StyleSheet.create({
+  overlay: { flex: 1, flexDirection: 'row' },
+  column: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
+  dayLabel: { fontSize: 11, height: BOTTOM_PAD, textAlignVertical: 'center' },
+  axisLabel: { position: 'absolute', left: 0, fontSize: 10, textAlign: 'right' },
+  valueLabel: { position: 'absolute', top: 4, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+});
+
 // data: [{ label, value, date }]. Evenly-spaced rounded bars with faint
 // gridlines and a y-axis scale; the tallest bar is drawn in the full theme
 // colour (others in a lighter tint) with its value printed above it. Each bar
@@ -139,11 +147,3 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, flexDirection: 'row' },
-  column: { flex: 1, justifyContent: 'flex-end', alignItems: 'center' },
-  dayLabel: { fontSize: 11, height: BOTTOM_PAD, textAlignVertical: 'center' },
-  axisLabel: { position: 'absolute', left: 0, fontSize: 10, textAlign: 'right' },
-  valueLabel: { position: 'absolute', top: 4, fontSize: 13, fontWeight: '700', textAlign: 'center' },
-});
