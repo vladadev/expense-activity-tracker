@@ -17,6 +17,13 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "design": {
+      "extends": "preview",
+      "channel": "design",
+      "env": {
+        "APP_VARIANT": "design"
+      }
     }
   },
   "submit": {
