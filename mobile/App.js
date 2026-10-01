@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Constants from 'expo-constants';
-import { useFonts, Outfit_300Light, Outfit_500Medium } from '@expo-google-fonts/outfit';
+import { useFonts, Outfit_300Light, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
+import {
+  IBMPlexSans_400Regular,
+  IBMPlexSans_500Medium,
+  IBMPlexSans_600SemiBold,
+} from '@expo-google-fonts/ibm-plex-sans';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -35,7 +40,18 @@ function ThemedStatusBar() {
 
 export default function App() {
   // The splash plays once per launch and hands over when it finishes.
-  const [fontsLoaded, fontError] = useFonts({ Outfit_300Light, Outfit_500Medium });
+  // Outfit is the face that gets noticed — titles, and above all amounts.
+  // Plex Sans is the one that gets read. A family named in the tokens but not
+  // loaded here does not fail loudly: React Native quietly substitutes the
+  // system font, and the app looks almost right everywhere.
+  const [fontsLoaded, fontError] = useFonts({
+    Outfit_300Light,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    IBMPlexSans_400Regular,
+    IBMPlexSans_500Medium,
+    IBMPlexSans_600SemiBold,
+  });
   const [introDone, setIntroDone] = useState(false);
   const [waitedForFont, setWaitedForFont] = useState(false);
 

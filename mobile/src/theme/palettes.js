@@ -77,6 +77,44 @@ export const PALETTES = {
     success: '#34D399',
     statusBarStyle: 'light',
   },
+
+  // Pond — the palette the redesign is built on. Deep still water for the
+  // brand, a warm sand ground instead of a grey one, and one warm accent kept
+  // for moments rather than spent on every button.
+  //
+  // Added alongside the old themes rather than replacing them: switching to it
+  // is how the new colours get judged on a real screen, with real amounts, in
+  // real light, before any screen is redrawn.
+  pondLight: {
+    label: 'Pond',
+    isDark: false,
+    background: '#F4F2EC',
+    surface: '#FFFFFF',
+    primary: '#0E7C66',
+    primaryLight: '#D7EDE6',
+    text: '#14201C',
+    textSecondary: '#5C6B65',
+    border: '#E4E0D6',
+    danger: '#A6432A',
+    dangerLight: '#FDF3F0',
+    success: '#0E7C66',
+    statusBarStyle: 'dark',
+  },
+  pondDark: {
+    label: 'Pond — night',
+    isDark: true,
+    background: '#0E1512',
+    surface: '#16201C',
+    primary: '#3DBE9B',
+    primaryLight: '#15322A',
+    text: '#EDF2EF',
+    textSecondary: '#94A79E',
+    border: '#27332E',
+    danger: '#F0907A',
+    dangerLight: '#3A201A',
+    success: '#3DBE9B',
+    statusBarStyle: 'light',
+  },
 };
 
 export const DEFAULT_THEME = 'light';

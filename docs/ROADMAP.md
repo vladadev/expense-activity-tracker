@@ -148,8 +148,15 @@ onboarding, empty states, the household screen, celebrations, errors. Where an
 amount is on screen, it is calm and sharp, the way Revolut and Wise are.
 Duolingo and Monobank both work exactly this way.
 
-- [ ] **Design system.** Colour tokens, typography, spacing, iconography,
-      motion, light and dark. See `design/BRIEF.md`.
+- [~] **Design system.** The canvas is drawn and the tokens are in the code:
+      `theme/palettes.js` gained Pond in light and night, `theme/scale.js`
+      holds the measurements that do not change with the theme — spacing on a
+      grid of four, three radii, the type scale, the 48 nobody taps below, and
+      the motion durations including the pond's. Outfit for what gets noticed,
+      IBM Plex Sans for what gets read, both actually loaded, because a family
+      named but not loaded falls back to the system face without a word.
+      16 tests guard it: every palette against every other, every font against
+      what the app loads. Still to do: iconography.
 - [ ] **One screen as proof** the system holds together before the rest follow.
 - [ ] **Statistics, folded into money.** Not redrawn where it stands: it stops
       being a destination and becomes the analysis view of the money tab.
