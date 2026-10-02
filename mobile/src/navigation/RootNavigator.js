@@ -4,6 +4,8 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ErrorBoundary from '../components/ErrorBoundary';
+import PondTabBar from '../components/pond/PondTabBar';
+import { IS_DESIGN } from '../theme/variant';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -145,6 +147,10 @@ function MainTabs() {
   const { theme } = useTheme();
   return (
     <Tab.Navigator
+      // The pond bar replaces the stock one only in the design build, so the
+      // app in daily use keeps the bar it has until the redesign is finished
+      // and moved across deliberately.
+      tabBar={IS_DESIGN ? (props) => <PondTabBar {...props} /> : undefined}
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
