@@ -148,23 +148,17 @@ onboarding, empty states, the household screen, celebrations, errors. Where an
 amount is on screen, it is calm and sharp, the way Revolut and Wise are.
 Duolingo and Monobank both work exactly this way.
 
-- [~] **Design system.** The canvas is drawn and the tokens are in the code:
-      `theme/palettes.js` gained Pond in light and night, `theme/scale.js`
-      holds the measurements that do not change with the theme — spacing on a
-      grid of four, three radii, the type scale, the 48 nobody taps below, and
-      the motion durations including the pond's. Outfit for what gets noticed,
-      IBM Plex Sans for what gets read, both actually loaded, because a family
-      named but not loaded falls back to the system face without a word.
-      16 tests guard it: every palette against every other, every font against
-      what the app loads. Still to do: iconography.
-- [ ] **One screen as proof** the system holds together before the rest follow.
-- [ ] **Statistics, folded into money.** Not redrawn where it stands: it stops
-      being a destination and becomes the analysis view of the money tab.
-- [ ] **Calendar.** The panel under the month fits barely two entries and needs
-      a precise tap on a small arrow to open.
-- [ ] **The home screen**, which does not exist yet.
-- [ ] **Settings into the header**, freeing the fourth tab.
-- [ ] **The remaining screens**, one at a time, each shipped over the air.
+The work of this phase is tracked in **`docs/REDESIGN.md`**, which carries the
+screen-by-screen list, the order, how it ships and the rules it is held to. Two
+files describing the same work drift apart, so this one keeps the shape of the
+project and that one keeps the work.
+
+What this phase has to end with, and the measure of whether it is finished:
+
+- four tabs, **Home · Calendar · Money · Lists**
+- statistics folded into money rather than standing alone
+- settings reached from a gear in the header
+- every screen on the Pond palette, in both themes
 
 ## Phase 3 — Joining without being told how
 

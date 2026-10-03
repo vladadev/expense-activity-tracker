@@ -53,6 +53,24 @@ with it.
       crossing, the leaf leaning into the direction it travels. Icons redrawn,
       money as a wallet.
 
+## The shape it has to end in
+
+**Four tabs: Home · Calendar · Money · Lists.** Right now there are six, because
+Home was added without anything being taken away. That is not only untidy: at
+390 points across, six tabs leave 63 each, and a word like "Podešavanja" does
+not fit in 63.
+
+The two that go are not deletions. **Statistics folds into Money** as its second
+face — it was never badly drawn, it simply had no question of its own to answer,
+and the answer to "how has it been" belongs beside "where do we stand".
+**Settings moves to a gear in the header**, beside the bell, because it is
+opened about once a month and was taking the same room as the tab opened daily.
+
+**This comes before the remaining screens**, and the order matters. Settings in
+the header changes the shared header every screen uses. Statistics folding in
+changes what the Money screen *is*. Redesigning Money first and folding
+statistics in afterwards means drawing Money twice.
+
 ## Next, in this order
 
 - [~] **Home.** Built and shipping: the pond across the top with sun or moon,
@@ -65,6 +83,10 @@ with it.
       Still open on it: the scene does not yet know the hour of day on its own
       (it follows the theme), and there is no mascot in it until the frog
       exists.
+- [ ] **Settings into the header.** A gear beside the bell in the shared
+      header, and the tab removed. Touches every screen, so it goes first.
+- [ ] **Statistics into Money.** Money gets two faces, Now and Analysis, and
+      the Statistics tab goes. Six tabs become four.
 - [ ] **Money.** The horizon treatment — the same sky and sun or moon, one
       wave, about 150px behind the header — with the figures on calm ground
       below it. Day and night.
@@ -83,9 +105,6 @@ with it.
 
 ## After the screens
 
-- [ ] **Statistics folds into Money** and stops being a tab.
-- [ ] **Settings moves to a gear in the header**, freeing the fourth tab, so
-      the bar becomes Home · Calendar · Money · Lists.
 - [ ] **Onboarding**: empty states that teach, one guided first expense, at
       most three coachmarks on the screens they belong to.
 - [ ] **The mascot.** Four poses, drawn by a tool or a person, dropped into
