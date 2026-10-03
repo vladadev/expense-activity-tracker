@@ -89,23 +89,26 @@ describe('barPath', () => {
     expect((d.match(/C /g) || []).length).toBeGreaterThanOrEqual(4);
   });
 
-  // With five tabs the outer two always reach a rounded corner, so dropping
-  // the bay there left the edge flat under the leaf exactly where it showed
-  // most. It narrows to fit instead.
-  it('keeps the bay at the ends by squeezing it', () => {
-    const first = barPath(W, TOP, BOTTOM, 43.8);
-    const last = barPath(W, TOP, BOTTOM, 346.2);
-    for (const path of [first, last]) {
-      expect(path).toMatch(/C .*C /);
-      expect(path).not.toMatch(/-\d/);
+  // Two earlier attempts failed here: dropping the bay left the outer tabs
+  // with a flat edge, and squeezing it left half a curve, which looks like a
+  // mistake rather than a shape. The bay keeps its width and moves its centre
+  // inboard instead.
+  it('keeps a full, symmetric bay at both ends', () => {
+    for (const centre of [0, 10, 43.8, 346.2, 390]) {
+      const path = barPath(W, TOP, BOTTOM, centre);
+      const dip = path.match(/C ([\d.]+) \d+[^C]*C/);
+      expect(dip).not.toBeNull();
+      const [, from] = path.match(/H ([\d.]+) C/);
+      const [, to] = path.match(/, ([\d.]+) \d+ H /);
+      expect(+(Number(to) - Number(from)).toFixed(4)).toBe(BAY_HALF * 2);
     }
   });
 
   it('never lets the bay cross a corner', () => {
     for (const centre of [0, 8, 20, 370, 382, 390]) {
       const path = barPath(W, TOP, BOTTOM, centre);
-      const starts = path.match(/H (-?[\d.]+) C/);
-      if (starts) expect(Number(starts[1])).toBeGreaterThanOrEqual(BAR_RADIUS);
+      const [, from] = path.match(/H ([\d.-]+) C/);
+      expect(Number(from)).toBeGreaterThanOrEqual(BAR_RADIUS);
     }
   });
 

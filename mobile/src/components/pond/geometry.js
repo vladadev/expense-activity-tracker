@@ -10,7 +10,7 @@
 
 export const BAND_H = 46; // water above the bar
 export const BAR_H = 64; // the bar itself, before the phone's own inset
-export const BAR_RADIUS = 16; // top corners only
+export const BAR_RADIUS = 12; // top corners only
 export const BAY_DEPTH = 7.5; // how far the edge dips under the leaf
 export const BAY_HALF = 32; // half the width it takes to leave and return
 export const PAD_WIDTH = 30;
@@ -40,28 +40,29 @@ export function tabCentres(count, width, gutter = GUTTER) {
 export function barPath(width, top, bottom, bayCentre, radius = BAR_RADIUS) {
   if (!width) return '';
   const r = Math.min(radius, width / 2);
-  const c = bayCentre;
+
+  // A bay near either end would run into a rounded corner. Two attempts went
+  // wrong here. Dropping it left the edge flat under the outer tabs, which
+  // with five tabs is where it shows most. Squeezing it left half a curve —
+  // an edge that starts to dip and gives up, which looks like a mistake
+  // rather than a shape.
+  //
+  // So the bay keeps its full width and symmetry, and its CENTRE moves
+  // instead: pulled just far enough inboard to clear the corner. The leaf
+  // still sits over its tab, a few pixels off the middle of its own bay,
+  // which nobody can see — while half a curve is the first thing anybody
+  // sees.
+  const clear = r + 6;
+  const lowest = clear + BAY_HALF;
+  const highest = width - clear - BAY_HALF;
+  const c = lowest > highest ? width / 2 : Math.min(Math.max(bayCentre, lowest), highest);
   const left = c - BAY_HALF;
   const right = c + BAY_HALF;
   const dip = top + BAY_DEPTH;
 
-  // A bay near either end would run into a rounded corner. Dropping it there
-  // was the first attempt and it was wrong: with five tabs the outer two
-  // ALWAYS reach the corner, so the edge went flat under the leaf exactly
-  // where it was most noticeable. The bay is squeezed instead — its sides
-  // pulled in to clear the corner while the dip stays under the leaf, so it
-  // narrows rather than disappearing.
-  const clear = r + 4;
-  const from = Math.max(left, clear);
-  const to = Math.min(right, width - clear);
-  const lead = Math.max(6, Math.min(11, (c - from) * 0.42));
-  const tail = Math.max(6, Math.min(11, (to - c) * 0.42));
-
   const edge =
-    to - from > 12
-      ? `H ${from} C ${from + lead} ${top}, ${from + lead + 2} ${dip}, ${c} ${dip} ` +
-        `C ${to - tail - 2} ${dip}, ${to - tail} ${top}, ${to} ${top} H ${width - r}`
-      : `H ${width - r}`;
+    `H ${left} C ${left + 11} ${top}, ${left + 13} ${dip}, ${c} ${dip} ` +
+    `C ${right - 13} ${dip}, ${right - 11} ${top}, ${right} ${top} H ${width - r}`;
 
   return (
     `M ${r} ${top} ${edge} ` +

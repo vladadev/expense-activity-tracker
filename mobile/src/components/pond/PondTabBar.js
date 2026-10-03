@@ -44,6 +44,10 @@ const WAVE_NEAR_MS = 17000;
 const BOB_MS = 4600;
 const RIPPLE_MS = 5200;
 const LEAF_H = (PAD_WIDTH * LEAF_VIEWBOX.height) / LEAF_VIEWBOX.width;
+// How far the water carries on BEHIND the bar. The bar's rounded top corners
+// each leave a wedge, and water that stopped at the bar's edge left those two
+// wedges showing the screen instead of the pond.
+const WATER_UNDER = 28;
 
 function pondColours(isDark, theme) {
   if (isDark) {
@@ -241,7 +245,7 @@ export default function PondTabBar({ state, descriptors, navigation }) {
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <View style={styles.water} pointerEvents="none">
-        <Svg width={width} height={BAND_H + 10}>
+        <Svg width={width} height={BAND_H + WATER_UNDER}>
           <Defs>
             <LinearGradient id="pondWater" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={c.water} stopOpacity="0" />
@@ -249,16 +253,16 @@ export default function PondTabBar({ state, descriptors, navigation }) {
               <Stop offset="1" stopColor={c.water} stopOpacity={theme.isDark ? 0.8 : 0.55} />
             </LinearGradient>
           </Defs>
-          <Rect x="0" y="0" width={width} height={BAND_H + 10} fill="url(#pondWater)" />
+          <Rect x="0" y="0" width={width} height={BAND_H + WATER_UNDER} fill="url(#pondWater)" />
         </Svg>
         <Animated.View style={[styles.wave, { transform: [{ translateX: farShift }] }]}>
-          <Svg width={width * 2} height={BAND_H + 10}>
-            <Path d={wavePath(width, BAND_H * 0.52, BAND_H + 10, 4)} fill={c.waveFar} opacity={0.5} />
+          <Svg width={width * 2} height={BAND_H + WATER_UNDER}>
+            <Path d={wavePath(width, BAND_H * 0.52, BAND_H + WATER_UNDER, 4)} fill={c.waveFar} opacity={0.5} />
           </Svg>
         </Animated.View>
         <Animated.View style={[styles.wave, { transform: [{ translateX: nearShift }] }]}>
-          <Svg width={width * 2} height={BAND_H + 10}>
-            <Path d={wavePath(width, BAND_H * 0.74, BAND_H + 10, 5)} fill={c.waveNear} opacity={0.45} />
+          <Svg width={width * 2} height={BAND_H + WATER_UNDER}>
+            <Path d={wavePath(width, BAND_H * 0.74, BAND_H + WATER_UNDER, 5)} fill={c.waveNear} opacity={0.45} />
           </Svg>
         </Animated.View>
       </View>
@@ -385,7 +389,7 @@ export default function PondTabBar({ state, descriptors, navigation }) {
 function createStyles(theme, c, bottomInset, height) {
   return StyleSheet.create({
     wrap: { height, backgroundColor: 'transparent' },
-    water: { position: 'absolute', left: 0, right: 0, top: 0, height: BAND_H + 10, overflow: 'hidden' },
+    water: { position: 'absolute', left: 0, right: 0, top: 0, height: BAND_H + WATER_UNDER, overflow: 'hidden' },
     wave: { position: 'absolute', left: 0, top: 0 },
     ripples: { position: 'absolute', width: PAD_WIDTH * 1.8, alignItems: 'center' },
     wake: { position: 'absolute', width: PAD_WIDTH * 2.2, alignItems: 'center' },
