@@ -45,14 +45,23 @@ export function barPath(width, top, bottom, bayCentre, radius = BAR_RADIUS) {
   const right = c + BAY_HALF;
   const dip = top + BAY_DEPTH;
 
-  // A bay that would run past a rounded corner is pulled back inside it, so
-  // the corner never loses its shape to the dip.
-  const bayFits = left > r + 2 && right < width - r - 2;
+  // A bay near either end would run into a rounded corner. Dropping it there
+  // was the first attempt and it was wrong: with five tabs the outer two
+  // ALWAYS reach the corner, so the edge went flat under the leaf exactly
+  // where it was most noticeable. The bay is squeezed instead — its sides
+  // pulled in to clear the corner while the dip stays under the leaf, so it
+  // narrows rather than disappearing.
+  const clear = r + 4;
+  const from = Math.max(left, clear);
+  const to = Math.min(right, width - clear);
+  const lead = Math.max(6, Math.min(11, (c - from) * 0.42));
+  const tail = Math.max(6, Math.min(11, (to - c) * 0.42));
 
-  const edge = bayFits
-    ? `H ${left} C ${left + 11} ${top}, ${left + 13} ${dip}, ${c} ${dip} ` +
-      `C ${right - 13} ${dip}, ${right - 11} ${top}, ${right} ${top} H ${width - r}`
-    : `H ${width - r}`;
+  const edge =
+    to - from > 12
+      ? `H ${from} C ${from + lead} ${top}, ${from + lead + 2} ${dip}, ${c} ${dip} ` +
+        `C ${to - tail - 2} ${dip}, ${to - tail} ${top}, ${to} ${top} H ${width - r}`
+      : `H ${width - r}`;
 
   return (
     `M ${r} ${top} ${edge} ` +

@@ -89,13 +89,24 @@ describe('barPath', () => {
     expect((d.match(/C /g) || []).length).toBeGreaterThanOrEqual(4);
   });
 
-  // Near the ends the bay would eat into a rounded corner. It is dropped
-  // rather than drawn through it: a corner that loses its shape for a frame
-  // looks broken, and the leaf still marks the tab by sitting over it.
-  it('drops the bay rather than cutting through a corner', () => {
-    const atEdge = barPath(W, TOP, BOTTOM, 10);
-    expect(atEdge).not.toContain('H -');
-    expect(atEdge.match(/C /g).length).toBeLessThan((d.match(/C /g) || []).length);
+  // With five tabs the outer two always reach a rounded corner, so dropping
+  // the bay there left the edge flat under the leaf exactly where it showed
+  // most. It narrows to fit instead.
+  it('keeps the bay at the ends by squeezing it', () => {
+    const first = barPath(W, TOP, BOTTOM, 43.8);
+    const last = barPath(W, TOP, BOTTOM, 346.2);
+    for (const path of [first, last]) {
+      expect(path).toMatch(/C .*C /);
+      expect(path).not.toMatch(/-\d/);
+    }
+  });
+
+  it('never lets the bay cross a corner', () => {
+    for (const centre of [0, 8, 20, 370, 382, 390]) {
+      const path = barPath(W, TOP, BOTTOM, centre);
+      const starts = path.match(/H (-?[\d.]+) C/);
+      if (starts) expect(Number(starts[1])).toBeGreaterThanOrEqual(BAR_RADIUS);
+    }
   });
 
   it('has nothing in it when the bar has not been measured', () => {

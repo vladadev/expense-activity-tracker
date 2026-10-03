@@ -134,6 +134,10 @@ export default function PondTabBar({ state, descriptors, navigation }) {
   // Animated value alone because the bar's own path is redrawn from it.
   const [leafX, setLeafX] = useState(() => centres[state.index] || width / 2);
   const [settled, setSettled] = useState(state.index);
+  const [wakeFrom, setWakeFrom] = useState(null);
+  const wake = useRef(new Animated.Value(0)).current;
+  const lean = useRef(new Animated.Value(0)).current;
+  const cameFrom = useRef(state.index);
   const swim = useRef(new Animated.Value(centres[state.index] || width / 2)).current;
   const bob = useRef(new Animated.Value(0)).current;
   const driftFar = useRef(new Animated.Value(0)).current;
@@ -179,6 +183,38 @@ export default function PondTabBar({ state, descriptors, navigation }) {
   useEffect(() => {
     const target = centres[state.index];
     if (target == null) return undefined;
+
+    const previous = centres[cameFrom.current];
+    cameFrom.current = state.index;
+    if (previous != null && previous !== target) {
+      setWakeFrom(previous);
+      wake.setValue(0);
+      Animated.timing(wake, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start(({ finished }) => finished && setWakeFrom(null));
+
+      // It leans into the direction it is travelling and rights itself on
+      // arrival, the way anything afloat does when it is pushed.
+      const towards = target > previous ? 1 : -1;
+      Animated.sequence([
+        Animated.timing(lean, {
+          toValue: towards,
+          duration: SWIM_MS * 0.45,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(lean, {
+          toValue: 0,
+          duration: SWIM_MS * 0.8,
+          easing: Easing.out(Easing.back(1.4)),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
     const run = Animated.timing(swim, {
       toValue: target,
       duration: SWIM_MS,
@@ -195,11 +231,12 @@ export default function PondTabBar({ state, descriptors, navigation }) {
   const lift = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -2.4] });
   const sway = bob.interpolate({ inputRange: [0, 1], outputRange: [-1, 1.2] });
   const tilt = bob.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.1deg'] });
+  const leanTilt = lean.interpolate({ inputRange: [-1, 0, 1], outputRange: ['5deg', '0deg', '-5deg'] });
   const farShift = driftFar.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
   const nearShift = driftNear.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
   const barTop = BAND_H;
-  const leafTop = barTop - LEAF_H / 2 + 1;
+  const leafTop = barTop - LEAF_H / 2 - 3;
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
@@ -235,6 +272,43 @@ export default function PondTabBar({ state, descriptors, navigation }) {
         <Ripple delay={3400} colour={c.ripple} size={PAD_WIDTH * 1.8} />
       </Animated.View>
 
+      {wakeFrom != null && (
+        <Animated.View
+          style={[
+            styles.wake,
+            {
+              left: wakeFrom - PAD_WIDTH * 1.1,
+              top: barTop - 6,
+              opacity: wake.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.5, 0] }),
+              transform: [{ scaleX: wake.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.7] }) }],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Svg width={PAD_WIDTH * 2.2} height={18}>
+            <Ellipse
+              cx={PAD_WIDTH * 1.1}
+              cy={9}
+              rx={PAD_WIDTH * 1.1 - 2}
+              ry={7}
+              fill="none"
+              stroke={c.ripple}
+              strokeWidth={1.4}
+            />
+            <Ellipse
+              cx={PAD_WIDTH * 1.1}
+              cy={9}
+              rx={PAD_WIDTH * 0.7}
+              ry={4.4}
+              fill="none"
+              stroke={c.ripple}
+              strokeWidth={1}
+              opacity={0.7}
+            />
+          </Svg>
+        </Animated.View>
+      )}
+
       <View style={styles.barLayer} pointerEvents="none">
         <Svg width={width} height={height}>
           <Path d={barPath(width, barTop, height, leafX)} fill={c.bar} />
@@ -247,7 +321,7 @@ export default function PondTabBar({ state, descriptors, navigation }) {
           {
             left: leafX - PAD_WIDTH / 2,
             top: leafTop,
-            transform: [{ translateY: lift }, { translateX: sway }, { rotate: tilt }],
+            transform: [{ translateY: lift }, { translateX: sway }, { rotate: tilt }, { rotate: leanTilt }],
           },
         ]}
         pointerEvents="none"
@@ -314,6 +388,7 @@ function createStyles(theme, c, bottomInset, height) {
     water: { position: 'absolute', left: 0, right: 0, top: 0, height: BAND_H + 10, overflow: 'hidden' },
     wave: { position: 'absolute', left: 0, top: 0 },
     ripples: { position: 'absolute', width: PAD_WIDTH * 1.8, alignItems: 'center' },
+    wake: { position: 'absolute', width: PAD_WIDTH * 2.2, alignItems: 'center' },
     barLayer: { position: 'absolute', left: 0, right: 0, top: 0 },
     leaf: { position: 'absolute' },
     row: {
