@@ -8,6 +8,10 @@ import {
   SCENE,
   bankPath,
   bankLine,
+  peakPath,
+  litSlopes,
+  RANGE_FAR,
+  RANGE_MID,
   reedStem,
   reedBlade,
   reedHead,
@@ -267,6 +271,102 @@ describe('bankPath and bankLine', () => {
   });
 });
 
+// Mountains are made of slopes, and a slope is straight. The attempt before
+// this one ran the ranges through the same Catmull-Rom as the bank, which
+// rounds everything it touches: the result had no faces and was reported, both
+// times, as one curved line above the water however many bumps were in it.
+describe('peakPath', () => {
+  const W = 390;
+  const BASE = 144;
+  const RISE = 69;
+
+  it('draws straight slopes and nothing curved', () => {
+    for (const profile of [RANGE_FAR, RANGE_MID]) {
+      const d = peakPath(W, BASE, RISE, profile);
+      expect(d).not.toContain('C');
+      expect(d).not.toContain('Q');
+      expect(d).not.toContain('S');
+    }
+  });
+
+  it('closes along its own foot', () => {
+    const d = peakPath(W, BASE, RISE, RANGE_FAR);
+    expect(d.trimEnd().endsWith('Z')).toBe(true);
+    expect(d).toContain(`${BASE}`);
+  });
+
+  it('has nothing in it before the scene has been measured', () => {
+    expect(peakPath(0, BASE, RISE, RANGE_FAR)).toBe('');
+  });
+
+  it('never writes NaN, at any width', () => {
+    for (const width of [0, 320, 360, 390, 412, 448]) {
+      expect(peakPath(width, BASE, RISE, RANGE_MID)).not.toMatch(/NaN/);
+    }
+  });
+
+  // Neither range alone crosses the frame. One silhouette spanning the whole
+  // width is the shape that kept reading as a line.
+  it('leaves each range short of the far side', () => {
+    expect(RANGE_FAR[RANGE_FAR.length - 1][0]).toBeLessThan(1);
+    expect(RANGE_MID[0][0]).toBeGreaterThan(0);
+  });
+
+  it('starts the far range off the left edge and ends the other off the right', () => {
+    expect(RANGE_FAR[0][0]).toBeLessThan(0);
+    expect(RANGE_MID[RANGE_MID.length - 1][0]).toBeGreaterThan(1);
+  });
+
+  it('overlaps them, so there is a landscape rather than two backdrops', () => {
+    expect(RANGE_MID[0][0]).toBeLessThan(RANGE_FAR[RANGE_FAR.length - 1][0]);
+  });
+
+  it('brings each range down to the water where it ends', () => {
+    expect(RANGE_FAR[RANGE_FAR.length - 1][1]).toBe(0);
+    expect(RANGE_MID[0][1]).toBe(0);
+  });
+});
+
+describe('litSlopes', () => {
+  const W = 390;
+  const BASE = 144;
+  const RISE = 69;
+
+  // A range running down INTO the water touches the waterline at its last
+  // point, and that is correct. What must never appear is a SEGMENT along it —
+  // two points both at the waterline — because that is the line that was drawn
+  // across the whole screen twice.
+  it('returns open lines, and never a segment that runs along the water', () => {
+    for (const profile of [RANGE_FAR, RANGE_MID]) {
+      for (const d of litSlopes(W, BASE, RISE, profile)) {
+        expect(d).not.toContain('Z');
+        const ys = [...d.matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+        for (let i = 1; i < ys.length; i += 1) {
+          expect(ys[i] === BASE && ys[i - 1] === BASE).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('picks only the faces turned towards the light', () => {
+    // The sun is high and to the right, so a lit face falls as x grows —
+    // which on screen means y grows.
+    for (const d of litSlopes(W, BASE, RISE, RANGE_FAR)) {
+      const ys = [...d.matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+      for (let i = 1; i < ys.length; i += 1) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+    }
+  });
+
+  it('finds some on both ranges', () => {
+    expect(litSlopes(W, BASE, RISE, RANGE_FAR).length).toBeGreaterThan(2);
+    expect(litSlopes(W, BASE, RISE, RANGE_MID).length).toBeGreaterThan(2);
+  });
+
+  it('has none before the scene has been measured', () => {
+    expect(litSlopes(0, BASE, RISE, RANGE_FAR)).toEqual([]);
+  });
+});
+
 // The look of the pond is the ORDER of these depths, not the depths. Twice
 // something ended up visibly lying on top of the water instead of standing in
 // it, and both times the cause was one number drifting past the wave that was
@@ -280,6 +380,21 @@ describe('SCENE depths', () => {
 
   it('buries the foot of the bank under the first wave', () => {
     expect(SCENE.bankBase).toBeGreaterThan(SCENE.waveFar);
+  });
+
+  it('hides where the ranges stand behind the bank, at its lowest point', () => {
+    const lowestBankTop = SCENE.bankBase - SCENE.bankRise * Math.min(...BANK.map(([, h]) => h));
+    expect(SCENE.mountainBase).toBeGreaterThan(lowestBankTop);
+  });
+
+  it('keeps the ranges above the bank, so they are seen over it', () => {
+    const bankTop = SCENE.bankBase - SCENE.bankRise;
+    expect(SCENE.mountainBase - SCENE.mountainRiseFar).toBeLessThan(bankTop);
+    expect(SCENE.mountainBase - SCENE.mountainRiseMid).toBeLessThan(bankTop);
+  });
+
+  it('stands the far range taller than the one in front of it', () => {
+    expect(SCENE.mountainRiseFar).toBeGreaterThan(SCENE.mountainRiseMid);
   });
 
   it('still leaves the bank visible above that wave', () => {

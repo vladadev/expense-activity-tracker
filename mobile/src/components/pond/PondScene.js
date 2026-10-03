@@ -6,6 +6,10 @@ import {
   SCENE,
   bankPath,
   bankLine,
+  peakPath,
+  litSlopes,
+  RANGE_FAR,
+  RANGE_MID,
   reedStem,
   reedBlade,
   reedHead,
@@ -64,7 +68,9 @@ const DAY = {
   padRim: '#33C7A3',
   padVein: '#1E9B7E',
   sheen: '#FFFFFF',
-  ridgeFar: '#0A4A3E',
+  mtnFar: '#115F50',
+  mtnMid: '#0C4B40',
+  ridgeFar: '#083A31',
   ridgeNear: '#06302A',
   ridgeLight: '#2E8A72',
   ripple: '#9FE3CC',
@@ -84,7 +90,9 @@ const NIGHT = {
   padRim: '#1C7A68',
   padVein: '#176B5E',
   sheen: '#CFE4F2',
-  ridgeFar: '#061B22',
+  mtnFar: '#0A2A33',
+  mtnMid: '#072029',
+  ridgeFar: '#05191F',
   ridgeNear: '#03161C',
   ridgeLight: '#1A4A58',
   ripple: '#7FB6C9',
@@ -135,66 +143,142 @@ function useLoop(duration, delay = 0) {
 // bobbing in mid-air — the movement has nothing to be movement against. These
 // are what say there is a surface there, and they are deliberately slower than
 // the bob and out of step with it, so the two never beat together.
-function PadWater({ left, top, w, h, delay, colours }) {
-  const ring = useRef(new Animated.Value(0)).current;
+// One ring, leaving the pad and fading out. Lifted wholesale from the leaf in
+// the tab bar, down to the counts, because they are the same pond and anything
+// that behaves differently reads as a different kind of water.
+const RIPPLE_MS = 5200;
+const RIPPLE_STAGGER = 1700;
+
+function PadRipple({ delay, colour, w, h }) {
+  const t = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
-        Animated.timing(ring, { toValue: 1, duration: 6400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(t, { toValue: 1, duration: RIPPLE_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(t, { toValue: 0, duration: 0, useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, [ring, delay]);
+  }, [t, delay]);
 
-  const box = w * 2;
-  const boxH = h * 2.4;
-  const style = (from, to, fade) => ({
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        opacity: t.interpolate({ inputRange: [0, 0.1, 1], outputRange: [0, 0.45, 0] }),
+        transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1.5] }) }],
+      }}
+    >
+      <Svg width={w} height={h}>
+        <Ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 1} ry={h / 2 - 1} stroke={colour} strokeWidth={1.3} fill="none" />
+      </Svg>
+    </Animated.View>
+  );
+}
+
+// What the pad does to the water it sits on: a shadow that stays put, and
+// THREE rings leaving on staggered counts.
+//
+// Three, and staggered, is the whole thing. Two rings expanding together read
+// as a halo around the leaf; one leaving every 1.7 seconds reads as a surface
+// being disturbed, which is what it is. The leaf in the tab bar has done it
+// this way since it was drawn, and this is the same pond.
+function PadWater({ left, top, w, h, delay, colours }) {
+  const box = w * 1.8;
+  const boxH = box * 0.42;
+  const place = {
     position: 'absolute',
     left: left + w / 2 - box / 2,
     top: top + h / 2 - boxH / 2,
-    opacity: ring.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, fade, 0] }),
-    transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [from, to] }) }],
-  });
+    width: box,
+    height: boxH,
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
 
   return (
     <>
       <Svg
-        width={box}
-        height={boxH}
-        style={{ position: 'absolute', left: left + w / 2 - box / 2, top: top + h / 2 - boxH / 2 }}
+        width={w * 1.1}
+        height={h * 1.1}
+        style={{ position: 'absolute', left: left - w * 0.05, top: top - h * 0.05 + h * 0.2 }}
         pointerEvents="none"
       >
-        <Ellipse cx={box / 2} cy={boxH / 2 + h * 0.22} rx={w * 0.52} ry={h * 0.48} fill={colours.padShadow} opacity={0.3} />
+        <Ellipse
+          cx={w * 0.55}
+          cy={h * 0.55}
+          rx={w * 0.5}
+          ry={h * 0.46}
+          fill={colours.padShadow}
+          opacity={0.32}
+        />
       </Svg>
-      <Animated.View style={style(0.55, 1.45, 0.42)} pointerEvents="none">
-        <Svg width={box} height={boxH}>
-          <Ellipse
-            cx={box / 2}
-            cy={boxH / 2}
-            rx={w * 0.58}
-            ry={h * 0.54}
-            stroke={colours.ripple}
-            strokeWidth={1.3}
-            fill="none"
-          />
-        </Svg>
-      </Animated.View>
-      <Animated.View style={style(0.4, 1.15, 0.26)} pointerEvents="none">
-        <Svg width={box} height={boxH}>
-          <Ellipse
-            cx={box / 2}
-            cy={boxH / 2}
-            rx={w * 0.58}
-            ry={h * 0.54}
-            stroke={colours.ripple}
-            strokeWidth={1.1}
-            fill="none"
-          />
-        </Svg>
-      </Animated.View>
+      <View style={place} pointerEvents="none">
+        {[0, RIPPLE_STAGGER, RIPPLE_STAGGER * 2].map((offset) => (
+          <PadRipple key={offset} delay={delay + offset} colour={colours.ripple} w={box} h={boxH} />
+        ))}
+      </View>
     </>
+  );
+}
+
+// A clump of reeds, leaning on the wind.
+//
+// The whole clump turns together, about where it stands rather than about the
+// middle of the screen — `transformOrigin` is given the clump's own feet, so
+// the tips travel and the bases do not, which is the only way a plant bends.
+// The two clumps are on periods that do not divide into each other, so the
+// pond never looks like it is breathing.
+function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
+  const sway = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(sway, { toValue: 1, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(sway, { toValue: 0, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [sway, period, delay]);
+
+  const base = height * SCENE.reedBase;
+  const middle = (reeds.reduce((sum, reed) => sum + reed.x, 0) / reeds.length) * width;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        ...StyleSheet.absoluteFillObject,
+        transformOrigin: [middle, base],
+        transform: [{ rotate: sway.interpolate({ inputRange: [0, 1], outputRange: ['-0.9deg', '1deg'] }) }],
+      }}
+    >
+      <Svg width={width} height={height}>
+        {reeds.map((reed) => {
+          const x = width * reed.x;
+          const h = height * reed.h;
+          const head = reed.head ? reedHead(x, base, h, reed.lean) : null;
+          return (
+            <G key={`${reed.x}`}>
+              {reed.blade !== 0 && <Path d={reedBlade(x, base, h * 0.82, reed.blade)} fill={colour} opacity={0.85} />}
+              <Path
+                d={reedStem(x, base, h, reed.lean)}
+                stroke={colour}
+                strokeWidth={reed.head ? 2.2 : 1.6}
+                strokeLinecap="round"
+                fill="none"
+              />
+              {head && <Ellipse cx={head.cx} cy={head.cy} rx={head.rx} ry={head.ry} fill={colour} />}
+            </G>
+          );
+        })}
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -341,16 +425,38 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-pondSky)`} />
 
-        {/* The far bank: low, hazy, and running off both sides of the frame.
-            Low because it is the other side of a pond and not a horizon, and
-            hazy because distance is the only thing telling you it is far. Its
-            foot goes under the first wave, which is what puts it behind the
-            water rather than on top of it. */}
-        <Path d={bankPath(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} opacity={0.5} />
+        {/* Two ranges, overlapping, neither crossing the whole frame. The far
+            one climbs out of the left edge and runs down into the water two
+            thirds across; the other starts behind it and carries on out to the
+            right. Straight slopes meeting at angles, because that is what rock
+            is — the bank below is smoothed, and a smoothed outline has no
+            faces and reads as one curved line however many bumps are in it. */}
+        <Path
+          d={peakPath(width, height * SCENE.mountainBase, height * SCENE.mountainRiseFar, RANGE_FAR)}
+          fill={c.mtnFar}
+          opacity={0.85}
+        />
+        {litSlopes(width, height * SCENE.mountainBase, height * SCENE.mountainRiseFar, RANGE_FAR).map((d) => (
+          <Path key={d} d={d} stroke={c.ridgeLight} strokeWidth={1.1} fill="none" opacity={0.34} strokeLinejoin="round" />
+        ))}
+        <Path
+          d={peakPath(width, height * SCENE.mountainBase, height * SCENE.mountainRiseMid, RANGE_MID)}
+          fill={c.mtnMid}
+          opacity={0.92}
+        />
+        {litSlopes(width, height * SCENE.mountainBase, height * SCENE.mountainRiseMid, RANGE_MID).map((d) => (
+          <Path key={d} d={d} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.26} strokeLinejoin="round" />
+        ))}
+
+        {/* The far bank, in front of the ranges and hiding where they stand.
+            Low, soft and the darkest of the three, because it is the nearest —
+            and its own foot goes under the first wave, which is what puts all
+            of this behind the water instead of on top of it. */}
+        <Path d={bankPath(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} opacity={0.92} />
         {/* The skyline, and ONLY the skyline. Stroking the filled shape drew
             its bottom edge as well — a hard line straight along the waterline,
             across the whole width. */}
-        <Path d={bankLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.28} />
+        <Path d={bankLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.2} />
       </Svg>
 
       {/* The sun, on its way out. Each light keeps its own colour through the
@@ -425,30 +531,11 @@ export default function PondScene({ width, height, fadeTo, children }) {
       </Animated.View>
       {/* Reeds stand between the second wave and the third, so the water in
           front covers where they enter it. A plant whose base you can see
-          sitting on the surface is a plant lying on the water. */}
-      <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
-        {[...REEDS_LEFT, ...REEDS_RIGHT].map((reed) => {
-          const x = width * reed.x;
-          const base = height * SCENE.reedBase;
-          const h = height * reed.h;
-          const head = reed.head ? reedHead(x, base, h, reed.lean) : null;
-          return (
-            <G key={`${reed.x}`}>
-              {reed.blade !== 0 && (
-                <Path d={reedBlade(x, base, h * 0.82, reed.blade)} fill={c.ridgeNear} opacity={0.85} />
-              )}
-              <Path
-                d={reedStem(x, base, h, reed.lean)}
-                stroke={c.ridgeNear}
-                strokeWidth={reed.head ? 2.2 : 1.6}
-                strokeLinecap="round"
-                fill="none"
-              />
-              {head && <Ellipse cx={head.cx} cy={head.cy} rx={head.rx} ry={head.ry} fill={c.ridgeNear} />}
-            </G>
-          );
-        })}
-      </Svg>
+          sitting on the surface is a plant lying on the water.
+          Each clump leans as one, about its own feet, on its own count — wind
+          moves a clump, not a plant. */}
+      <ReedClump reeds={REEDS_LEFT} width={width} height={height} colour={c.ridgeNear} period={11000} />
+      <ReedClump reeds={REEDS_RIGHT} width={width} height={height} colour={c.ridgeNear} period={14500} delay={2600} />
 
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(near) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>

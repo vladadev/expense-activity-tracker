@@ -163,6 +163,9 @@ function r(n) {
 // drifted past the wave that was supposed to cover it — which is invisible in
 // the source and obvious on the phone.
 export const SCENE = {
+  mountainBase: 0.46, // where the ranges stand, hidden behind the bank
+  mountainRiseFar: 0.22,
+  mountainRiseMid: 0.17,
   bankBase: 0.5, // where the far bank meets the water
   bankRise: 0.11, // how far it stands above it
   waveFar: 0.45,
@@ -170,6 +173,100 @@ export const SCENE = {
   waveNear: 0.62,
   reedBase: 0.63, // the reeds enter the water under the nearest wave
 };
+
+// The ranges behind the bank.
+//
+// Straight segments meeting at angles, and that is the whole lesson from the
+// attempt before this one. The bank is drawn through a Catmull-Rom, which
+// rounds everything it touches — perfect for distant planting and useless for
+// rock, because a smoothed outline has no facets and reads as one curved line
+// however many bumps are in it. Mountains are made of slopes, and a slope is
+// straight.
+//
+// Neither range crosses the whole screen. The far one climbs out of the left
+// edge and runs down into the water around two thirds across; the middle one
+// starts behind it and carries on out to the right. They overlap, which is
+// what makes it a landscape rather than a backdrop — and it also means no
+// single silhouette spans the frame, which is the shape that kept reading as a
+// line.
+
+export const RANGE_FAR = [
+  [-0.14, 0.18],
+  [-0.04, 0.55],
+  [0.03, 0.4],
+  [0.09, 0.78],
+  [0.14, 0.62],
+  [0.2, 1.0],
+  [0.25, 0.7],
+  [0.3, 0.84],
+  [0.35, 0.52],
+  [0.41, 0.66],
+  [0.47, 0.44],
+  [0.53, 0.56],
+  [0.59, 0.3],
+  [0.65, 0.38],
+  [0.7, 0.12],
+  [0.74, 0.0],
+];
+
+export const RANGE_MID = [
+  [0.33, 0.0],
+  [0.38, 0.3],
+  [0.43, 0.2],
+  [0.49, 0.52],
+  [0.54, 0.38],
+  [0.6, 0.68],
+  [0.65, 0.5],
+  [0.71, 0.62],
+  [0.77, 0.36],
+  [0.83, 0.48],
+  [0.89, 0.28],
+  [0.95, 0.4],
+  [1.02, 0.24],
+  [1.14, 0.34],
+];
+
+function rangePoints(width, baseY, rise, profile) {
+  return profile.map(([fx, fh]) => [width * fx, baseY - rise * fh]);
+}
+
+// The range as a shape to fill: straight to each peak, then down to its own
+// foot and back along it.
+export function peakPath(width, baseY, rise, profile) {
+  if (!width) return '';
+  const pts = rangePoints(width, baseY, rise, profile);
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${r(x)} ${r(y)}`).join(' ');
+  return `${line} L ${r(pts[pts.length - 1][0])} ${r(baseY)} L ${r(pts[0][0])} ${r(baseY)} Z`;
+}
+
+// The slopes that face the light, as separate open lines to stroke.
+//
+// The sun sits high and to the right, so the faces that catch it are the ones
+// descending to the right. Picking them out is what turns a silhouette into
+// something with sides — and they are returned as their own paths because the
+// last time a highlight was stroked along a filled shape it drew the shape's
+// bottom edge as well, straight across the water.
+export function litSlopes(width, baseY, rise, profile) {
+  if (!width) return [];
+  const pts = rangePoints(width, baseY, rise, profile);
+  const runs = [];
+  let run = [];
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    // Lower on the screen as x grows: the face is turned towards the light.
+    const descending = pts[i + 1][1] > pts[i][1];
+    if (descending) {
+      if (!run.length) run.push(pts[i]);
+      run.push(pts[i + 1]);
+    } else if (run.length) {
+      runs.push(run);
+      run = [];
+    }
+  }
+  if (run.length) runs.push(run);
+  return runs.map((pointsInRun) =>
+    pointsInRun.map(([x, y], i) => `${i ? 'L' : 'M'} ${r(x)} ${r(y)}`).join(' ')
+  );
+}
 
 // The far bank, as fractions: x across the frame, and height from 0 at the
 // waterline to 1 at the top of the bank. It starts left of the frame and ends
