@@ -130,9 +130,33 @@ describe('scale', () => {
   // The pond drifts slowly on purpose, and the layers must not share a beat:
   // movement that repeats together is noticed, and noticed movement competes
   // with the figures above it.
+  //
+  // There is a floor on the other side too, and it was found the hard way: at
+  // 34, 24 and 17 seconds the water crossed the screen at about eleven points
+  // a second and the pond was reported as a still picture. Slow is the rule.
+  // Stopped is a bug.
   it('the water layers never line up', () => {
     const layers = [motion.waveFar, motion.waveMid, motion.waveNear];
     expect(new Set(layers).size).toBe(3);
-    for (const ms of layers) expect(ms).toBeGreaterThanOrEqual(10000);
+    for (const ms of layers) {
+      expect(ms).toBeGreaterThanOrEqual(8000);
+      expect(ms).toBeLessThanOrEqual(24000);
+    }
+  });
+
+  it('keeps no layer on a whole multiple of another, so they never beat together', () => {
+    const layers = [motion.waveFar, motion.waveMid, motion.waveNear];
+    for (const a of layers) {
+      for (const b of layers) {
+        if (a <= b) continue;
+        expect(a % b).not.toBe(0);
+      }
+    }
+  });
+
+  // The horizon sits above amounts and the home screen does not, so the one
+  // wave on a screen of figures is slower than any of the three on the pond.
+  it('keeps the horizon calmer than the water it is a view of', () => {
+    expect(motion.waveCalm).toBeGreaterThan(motion.waveFar);
   });
 });

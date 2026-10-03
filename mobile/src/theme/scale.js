@@ -71,9 +71,16 @@ export const motion = {
   // The pond. Slow, and deliberately out of step with each other: movement
   // that repeats on a shared beat is noticed, and noticed movement competes
   // with the figures it sits above.
-  waveFar: 34000,
-  waveMid: 24000,
-  waveNear: 17000,
+  // The home screen's three layers of water. They used to be 34, 24 and 17
+  // seconds to cross the screen, which is about eleven points a second — slow
+  // enough that the pond was reported as a still picture. Slow is the rule;
+  // stopped is not, and there are no figures up there to compete with.
+  waveFar: 20000,
+  waveMid: 14000,
+  waveNear: 9500,
+  // The horizon's single wave stays slow, because that one does sit above
+  // amounts.
+  waveCalm: 26000,
   bob: 9000,
   // Day into night. Far longer than anything else here, and deliberately: this
   // is the one change in the app that is meant to be watched rather than

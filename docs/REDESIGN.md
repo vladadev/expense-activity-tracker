@@ -101,8 +101,9 @@ have meant drawing it twice.
 
 ## Next, in this order
 
-- [~] **Home.** The pond across the top with sun or moon, three layers of
-      water, floating pads and the light broken into glints; the greeting; the
+- [~] **Home.** The pond across the top with sun or moon, hills running off
+      both sides of the frame, three layers of water, three different lily pads
+      each spreading its own rings, and the light broken into glints; the
       month in one figure against income with a bar and what is left; today's
       plans and a line for tomorrow; one button to add an expense.
 

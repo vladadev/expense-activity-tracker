@@ -4,6 +4,11 @@ import {
   barPath,
   wavePath,
   horizonLayout,
+  smoothThrough,
+  ridgePath,
+  RIDGE_FAR,
+  RIDGE_NEAR,
+  PAD_SHAPES,
   BAY_HALF,
   BAR_RADIUS,
   HORIZON_HEIGHT,
@@ -198,5 +203,122 @@ describe('horizonLayout', () => {
   it('holds the sun above the waterline, not under it', () => {
     const { orbY, crest } = horizonLayout(390);
     expect(orbY).toBeLessThan(crest);
+  });
+});
+
+// The hills replaced two filled blobs that each began at the very edge of the
+// frame, so the left one had a dead straight vertical side where the shape
+// simply stopped. It read as a rendering fault, and it was reported as one.
+// The fix is not a nicer curve: it is that a ridge has to begin outside the
+// frame and leave out the other side.
+describe('ridgePath', () => {
+  const W = 390;
+  const BASE = 150;
+  const RISE = 60;
+
+  it('starts off the left edge and ends off the right', () => {
+    for (const peaks of [RIDGE_FAR, RIDGE_NEAR]) {
+      expect(peaks[0][0]).toBeLessThan(0);
+      expect(peaks[peaks.length - 1][0]).toBeGreaterThan(1);
+    }
+  });
+
+  it('closes along the waterline rather than up the side of the frame', () => {
+    const d = ridgePath(W, BASE, RISE, RIDGE_FAR);
+    const firstX = W * RIDGE_FAR[0][0];
+    const lastX = W * RIDGE_FAR[RIDGE_FAR.length - 1][0];
+    expect(d.trimEnd().endsWith(`L ${+lastX.toFixed(1)} ${BASE} L ${+firstX.toFixed(1)} ${BASE} Z`)).toBe(true);
+  });
+
+  it('never writes NaN, at any width', () => {
+    for (const width of [0, 320, 360, 390, 412, 448]) {
+      expect(ridgePath(width, BASE, RISE, RIDGE_NEAR)).not.toMatch(/NaN/);
+    }
+  });
+
+  it('has nothing in it before the scene has been measured', () => {
+    expect(ridgePath(0, BASE, RISE, RIDGE_FAR)).toBe('');
+  });
+
+  it('keeps every peak between the waterline and the top of the range', () => {
+    for (const peaks of [RIDGE_FAR, RIDGE_NEAR]) {
+      for (const [, h] of peaks) {
+        expect(h).toBeGreaterThan(0);
+        expect(h).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('gives the two ranges different peaks, so one is not a copy of the other', () => {
+    const far = RIDGE_FAR.map(([x]) => x);
+    const near = RIDGE_NEAR.map(([x]) => x);
+    expect(far).not.toEqual(near);
+  });
+});
+
+// Catmull-Rom rather than plain Beziers for one reason: the curve has to pass
+// through the peaks. With control points chosen by eye the line is pulled away
+// from them, and the tallest peak ends up lower than the number that put it
+// there — which looks like nothing at all and is impossible to debug by
+// reading the path.
+describe('smoothThrough', () => {
+  it('passes through every point it is given', () => {
+    const pts = [
+      [0, 10],
+      [50, 60],
+      [100, 20],
+      [150, 40],
+    ];
+    const d = smoothThrough(pts);
+    expect(d.startsWith('M 0 10')).toBe(true);
+    for (const [x, y] of pts.slice(1)) expect(d).toContain(`, ${x} ${y}`);
+  });
+
+  it('writes one curve per gap between points', () => {
+    const pts = [
+      [0, 0],
+      [10, 10],
+      [20, 0],
+      [30, 10],
+      [40, 0],
+    ];
+    expect((smoothThrough(pts).match(/C /g) || []).length).toBe(pts.length - 1);
+  });
+
+  it('has nothing to draw through fewer than two points', () => {
+    expect(smoothThrough([])).toBe('');
+    expect(smoothThrough([[1, 2]])).toBe('');
+  });
+});
+
+// Three pads that are three leaves, not one leaf at three sizes. The stem is
+// what tells them apart — it is never in the same place twice on a real pond,
+// and every vein starts there, so moving it rearranges the whole leaf.
+describe('PAD_SHAPES', () => {
+  it('gives every pad a closed body, veins and a sheen', () => {
+    expect(PAD_SHAPES).toHaveLength(3);
+    for (const pad of PAD_SHAPES) {
+      expect(pad.body.trimEnd().endsWith('Z')).toBe(true);
+      expect(pad.body.startsWith('M70 32 L')).toBe(true);
+      expect(pad.veins.length).toBeGreaterThanOrEqual(5);
+      expect(pad.sheen).toMatch(/^M/);
+      expect(pad.rim).toBeGreaterThan(0);
+    }
+  });
+
+  it('starts every vein at the stem, where they actually start', () => {
+    for (const pad of PAD_SHAPES) {
+      for (const vein of pad.veins) expect(vein.startsWith('M70 32 L')).toBe(true);
+    }
+  });
+
+  it('puts the stem somewhere different on each one', () => {
+    const stems = PAD_SHAPES.map((p) => p.body.split('A')[0]);
+    expect(new Set(stems).size).toBe(PAD_SHAPES.length);
+  });
+
+  it('builds each one differently, not just cut differently', () => {
+    const radii = PAD_SHAPES.map((p) => p.body.match(/A([\d.]+) ([\d.]+)/).slice(1, 3).join('x'));
+    expect(new Set(radii).size).toBe(PAD_SHAPES.length);
   });
 });

@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Ellipse, Defs, LinearGradient, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
-import { wavePath, LEAF_VIEWBOX, LEAF_BODY, LEAF_VEINS, LEAF_SHEEN } from './geometry';
+import {
+  wavePath,
+  ridgePath,
+  RIDGE_FAR,
+  RIDGE_NEAR,
+  PAD_SHAPES,
+  LEAF_VIEWBOX,
+} from './geometry';
 import { mixHex } from '../../theme/mix';
+import { motion } from '../../theme/scale';
 import { useTheme } from '../../context/ThemeContext';
 
 // The pond behind the top of a screen.
@@ -28,10 +36,14 @@ const GLINTS = [
   { y: 0.79, rx: 18, delay: 700 },
 ];
 
+// Three pads, three leaves. `shape` picks which of the three bodies in
+// geometry.js it is; `tint` shades its fill, because on a real pond no two are
+// the same green either. `lift` is how far it rises on the swell — the one
+// nearest the front rides highest, which is also the only depth cue water has.
 const PADS = [
-  { x: 0.16, y: 0.63, w: 54, delay: 0, opacity: 0.72 },
-  { x: 0.86, y: 0.68, w: 48, delay: 1400, opacity: 0.8 },
-  { x: 0.38, y: 0.76, w: 68, delay: 600, opacity: 1 },
+  { x: 0.16, y: 0.63, w: 54, delay: 0, opacity: 0.74, shape: 1, tint: 0.34, lift: 4.5, tilt: 1.6 },
+  { x: 0.86, y: 0.68, w: 48, delay: 1400, opacity: 0.82, shape: 2, tint: 0.18, lift: 3.5, tilt: 1.1 },
+  { x: 0.38, y: 0.76, w: 68, delay: 600, opacity: 1, shape: 0, tint: 0, lift: 6.5, tilt: 2.2 },
 ];
 
 const DAY = {
@@ -47,7 +59,11 @@ const DAY = {
   padRim: '#33C7A3',
   padVein: '#1E9B7E',
   sheen: '#FFFFFF',
-  reed: '#06302A',
+  ridgeFar: '#0A4A3E',
+  ridgeNear: '#06302A',
+  ridgeLight: '#2E8A72',
+  ripple: '#9FE3CC',
+  padShadow: '#063029',
 };
 
 const NIGHT = {
@@ -63,7 +79,11 @@ const NIGHT = {
   padRim: '#1C7A68',
   padVein: '#176B5E',
   sheen: '#CFE4F2',
-  reed: '#03161C',
+  ridgeFar: '#061B22',
+  ridgeNear: '#03161C',
+  ridgeLight: '#1A4A58',
+  ripple: '#7FB6C9',
+  padShadow: '#020E12',
 };
 
 // Not a choice between two sets any more: every colour in the pond is somewhere
@@ -103,7 +123,77 @@ function useLoop(duration, delay = 0) {
   return v;
 }
 
-function FloatingPad({ width, height, pad, colours }) {
+// What the pad does to the water it sits on: a shadow that stays put, and two
+// rings spreading out from under it.
+//
+// The rings are the point. A leaf that bobs on water nobody can see is a leaf
+// bobbing in mid-air — the movement has nothing to be movement against. These
+// are what say there is a surface there, and they are deliberately slower than
+// the bob and out of step with it, so the two never beat together.
+function PadWater({ left, top, w, h, delay, colours }) {
+  const ring = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(ring, { toValue: 1, duration: 6400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [ring, delay]);
+
+  const box = w * 2;
+  const boxH = h * 2.4;
+  const style = (from, to, fade) => ({
+    position: 'absolute',
+    left: left + w / 2 - box / 2,
+    top: top + h / 2 - boxH / 2,
+    opacity: ring.interpolate({ inputRange: [0, 0.65, 1], outputRange: [0, fade, 0] }),
+    transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [from, to] }) }],
+  });
+
+  return (
+    <>
+      <Svg
+        width={box}
+        height={boxH}
+        style={{ position: 'absolute', left: left + w / 2 - box / 2, top: top + h / 2 - boxH / 2 }}
+        pointerEvents="none"
+      >
+        <Ellipse cx={box / 2} cy={boxH / 2 + h * 0.22} rx={w * 0.52} ry={h * 0.48} fill={colours.padShadow} opacity={0.3} />
+      </Svg>
+      <Animated.View style={style(0.55, 1.45, 0.42)} pointerEvents="none">
+        <Svg width={box} height={boxH}>
+          <Ellipse
+            cx={box / 2}
+            cy={boxH / 2}
+            rx={w * 0.58}
+            ry={h * 0.54}
+            stroke={colours.ripple}
+            strokeWidth={1.3}
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={style(0.4, 1.15, 0.26)} pointerEvents="none">
+        <Svg width={box} height={boxH}>
+          <Ellipse
+            cx={box / 2}
+            cy={boxH / 2}
+            rx={w * 0.58}
+            ry={h * 0.54}
+            stroke={colours.ripple}
+            strokeWidth={1.1}
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+    </>
+  );
+}
+
+function FloatingPad({ left, top, w, h, pad, colours }) {
   const t = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -117,27 +207,36 @@ function FloatingPad({ width, height, pad, colours }) {
     return () => loop.stop();
   }, [t, pad.delay]);
 
-  const h = (pad.w * LEAF_VIEWBOX.height) / LEAF_VIEWBOX.width;
+  const shape = PAD_SHAPES[pad.shape];
+  // No two the same green. The tint walks the fill toward the vein colour,
+  // which keeps every pad inside the palette rather than beside it.
+  const fill = pad.tint ? mixHex(colours.padFill, colours.padVein, pad.tint) : colours.padFill;
+
   return (
     <Animated.View
       pointerEvents="none"
       style={{
         position: 'absolute',
-        left: width * pad.x - pad.w / 2,
-        top: height * pad.y - h / 2,
+        left,
+        top,
         opacity: pad.opacity,
         transform: [
-          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -3.5] }) },
-          { rotate: t.interpolate({ inputRange: [0, 1], outputRange: ['-1.2deg', '1.4deg'] }) },
+          { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -pad.lift] }) },
+          {
+            rotate: t.interpolate({
+              inputRange: [0, 1],
+              outputRange: [`-${pad.tilt}deg`, `${pad.tilt * 1.15}deg`],
+            }),
+          },
         ],
       }}
     >
-      <Svg width={pad.w} height={h} viewBox={`0 0 ${LEAF_VIEWBOX.width} ${LEAF_VIEWBOX.height}`}>
-        <Path d={LEAF_BODY} fill={colours.padFill} stroke={colours.padRim} strokeWidth={5} strokeLinejoin="round" />
-        {LEAF_VEINS.map((d) => (
-          <Path key={d} d={d} stroke={colours.padVein} strokeWidth={4.5} strokeLinecap="round" />
+      <Svg width={w} height={h} viewBox={`0 0 ${LEAF_VIEWBOX.width} ${LEAF_VIEWBOX.height}`}>
+        <Path d={shape.body} fill={fill} stroke={colours.padRim} strokeWidth={shape.rim} strokeLinejoin="round" />
+        {shape.veins.map((d) => (
+          <Path key={d} d={d} stroke={colours.padVein} strokeWidth={4.2} strokeLinecap="round" opacity={0.85} />
         ))}
-        <Path d={LEAF_SHEEN} stroke={colours.sheen} strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.35} />
+        <Path d={shape.sheen} stroke={colours.sheen} strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.32} />
       </Svg>
     </Animated.View>
   );
@@ -186,9 +285,9 @@ export default function PondScene({ width, height, fadeTo, children }) {
   // Gradient ids are global in react-native-svg on Android, not scoped to the
   // component, so two scenes rendered at once would steal each other's fills.
   const uid = useRef(`pond${(sceneSeq += 1)}`).current;
-  const far = useLoop(34000);
-  const mid = useLoop(24000);
-  const near = useLoop(17000);
+  const far = useLoop(motion.waveFar);
+  const mid = useLoop(motion.waveMid);
+  const near = useLoop(motion.waveNear);
   const shift = (v) => v.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
   // The light sits high and to the right, and everything else in the scene
@@ -237,16 +336,19 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-pondSky)`} />
 
+        {/* Two ranges, both running off either side of the frame. What was
+            here before stopped dead at x = 0, and a shape with a straight
+            vertical edge where a landscape should carry on reads as a fault in
+            the drawing — which is exactly how it was reported. */}
+        <Path d={ridgePath(width, height * 0.47, height * 0.2, RIDGE_FAR)} fill={c.ridgeFar} opacity={0.6} />
         <Path
-          d={`M0 ${height * 0.38} q ${width * 0.05} -26 ${width * 0.09} -4 q ${width * 0.02} -34 ${width * 0.06} -2 q ${width * 0.035} -22 ${width * 0.06} 2 L${width * 0.21} ${height * 0.46} L0 ${height * 0.46} Z`}
-          fill={c.reed}
-          opacity={0.5}
+          d={ridgePath(width, height * 0.47, height * 0.2, RIDGE_FAR)}
+          stroke={c.ridgeLight}
+          strokeWidth={1.2}
+          fill="none"
+          opacity={0.3}
         />
-        <Path
-          d={`M${width} ${height * 0.4} q -${width * 0.04} -30 -${width * 0.08} -6 q -${width * 0.03} -28 -${width * 0.08} -2 L${width * 0.84} ${height * 0.47} L${width} ${height * 0.47} Z`}
-          fill={c.reed}
-          opacity={0.45}
-        />
+        <Path d={ridgePath(width, height * 0.5, height * 0.12, RIDGE_NEAR)} fill={c.ridgeNear} opacity={0.85} />
       </Svg>
 
       {/* The sun, on its way out. Each light keeps its own colour through the
@@ -331,9 +433,19 @@ export default function PondScene({ width, height, fadeTo, children }) {
         ))}
       </Animated.View>
 
-      {PADS.map((p) => (
-        <FloatingPad key={`${p.x}-${p.y}`} width={width} height={height} pad={p} colours={c} />
-      ))}
+      {PADS.map((p) => {
+        const w = p.w;
+        const h = (w * LEAF_VIEWBOX.height) / LEAF_VIEWBOX.width;
+        const left = width * p.x - w / 2;
+        const top = height * p.y - h / 2;
+        return (
+          <React.Fragment key={`${p.x}-${p.y}`}>
+            {/* The water first, so the leaf sits on it rather than under it. */}
+            <PadWater left={left} top={top} w={w} h={h} delay={p.delay + 900} colours={c} />
+            <FloatingPad left={left} top={top} w={w} h={h} pad={p} colours={c} />
+          </React.Fragment>
+        );
+      })}
 
       <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
         <Defs>

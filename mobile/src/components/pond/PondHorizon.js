@@ -78,7 +78,7 @@ export default function PondHorizon({ width, height = HORIZON_HEIGHT, fadeTo }) 
     const loop = Animated.loop(
       Animated.timing(drift, {
         toValue: 1,
-        duration: motion.waveNear,
+        duration: motion.waveCalm,
         easing: Easing.linear,
         useNativeDriver: true,
       })
