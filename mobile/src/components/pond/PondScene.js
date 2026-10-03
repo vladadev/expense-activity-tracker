@@ -239,30 +239,55 @@ function PadWater({ left, top, w, h, delay, colours }) {
 // the tips travel and the bases do not, which is the only way a plant bends.
 // The two clumps are on periods that do not divide into each other, so the
 // pond never looks like it is breathing.
-function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
-  const sway = useRef(new Animated.Value(0)).current;
+// A slow lean with a quick flutter riding on top of it.
+//
+// One rotation on its own is a metronome, whatever its size — the eye finds
+// the period in about two passes and then the reeds are a pendulum. Wind is
+// not one motion: it is a long push that the plant leans into, and a fast
+// jitter on top that never quite repeats with it. Two rotations whose periods
+// do not divide into each other give that for almost nothing, because the
+// combined angle only comes back to where it started after both have.
+function useSway(period, delay) {
+  const value = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.delay(delay),
-        Animated.timing(sway, { toValue: 1, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(sway, { toValue: 0, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(value, { toValue: 1, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(value, { toValue: 0, duration: period, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, [sway, period, delay]);
+  }, [value, period, delay]);
+  return value;
+}
+
+function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
+  const lean = useSway(period, delay);
+  // Roughly a fifth of the long period, offset, and never a whole fraction of
+  // it.
+  const gust = useSway(Math.round(period * 0.19), delay + 700);
 
   const base = height * SCENE.reedBase;
   const middle = (reeds.reduce((sum, reed) => sum + reed.x, 0) / reeds.length) * width;
+  const origin = { transformOrigin: [middle, base] };
 
   return (
     <Animated.View
       pointerEvents="none"
       style={{
         ...StyleSheet.absoluteFillObject,
-        transformOrigin: [middle, base],
-        transform: [{ rotate: sway.interpolate({ inputRange: [0, 1], outputRange: ['-4.2deg', '4.6deg'] }) }],
+        ...origin,
+        transform: [{ rotate: lean.interpolate({ inputRange: [0, 1], outputRange: ['-5.4deg', '5.8deg'] }) }],
+      }}
+    >
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        ...StyleSheet.absoluteFillObject,
+        ...origin,
+        transform: [{ rotate: gust.interpolate({ inputRange: [0, 1], outputRange: ['-1.6deg', '1.9deg'] }) }],
       }}
     >
       <Svg width={width} height={height}>
@@ -285,6 +310,7 @@ function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
           );
         })}
       </Svg>
+    </Animated.View>
     </Animated.View>
   );
 }

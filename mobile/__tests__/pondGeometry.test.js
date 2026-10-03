@@ -9,6 +9,10 @@ import {
   bankPath,
   bankLine,
   mountainPath,
+  mountainLit,
+  mountainSnow,
+  mountainGullies,
+  treeLine,
   RANGE_FAR,
   RANGE_MID,
   reedStem,
@@ -271,9 +275,8 @@ describe('bankPath and bankLine', () => {
 });
 
 // The ranges were rebuilt as individually shaded mountains after the zig-zag
-// version came back as "triangles thrown one over another". mountainPath,
-// mountainLit, mountainSnow, mountainGullies and treeLine are NOT covered yet
-// — that is owed, and the depths below are what is pinned in the meantime.
+// version came back as "triangles thrown one over another": one flat
+// silhouette has no faces, so there is nothing for light to fall on.
 describe('mountainPath', () => {
   const W = 390;
   const BASE = 144;
@@ -305,6 +308,150 @@ describe('mountainPath', () => {
     for (const range of [RANGE_FAR, RANGE_MID]) {
       for (const peak of range) if (peak.snow) expect(peak.h).toBeGreaterThan(0.7);
     }
+  });
+
+  // A straight line from foot to apex is a tent. A real slope flares at the
+  // bottom and steepens near the top, and that one curve is most of the
+  // difference between a mountain and a triangle — so the path has to be
+  // curves, and they have to bow the right way.
+  it('bows the slopes instead of running them straight', () => {
+    const d = mountainPath(W, BASE, RISE, RANGE_FAR[3]);
+    expect((d.match(/Q /g) || []).length).toBe(2);
+    expect(d).not.toMatch(/ L [-\d.]+ [-\d.]+ Q/);
+  });
+
+  it('puts the bend below the straight line, so the slope is concave', () => {
+    const peak = RANGE_FAR[3];
+    const d = mountainPath(W, BASE, RISE, peak);
+    const [, ctrlX, ctrlY] = d.match(/Q ([-\d.]+) ([-\d.]+),/).map(Number);
+    const apexY = BASE - RISE * peak.h;
+    const footX = W * peak.x - W * peak.l;
+    // Where the straight foot-to-apex line would be at the control's x.
+    const straight = BASE + ((apexY - BASE) * (ctrlX - footX)) / (W * peak.x - footX);
+    expect(ctrlY).toBeGreaterThan(straight);
+  });
+});
+
+// Two values meeting along the ridgeline is what gives a mountain a near side
+// and a far one. A stroke along the top only outlines it, which is what the
+// attempt before this one did.
+describe('mountainLit', () => {
+  const W = 390;
+  const BASE = 144;
+  const RISE = 69;
+
+  it('covers exactly the half turned towards the light', () => {
+    for (const peak of RANGE_FAR) {
+      const d = mountainLit(W, BASE, RISE, peak);
+      const apexX = +(W * peak.x).toFixed(1);
+      // It begins at the apex and comes back to the foot directly below it, so
+      // the shape is the right half and never crosses into the shadowed one.
+      expect(d.startsWith(`M ${apexX} `)).toBe(true);
+      expect(d).toContain(`L ${apexX} ${BASE} Z`);
+    }
+  });
+
+  it('follows the same slope as the body it sits on', () => {
+    const peak = RANGE_MID[1];
+    const body = mountainPath(W, BASE, RISE, peak);
+    const lit = mountainLit(W, BASE, RISE, peak);
+    const rightSlope = body.split('Q').pop().split('Z')[0].trim();
+    expect(lit).toContain(rightSlope.split(' L ')[0].trim());
+  });
+
+  it('has nothing in it before the scene has been measured', () => {
+    expect(mountainLit(0, BASE, RISE, RANGE_FAR[0])).toBe('');
+  });
+});
+
+describe('mountainSnow', () => {
+  const W = 390;
+  const BASE = 144;
+  const RISE = 69;
+
+  it('gives snow only to the mountains marked for it', () => {
+    for (const peak of [...RANGE_FAR, ...RANGE_MID]) {
+      const d = mountainSnow(W, BASE, RISE, peak);
+      expect(d === '').toBe(!peak.snow);
+    }
+  });
+
+  it('keeps the cap near the top, nowhere near the foot', () => {
+    const peak = RANGE_FAR[3];
+    const apexY = BASE - RISE * peak.h;
+    const ys = [...mountainSnow(W, BASE, RISE, peak).matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+    expect(Math.min(...ys)).toBeCloseTo(apexY, 1);
+    // Nothing in the cap reaches even halfway down the mountain.
+    expect(Math.max(...ys)).toBeLessThan(apexY + (BASE - apexY) * 0.5);
+  });
+
+  // A straight snowline is the one thing that makes a painted mountain look
+  // painted: snow lies in the gullies and melts off the ridges.
+  it('leaves the underside ragged rather than level', () => {
+    const d = mountainSnow(W, BASE, RISE, RANGE_FAR[1]);
+    const ys = [...d.matchAll(/L [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+    expect(new Set(ys).size).toBeGreaterThan(3);
+    expect(d.trimEnd().endsWith('Z')).toBe(true);
+  });
+});
+
+describe('mountainGullies', () => {
+  const W = 390;
+  const BASE = 144;
+  const RISE = 69;
+
+  it('creases each mountain twice, from the ridge down', () => {
+    for (const peak of RANGE_FAR) {
+      const gullies = mountainGullies(W, BASE, RISE, peak);
+      expect(gullies).toHaveLength(2);
+      const apexX = +(W * peak.x).toFixed(1);
+      for (const d of gullies) {
+        expect(d.startsWith(`M ${apexX} `)).toBe(true);
+        expect(d).not.toContain('Z');
+      }
+    }
+  });
+
+  it('has none before the scene has been measured', () => {
+    expect(mountainGullies(0, BASE, RISE, RANGE_FAR[0])).toEqual([]);
+  });
+});
+
+// The far shore has to be the same shore on every render. Jittered from
+// Math.random it would be redrawn differently each frame the palette changes,
+// and a treeline that crawls is worse than no treeline.
+describe('treeLine', () => {
+  const W = 390;
+  const BASE = 196;
+  const RISE = 43;
+
+  it('draws the same shore twice', () => {
+    expect(treeLine(W, BASE, RISE)).toBe(treeLine(W, BASE, RISE));
+  });
+
+  it('runs off both edges and closes along the shore', () => {
+    const d = treeLine(W, BASE, RISE);
+    const xs = [...d.matchAll(/[ML] ([-\d.]+) /g)].map((m) => Number(m[1]));
+    expect(Math.min(...xs)).toBeLessThan(0);
+    expect(Math.max(...xs)).toBeGreaterThan(W);
+    expect(d.trimEnd().endsWith('Z')).toBe(true);
+  });
+
+  it('makes trees of uneven height, not a comb', () => {
+    const d = treeLine(W, BASE, RISE);
+    const tips = [...d.matchAll(/L [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+    expect(new Set(tips).size).toBeGreaterThan(20);
+    for (const y of tips) expect(y).toBeLessThanOrEqual(BASE);
+  });
+
+  it('keeps every tree inside the height it was given', () => {
+    const d = treeLine(W, BASE, RISE);
+    const ys = [...d.matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(BASE - RISE);
+  });
+
+  it('has nothing in it before the scene has been measured', () => {
+    expect(treeLine(0, BASE, RISE)).toBe('');
   });
 });
 
