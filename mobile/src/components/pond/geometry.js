@@ -8,53 +8,74 @@
 // of its own label, so "Kalendar" took more room than "Liste". Equal columns
 // need a basis of zero.
 
-// The bay in the bar's top edge, and the leaf that sits in it.
-export const BAR_TOP = 34; // where the bar's own edge sits
+export const BAND_H = 46; // water above the bar
+export const BAR_H = 64; // the bar itself, before the phone's own inset
+export const BAR_RADIUS = 16; // top corners only
 export const BAY_DEPTH = 7.5; // how far the edge dips under the leaf
-export const BAY_HALF = 34; // half the width it takes to leave and return
-export const PAD_WIDTH = 29;
-export const PAD_CENTRE_Y = 28.6;
+export const BAY_HALF = 32; // half the width it takes to leave and return
+export const PAD_WIDTH = 30;
+export const GUTTER = 6;
 
-export function tabCentre(index, count, width, gutter) {
+export function tabCentre(index, count, width, gutter = GUTTER) {
   if (!count || !width) return 0;
   const inner = width - gutter * 2;
   const each = inner / count;
   return gutter + each * (index + 0.5);
 }
 
-export function tabCentres(count, width, gutter) {
+export function tabCentres(count, width, gutter = GUTTER) {
   return Array.from({ length: count }, (_, i) => tabCentre(i, count, width, gutter));
 }
 
-// The bar, with its top edge easing down into a bay and back out again. Drawn
-// as one path so the edge has no joint anywhere: a corner where the straight
-// meets the curve is the first thing the eye finds.
-export function barPath(width, height, radius, bayCentre) {
+// The bar, as ONE path, with the bay cut into its own top edge.
+//
+// Drawn this way rather than as a separate patch laid over a straight edge: a
+// patch has to be filled with something, and whatever it is filled with is
+// visible as a block against the water behind it. Cutting the bay into the bar
+// means there is nothing there at all, and the water simply shows through.
+//
+// The bottom corners are square and the path runs to the very bottom of the
+// screen, under the phone's gesture area. A bar that stops short leaves a
+// strip of whatever is behind it, and the eye reads that strip as a mistake.
+export function barPath(width, top, bottom, bayCentre, radius = BAR_RADIUS) {
+  if (!width) return '';
+  const r = Math.min(radius, width / 2);
   const c = bayCentre;
   const left = c - BAY_HALF;
   const right = c + BAY_HALF;
-  const dip = BAR_TOP + BAY_DEPTH;
-  return [
-    `M${radius} ${BAR_TOP}`,
-    `H ${left}`,
-    `C ${left + 12} ${BAR_TOP}, ${left + 14} ${dip}, ${c} ${dip}`,
-    `C ${right - 14} ${dip}, ${right - 12} ${BAR_TOP}, ${right} ${BAR_TOP}`,
-    `H ${width - radius}`,
-    `C ${width - radius / 2} ${BAR_TOP}, ${width} ${BAR_TOP + radius / 2}, ${width} ${BAR_TOP + radius}`,
-    `V ${height - radius}`,
-    `C ${width} ${height - radius / 2}, ${width - radius / 2} ${height}, ${width - radius} ${height}`,
-    `H ${radius}`,
-    `C ${radius / 2} ${height}, 0 ${height - radius / 2}, 0 ${height - radius}`,
-    `V ${BAR_TOP + radius}`,
-    `C 0 ${BAR_TOP + radius / 2}, ${radius / 2} ${BAR_TOP}, ${radius} ${BAR_TOP}`,
-    'Z',
-  ].join(' ');
+  const dip = top + BAY_DEPTH;
+
+  // A bay that would run past a rounded corner is pulled back inside it, so
+  // the corner never loses its shape to the dip.
+  const bayFits = left > r + 2 && right < width - r - 2;
+
+  const edge = bayFits
+    ? `H ${left} C ${left + 11} ${top}, ${left + 13} ${dip}, ${c} ${dip} ` +
+      `C ${right - 13} ${dip}, ${right - 11} ${top}, ${right} ${top} H ${width - r}`
+    : `H ${width - r}`;
+
+  return (
+    `M ${r} ${top} ${edge} ` +
+    `C ${width - r / 2} ${top}, ${width} ${top + r / 2}, ${width} ${top + r} ` +
+    `V ${bottom} H 0 V ${top + r} ` +
+    `C 0 ${top + r / 2}, ${r / 2} ${top}, ${r} ${top} Z`
+  );
 }
 
-// The leaf itself, in its own 140x64 space so it can be scaled to any size
-// without the numbers below changing. The wedge runs from the rim to the
-// centre, where the stem meets it and where every vein starts — it is what
-// makes the shape a lily pad rather than an oval with a nick in it.
+// One long wave, drawn twice end to end so it can slide a full screen width
+// and start again without a seam.
+export function wavePath(width, crest, bottom, amplitude) {
+  const w = width;
+  const run = (x) =>
+    `C ${x + w * 0.18} ${crest - amplitude}, ${x + w * 0.32} ${crest + amplitude}, ${x + w * 0.5} ${crest} ` +
+    `S ${x + w * 0.82} ${crest - amplitude}, ${x + w} ${crest}`;
+  return `M 0 ${crest} ${run(0)} ${run(w)} L ${w * 2} ${bottom} L 0 ${bottom} Z`;
+}
+
+// The leaf, in its own space so it can be scaled anywhere without these
+// numbers changing. The wedge runs from the rim to the centre, where the stem
+// meets it and where every vein starts — that is what makes it a lily pad
+// rather than an oval with a nick in it.
 export const LEAF_VIEWBOX = { width: 140, height: 64 };
 export const LEAF_BODY = 'M70 32 L36 8.6 A66 29 0 1 0 104 8.6 Z';
 export const LEAF_VEINS = [

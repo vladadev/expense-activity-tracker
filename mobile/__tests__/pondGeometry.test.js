@@ -1,15 +1,13 @@
-import { tabCentre, tabCentres, barPath, BAR_TOP, BAY_HALF } from '../src/components/pond/geometry';
+import { tabCentre, tabCentres, barPath, wavePath, BAY_HALF, BAR_RADIUS } from '../src/components/pond/geometry';
 
-// The leaf marks which tab you are on, so a centre that is off by even ten
-// pixels puts it beside the icon instead of under it. That happened three
-// times in the design, and never because the arithmetic was wrong: the row of
-// tabs only looked equal. `flexGrow: 1` hands out the SPARE space evenly while
-// each tab still starts at the width of its own label, so a long word like
-// "Kalendar" claimed more room than "Liste". These tests pin the arithmetic so
-// that when it drifts again, the cause is the layout and not the maths.
+// The leaf marks which tab you are on, so a centre off by even ten pixels puts
+// it beside the icon instead of under it. That happened three times during the
+// design, and never because the arithmetic was wrong: the row of tabs only
+// looked equal. `flexGrow: 1` hands out the SPARE space evenly while each tab
+// still starts at the width of its own label, so "Kalendar" claimed more room
+// than "Liste". These tests pin the arithmetic, so the next time it drifts the
+// cause is the layout and not the maths.
 describe('tabCentre', () => {
-  // 358 wide with 6 either side, four tabs of 86.5: the numbers from the
-  // design, kept here so the code and the drawing cannot disagree.
   const W = 358;
   const G = 6;
 
@@ -54,26 +52,72 @@ describe('tabCentre', () => {
 });
 
 describe('barPath', () => {
-  const d = barPath(358, 98, 26, 222.25);
+  const W = 390;
+  const TOP = 46;
+  const BOTTOM = 158;
+  const d = barPath(W, TOP, BOTTOM, 195);
 
   it('draws one closed shape', () => {
     expect(d.startsWith('M')).toBe(true);
     expect(d.trimEnd().endsWith('Z')).toBe(true);
   });
 
-  it('dips under the leaf and comes back to the straight', () => {
-    expect(d).toContain(`H ${222.25 - BAY_HALF}`);
-    expect(d).toContain(`${222.25 + BAY_HALF} ${BAR_TOP}`);
+  // Square at the bottom and running to the very edge of the screen. A bar
+  // that stops short leaves a strip of whatever is behind it, and the eye
+  // reads that strip as a mistake.
+  it('runs square to the bottom', () => {
+    // Down the right side, across the bottom, back up the left — three
+    // straight runs with no curve between them. Asserted as one span rather
+    // than "no C after the bottom", which also catches the top-left corner
+    // further along the same path and fails on a shape that is correct.
+    expect(d).toContain(`V ${BOTTOM} H 0 V ${TOP + BAR_RADIUS}`);
+  });
+
+  it('rounds only the top corners', () => {
+    expect(d.startsWith(`M ${BAR_RADIUS} ${TOP}`)).toBe(true);
+    expect(d).toContain(`${W} ${TOP + BAR_RADIUS}`);
+  });
+
+  it('dips under the leaf and returns to the straight', () => {
+    expect(d).toContain(`H ${195 - BAY_HALF}`);
+    expect(d).toContain(`${195 + BAY_HALF} ${TOP}`);
   });
 
   // A corner where the straight meets the curve is the first thing the eye
-  // finds, so the bay is cubic at both ends rather than an arc dropped in.
-  it('leaves and rejoins the edge on curves, not corners', () => {
-    const curves = d.match(/C /g) || [];
-    expect(curves.length).toBeGreaterThanOrEqual(6);
+  // finds, so the bay leaves and rejoins on cubics.
+  it('leaves and rejoins the edge on curves', () => {
+    expect((d.match(/C /g) || []).length).toBeGreaterThanOrEqual(4);
   });
 
-  it('has no NaN in it when the bar has not been measured', () => {
-    expect(barPath(0, 0, 26, 0)).not.toMatch(/NaN/);
+  // Near the ends the bay would eat into a rounded corner. It is dropped
+  // rather than drawn through it: a corner that loses its shape for a frame
+  // looks broken, and the leaf still marks the tab by sitting over it.
+  it('drops the bay rather than cutting through a corner', () => {
+    const atEdge = barPath(W, TOP, BOTTOM, 10);
+    expect(atEdge).not.toContain('H -');
+    expect(atEdge.match(/C /g).length).toBeLessThan((d.match(/C /g) || []).length);
+  });
+
+  it('has nothing in it when the bar has not been measured', () => {
+    expect(barPath(0, TOP, BOTTOM, 0)).toBe('');
+  });
+
+  it('never writes NaN into the path', () => {
+    for (const centre of [0, 10, 195, 380, 390]) {
+      expect(barPath(W, TOP, BOTTOM, centre)).not.toMatch(/NaN/);
+    }
+  });
+});
+
+describe('wavePath', () => {
+  // Drawn twice end to end, so sliding it one screen width and starting again
+  // leaves no seam.
+  it('covers twice the width so it can loop without a join', () => {
+    const d = wavePath(390, 24, 56, 4);
+    expect(d).toContain('L 780 56');
+  });
+
+  it('closes along the bottom', () => {
+    expect(wavePath(390, 24, 56, 4).trimEnd().endsWith('L 0 56 Z')).toBe(true);
   });
 });
