@@ -104,13 +104,14 @@ have meant drawing it twice.
 - [~] **Home.** The pond across the top with sun or moon, three layers of
       water, floating pads and the light broken into glints; the greeting; the
       month in one figure against income with a bar and what is left; today's
-      plans and a line for tomorrow; one button to add an expense. The bell and
-      the gear sit over the water at the top right. Day and night from the
-      theme.
+      plans and a line for tomorrow; one button to add an expense.
+
+      Its own header, because the greeting is the title and is too big to sit
+      in a row of controls: which household you are in on the left, and on the
+      right the sun or moon, the bell and the gear. The greeting goes under it.
 
       Still open on it: the scene does not yet know the hour of day on its own
-      (it follows the theme), and there is no mascot in it until the frog
-      exists.
+      (it follows the theme).
 - [~] **Money.** The horizon is on it, day and night, with the switch between
       its two faces sitting on the water. What is below the horizon is still
       the old screen: the cards, spacing and type on both faces are the ones
@@ -120,11 +121,16 @@ have meant drawing it twice.
 - [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
       entries today and needs a precise tap on a small arrow to open.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
-- [ ] **Day and night crossing.** The sun walks off one side as the moon rises
-      on the other, sky and cards crossing with them, the glints changing
-      colour and length: gold and long by day, silver and short by night.
-      Automatic by the real sunrise and sunset, with Light / Dark / Automatic
-      in settings, because automation that cannot be switched off is
+- [~] **Day and night crossing.** The sun or moon in Home's header switches
+      the two by hand, which is how both themes get judged while they are being
+      drawn — and which stays afterwards as the way to overrule the automatic
+      one for an evening.
+
+      What is left is the crossing itself: the sun walking off one side as the
+      moon rises on the other, sky and cards crossing with them, the glints
+      changing colour and length — gold and long by day, silver and short by
+      night. Automatic by the real sunrise and sunset, with Light / Dark /
+      Automatic in settings, because automation that cannot be switched off is
       imposition.
 - [ ] **Analysis.** Opens with one plain sentence about the month, then the
       detail. Its own screen is now in the right place; what it still lacks is
@@ -138,8 +144,20 @@ have meant drawing it twice.
 
 - [ ] **Onboarding**: empty states that teach, one guided first expense, at
       most three coachmarks on the screens they belong to.
-- [ ] **The mascot.** Four poses, drawn by a tool or a person, dropped into
-      the slots already specified in `design/MASCOT.md`. The frog is yellow.
+- [~] **The mascot.** The brief is finished — four poses, their sizes, the
+      colours and the prompts are all in `design/MASCOT.md` — and the slots are
+      now reserved in code as well as on the canvas: `MascotSlot` draws the
+      hole at the real size, in the design build only, so it can be judged on
+      the real screen in both themes before anything is drawn. The first one is
+      on Home.
+
+      **When to draw it:** at the start of onboarding, not before. Three of the
+      four poses do a job on screens that do not exist yet — onboarding, empty
+      states, a moment worth marking — so drawing them now means drawing
+      against guesses. By then the four screens are settled and the poses can
+      be judged where they will live. It is also the one piece that is art
+      rather than code, so it never sits on the critical path: it can be drawn
+      while the screens are finished.
 - [ ] **A name.** Pond is a working title he accepted quickly and wants to
       better. Nothing is published under it and nothing depends on it.
 

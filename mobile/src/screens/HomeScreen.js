@@ -10,6 +10,9 @@ import { useHouseholds } from '../context/HouseholdContext';
 import { usePersonColor } from '../context/PersonColorsContext';
 import PondScene from '../components/pond/PondScene';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
+import DayNightToggle from '../components/pond/DayNightToggle';
+import MascotSlot from '../components/pond/MascotSlot';
+import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
 import SettingsGear from '../components/SettingsGear';
 import Money from '../components/AmountText';
@@ -134,29 +137,36 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <PondScene width={width} height={sceneHeight} night={night} fadeTo={theme.background} />
+      <PondScene width={width} height={sceneHeight} night={night} fadeTo={theme.background}>
+        {/* Sitting on the water, to the right, clear of the greeting. Empty
+            until the frog is drawn — see components/pond/MascotSlot. */}
+        <MascotSlot slot="scene" style={{ position: 'absolute', right: space.lg, top: sceneHeight * 0.44 }} />
+      </PondScene>
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: space.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
       >
-        <View style={[styles.greeting, { paddingTop: insets.top + space.lg }]}>
-          <View style={styles.greetingText}>
-            <Text style={styles.hello} numberOfLines={2}>
-              {t(greetingKey(now.getHours()), { name: user?.name || '' })}
-            </Text>
-            <Text style={styles.sub} numberOfLines={1}>
-              {today.length > 0 ? t('home.planned', { count: today.length }) : t('home.nothingToday')}
-            </Text>
-          </View>
-          {/* This screen draws its own header because it has no title to put
-              in one — the greeting is the title. Without these two, the first
-              tab in the app would be the only one with no way to reach
-              notifications or settings. */}
-          <View style={styles.actions}>
-            <NotificationBell color={ON_WATER} />
-            <SettingsGear color={ON_WATER} />
-          </View>
+        {/* This screen draws its own header, because it has no title to put in
+            one — the greeting is the title, and it is too big to sit in a row
+            of controls. So the controls take the row and the greeting goes
+            under it: which household you are in on the left, and on the right
+            the day, your notifications and your settings. */}
+        <View style={[styles.topRow, { paddingTop: insets.top + space.md }]}>
+          <HouseholdChip onWater />
+          <View style={{ flex: 1 }} />
+          <DayNightToggle onWater />
+          <NotificationBell color={ON_WATER} />
+          <SettingsGear color={ON_WATER} />
+        </View>
+
+        <View style={styles.greeting}>
+          <Text style={styles.hello} numberOfLines={2}>
+            {t(greetingKey(now.getHours()), { name: user?.name || '' })}
+          </Text>
+          <Text style={styles.sub} numberOfLines={1}>
+            {today.length > 0 ? t('home.planned', { count: today.length }) : t('home.nothingToday')}
+          </Text>
         </View>
 
         <View style={{ height: sceneHeight * 0.3 }} />
@@ -249,9 +259,8 @@ export default function HomeScreen({ navigation }) {
 function createStyles(theme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    greeting: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.md },
-    greetingText: { flex: 1 },
-    actions: { flexDirection: 'row', alignItems: 'center' },
+    topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.md },
+    greeting: { paddingHorizontal: space.md, paddingTop: space.sm },
     hello: { ...type.title, fontSize: 25, lineHeight: 30, color: ON_WATER, maxWidth: 230 },
     sub: { ...type.secondary, color: ON_WATER_DIM, marginTop: 5 },
     body: { paddingHorizontal: space.md, gap: space.md },
