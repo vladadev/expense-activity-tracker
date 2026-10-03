@@ -3,9 +3,14 @@ import { View, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Ellipse, Defs, LinearGradient, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
 import {
   wavePath,
-  ridgePath,
-  RIDGE_FAR,
-  RIDGE_NEAR,
+  SCENE,
+  bankPath,
+  bankLine,
+  reedStem,
+  reedBlade,
+  reedHead,
+  REEDS_LEFT,
+  REEDS_RIGHT,
   PAD_SHAPES,
   LEAF_VIEWBOX,
 } from './geometry';
@@ -336,19 +341,16 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-pondSky)`} />
 
-        {/* Two ranges, both running off either side of the frame. What was
-            here before stopped dead at x = 0, and a shape with a straight
-            vertical edge where a landscape should carry on reads as a fault in
-            the drawing — which is exactly how it was reported. */}
-        <Path d={ridgePath(width, height * 0.47, height * 0.2, RIDGE_FAR)} fill={c.ridgeFar} opacity={0.6} />
-        <Path
-          d={ridgePath(width, height * 0.47, height * 0.2, RIDGE_FAR)}
-          stroke={c.ridgeLight}
-          strokeWidth={1.2}
-          fill="none"
-          opacity={0.3}
-        />
-        <Path d={ridgePath(width, height * 0.5, height * 0.12, RIDGE_NEAR)} fill={c.ridgeNear} opacity={0.85} />
+        {/* The far bank: low, hazy, and running off both sides of the frame.
+            Low because it is the other side of a pond and not a horizon, and
+            hazy because distance is the only thing telling you it is far. Its
+            foot goes under the first wave, which is what puts it behind the
+            water rather than on top of it. */}
+        <Path d={bankPath(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} opacity={0.5} />
+        {/* The skyline, and ONLY the skyline. Stroking the filled shape drew
+            its bottom edge as well — a hard line straight along the waterline,
+            across the whole width. */}
+        <Path d={bankLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.28} />
       </Svg>
 
       {/* The sun, on its way out. Each light keeps its own colour through the
@@ -413,17 +415,44 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(far) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * 0.45, height, 7)} fill={c.waveFar} opacity={0.62} />
+          <Path d={wavePath(width, height * SCENE.waveFar, height, 7)} fill={c.waveFar} opacity={0.62} />
         </Svg>
       </Animated.View>
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(mid) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * 0.53, height, 8)} fill={c.waveMid} opacity={0.7} />
+          <Path d={wavePath(width, height * SCENE.waveMid, height, 8)} fill={c.waveMid} opacity={0.7} />
         </Svg>
       </Animated.View>
+      {/* Reeds stand between the second wave and the third, so the water in
+          front covers where they enter it. A plant whose base you can see
+          sitting on the surface is a plant lying on the water. */}
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
+        {[...REEDS_LEFT, ...REEDS_RIGHT].map((reed) => {
+          const x = width * reed.x;
+          const base = height * SCENE.reedBase;
+          const h = height * reed.h;
+          const head = reed.head ? reedHead(x, base, h, reed.lean) : null;
+          return (
+            <G key={`${reed.x}`}>
+              {reed.blade !== 0 && (
+                <Path d={reedBlade(x, base, h * 0.82, reed.blade)} fill={c.ridgeNear} opacity={0.85} />
+              )}
+              <Path
+                d={reedStem(x, base, h, reed.lean)}
+                stroke={c.ridgeNear}
+                strokeWidth={reed.head ? 2.2 : 1.6}
+                strokeLinecap="round"
+                fill="none"
+              />
+              {head && <Ellipse cx={head.cx} cy={head.cy} rx={head.rx} ry={head.ry} fill={c.ridgeNear} />}
+            </G>
+          );
+        })}
+      </Svg>
+
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(near) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * 0.62, height, 9)} fill={c.waveNear} opacity={0.72} />
+          <Path d={wavePath(width, height * SCENE.waveNear, height, 9)} fill={c.waveNear} opacity={0.72} />
         </Svg>
       </Animated.View>
 

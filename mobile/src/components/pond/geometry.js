@@ -111,18 +111,25 @@ export function horizonLayout(width, height = HORIZON_HEIGHT, orbR = 17) {
   };
 }
 
-// The hills behind the pond.
+// The far side of the pond, and the reeds standing in it.
 //
-// What was there before was two filled blobs meant to read as reeds, and they
-// read as a glitch instead: each began at the very edge of the frame, so the
-// left one had a dead straight vertical side where the shape simply stopped.
-// Nothing in a landscape has that edge. A ridge has to start outside the frame
-// and carry on out the other side — what you see is a window onto something
-// larger, not an object that happens to end where the screen does.
+// Two wrong answers came before this one, and both are worth keeping written
+// down. The first was a pair of filled blobs meant to read as reeds: each
+// began at the very edge of the frame, so the left one had a dead straight
+// vertical side where the shape simply stopped, and it was reported as a
+// rendering fault. Nothing in a landscape has that edge.
 //
-// Drawn from a handful of peaks rather than hand-written curves, so the
-// silhouette can be changed by moving a number instead of by rewriting a path,
-// and so the curve through them is smooth by construction rather than by eye.
+// The second was mountains, and they were wrong twice over. A ridge drawn to
+// stand behind a POND is out of scale with it — a pond is small and near, and
+// anything distant and huge behind it turns the water into a lake. And the rim
+// light was stroked along the ridge's own closed path, which includes the
+// bottom edge: that drew a hard line straight across the whole width, along
+// the waterline, which is exactly what it looked like. Hence `bankLine` below,
+// which is the silhouette and nothing else.
+//
+// What is here now is what a pond actually has: a low far bank, far enough to
+// be hazy, and reeds standing in the shallows at either edge where reeds grow.
+// The middle is left open, because that is where the greeting goes.
 
 // Smooth a line through every one of its points.
 //
@@ -147,38 +154,118 @@ function r(n) {
   return Math.round(n * 10) / 10;
 }
 
-// Peaks, as fractions: x across the frame, and height from 0 at the waterline
-// to 1 at the top of the range. Both ranges start left of the frame and end
-// right of it, which is the whole point.
-export const RIDGE_FAR = [
-  [-0.14, 0.3],
-  [0.06, 0.78],
-  [0.19, 0.96],
-  [0.31, 0.5],
-  [0.45, 0.82],
-  [0.59, 0.6],
-  [0.73, 0.9],
-  [0.87, 0.54],
-  [1.14, 0.74],
+// Where each layer of the home scene sits, as a fraction of its height.
+//
+// These are here rather than inline in the component because the whole look of
+// the pond is the ORDER of these numbers, not the numbers themselves, and the
+// order is checkable. Twice now something has ended up visibly sitting on top
+// of the water instead of in it, and both times the cause was a depth that had
+// drifted past the wave that was supposed to cover it — which is invisible in
+// the source and obvious on the phone.
+export const SCENE = {
+  bankBase: 0.5, // where the far bank meets the water
+  bankRise: 0.11, // how far it stands above it
+  waveFar: 0.45,
+  waveMid: 0.53,
+  waveNear: 0.62,
+  reedBase: 0.63, // the reeds enter the water under the nearest wave
+};
+
+// The far bank, as fractions: x across the frame, and height from 0 at the
+// waterline to 1 at the top of the bank. It starts left of the frame and ends
+// right of it, which is the whole point — what you see is a window onto
+// something larger, not an object that ends where the screen does.
+//
+// Clumps rather than peaks. Distant planting has no points on it; it has
+// rounded masses with dips between them, which is what alternating these
+// numbers gives.
+export const BANK = [
+  [-0.12, 0.54],
+  [0.05, 0.93],
+  [0.17, 0.6],
+  [0.29, 0.88],
+  [0.42, 0.56],
+  [0.55, 0.96],
+  [0.68, 0.62],
+  [0.81, 0.86],
+  [0.93, 0.58],
+  [1.12, 0.8],
 ];
 
-export const RIDGE_NEAR = [
-  [-0.12, 0.22],
-  [0.11, 0.56],
-  [0.25, 0.32],
-  [0.41, 0.66],
-  [0.57, 0.28],
-  [0.73, 0.52],
-  [0.89, 0.26],
-  [1.12, 0.46],
-];
+function bankPoints(width, baseY, rise, profile) {
+  return profile.map(([fx, fh]) => [width * fx, baseY - rise * fh]);
+}
 
-export function ridgePath(width, baseY, rise, peaks) {
+// The bank as a shape to fill: the silhouette, then down to the waterline and
+// back along it.
+export function bankPath(width, baseY, rise, profile = BANK) {
   if (!width) return '';
-  const pts = peaks.map(([fx, fh]) => [width * fx, baseY - rise * fh]);
+  const pts = bankPoints(width, baseY, rise, profile);
   const first = pts[0];
   const last = pts[pts.length - 1];
   return `${smoothThrough(pts)} L ${r(last[0])} ${r(baseY)} L ${r(first[0])} ${r(baseY)} Z`;
+}
+
+// The bank as a line to stroke: the silhouette ONLY, open at both ends.
+//
+// This exists because stroking the filled path instead drew the bottom edge
+// too — a hard line along the waterline, all the way across. A rim light
+// belongs on the skyline and nowhere else.
+export function bankLine(width, baseY, rise, profile = BANK) {
+  if (!width) return '';
+  return smoothThrough(bankPoints(width, baseY, rise, profile));
+}
+
+// Reeds, in the shallows at either edge.
+//
+// They are at the edges for two reasons and both matter. Reeds grow where the
+// water is shallow, which is at the bank, not in the middle of a pond — and
+// the middle of this particular pond has the greeting across it, so anything
+// standing there is behind type.
+//
+// `x` is a fraction of the width, `h` a fraction of the scene height, `lean`
+// the sideways drift of the tip in points, `blade` the reach of a leaf if it
+// has one, and `head` whether it is a bulrush rather than a plain reed. No two
+// are the same height or lean the same way: a row of identical uprights is a
+// fence.
+export const REEDS_LEFT = [
+  { x: 0.012, h: 0.2, lean: -7, head: false, blade: 0 },
+  { x: 0.042, h: 0.28, lean: 5, head: true, blade: 0 },
+  { x: 0.072, h: 0.16, lean: -4, head: false, blade: 30 },
+  { x: 0.1, h: 0.24, lean: 8, head: false, blade: 0 },
+  { x: 0.128, h: 0.13, lean: -3, head: false, blade: 0 },
+];
+
+export const REEDS_RIGHT = [
+  { x: 0.988, h: 0.19, lean: 6, head: false, blade: 0 },
+  { x: 0.962, h: 0.26, lean: -6, head: true, blade: 0 },
+  { x: 0.934, h: 0.15, lean: 4, head: false, blade: -28 },
+  { x: 0.906, h: 0.22, lean: -8, head: false, blade: 0 },
+  { x: 0.879, h: 0.12, lean: 3, head: false, blade: 0 },
+];
+
+// A stem: one curve from the waterline to the tip, bending the way it leans.
+export function reedStem(x, baseY, h, lean) {
+  return (
+    `M ${r(x)} ${r(baseY)} ` +
+    `Q ${r(x + lean * 0.18)} ${r(baseY - h * 0.56)}, ${r(x + lean)} ${r(baseY - h)}`
+  );
+}
+
+// A blade: out to the tip and back to the base, so it has width at the bottom
+// and comes to a point at the top, the way a leaf does.
+export function reedBlade(x, baseY, h, spread) {
+  const foot = x + (spread > 0 ? 3.5 : -3.5);
+  return (
+    `M ${r(x)} ${r(baseY)} ` +
+    `Q ${r(x + spread * 0.16)} ${r(baseY - h * 0.7)}, ${r(x + spread)} ${r(baseY - h)} ` +
+    `Q ${r(x + spread * 0.52)} ${r(baseY - h * 0.44)}, ${r(foot)} ${r(baseY)} Z`
+  );
+}
+
+// The bulrush head, sitting just under the tip of its own stem.
+export function reedHead(x, baseY, h, lean) {
+  return { cx: r(x + lean * 0.84), cy: r(baseY - h * 0.84), rx: 2.7, ry: r(h * 0.13) };
 }
 
 // The leaf, in its own space so it can be scaled anywhere without these

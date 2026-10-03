@@ -5,9 +5,15 @@ import {
   wavePath,
   horizonLayout,
   smoothThrough,
-  ridgePath,
-  RIDGE_FAR,
-  RIDGE_NEAR,
+  SCENE,
+  bankPath,
+  bankLine,
+  reedStem,
+  reedBlade,
+  reedHead,
+  BANK,
+  REEDS_LEFT,
+  REEDS_RIGHT,
   PAD_SHAPES,
   BAY_HALF,
   BAR_RADIUS,
@@ -206,53 +212,152 @@ describe('horizonLayout', () => {
   });
 });
 
-// The hills replaced two filled blobs that each began at the very edge of the
-// frame, so the left one had a dead straight vertical side where the shape
-// simply stopped. It read as a rendering fault, and it was reported as one.
-// The fix is not a nicer curve: it is that a ridge has to begin outside the
-// frame and leave out the other side.
-describe('ridgePath', () => {
+// The far bank went through two wrong answers before this one, and the second
+// is the reason this block exists. The rim light was stroked along the bank's
+// own FILLED path — which includes the bottom edge — so it drew a hard line
+// straight across the whole width, along the waterline. On the phone it read
+// as a mountain-shaped thing lying on top of the river, and that is how it was
+// reported. The silhouette and the shape are two different paths now, and the
+// difference is pinned here.
+describe('bankPath and bankLine', () => {
   const W = 390;
-  const BASE = 150;
-  const RISE = 60;
+  const BASE = 157;
+  const RISE = 35;
+
+  it('fills a shape that closes along the waterline', () => {
+    const d = bankPath(W, BASE, RISE);
+    expect(d.trimEnd().endsWith('Z')).toBe(true);
+    expect(d).toContain(`${BASE}`);
+  });
+
+  it('strokes the skyline and nothing else — no bottom edge, no closing', () => {
+    const d = bankLine(W, BASE, RISE);
+    expect(d.trimEnd().endsWith('Z')).toBe(false);
+    expect(d).not.toContain('Z');
+    // The waterline is where the line was wrongly drawn. It must not be in it.
+    expect(d).not.toMatch(new RegExp(`L [-\\d.]+ ${BASE}`));
+  });
+
+  it('draws the same silhouette in both, so the light sits on the shape', () => {
+    expect(bankPath(W, BASE, RISE).startsWith(bankLine(W, BASE, RISE))).toBe(true);
+  });
 
   it('starts off the left edge and ends off the right', () => {
-    for (const peaks of [RIDGE_FAR, RIDGE_NEAR]) {
-      expect(peaks[0][0]).toBeLessThan(0);
-      expect(peaks[peaks.length - 1][0]).toBeGreaterThan(1);
+    expect(BANK[0][0]).toBeLessThan(0);
+    expect(BANK[BANK.length - 1][0]).toBeGreaterThan(1);
+  });
+
+  it('is clumps, not peaks — every height well under the top', () => {
+    for (const [, h] of BANK) {
+      expect(h).toBeGreaterThan(0.4);
+      expect(h).toBeLessThanOrEqual(1);
     }
   });
 
-  it('closes along the waterline rather than up the side of the frame', () => {
-    const d = ridgePath(W, BASE, RISE, RIDGE_FAR);
-    const firstX = W * RIDGE_FAR[0][0];
-    const lastX = W * RIDGE_FAR[RIDGE_FAR.length - 1][0];
-    expect(d.trimEnd().endsWith(`L ${+lastX.toFixed(1)} ${BASE} L ${+firstX.toFixed(1)} ${BASE} Z`)).toBe(true);
+  it('has nothing in either before the scene has been measured', () => {
+    expect(bankPath(0, BASE, RISE)).toBe('');
+    expect(bankLine(0, BASE, RISE)).toBe('');
   });
 
   it('never writes NaN, at any width', () => {
     for (const width of [0, 320, 360, 390, 412, 448]) {
-      expect(ridgePath(width, BASE, RISE, RIDGE_NEAR)).not.toMatch(/NaN/);
+      expect(bankPath(width, BASE, RISE)).not.toMatch(/NaN/);
+      expect(bankLine(width, BASE, RISE)).not.toMatch(/NaN/);
+    }
+  });
+});
+
+// The look of the pond is the ORDER of these depths, not the depths. Twice
+// something ended up visibly lying on top of the water instead of standing in
+// it, and both times the cause was one number drifting past the wave that was
+// supposed to cover it. That is invisible in the source and the first thing
+// anyone sees on the phone, so it is pinned here.
+describe('SCENE depths', () => {
+  it('runs the three waves from far to near', () => {
+    expect(SCENE.waveFar).toBeLessThan(SCENE.waveMid);
+    expect(SCENE.waveMid).toBeLessThan(SCENE.waveNear);
+  });
+
+  it('buries the foot of the bank under the first wave', () => {
+    expect(SCENE.bankBase).toBeGreaterThan(SCENE.waveFar);
+  });
+
+  it('still leaves the bank visible above that wave', () => {
+    const top = SCENE.bankBase - SCENE.bankRise;
+    expect(top).toBeLessThan(SCENE.waveFar);
+  });
+
+  it('stands the reeds in the water, not on it', () => {
+    // They are drawn in front of the middle wave, so the nearest one is what
+    // has to cover where they enter.
+    expect(SCENE.reedBase).toBeGreaterThanOrEqual(SCENE.waveNear);
+  });
+
+  it('keeps every reed tip clear of the water it stands in', () => {
+    for (const reed of [...REEDS_LEFT, ...REEDS_RIGHT]) {
+      expect(SCENE.reedBase - reed.h).toBeLessThan(SCENE.waveNear);
     }
   });
 
-  it('has nothing in it before the scene has been measured', () => {
-    expect(ridgePath(0, BASE, RISE, RIDGE_FAR)).toBe('');
+  it('gets the tallest reeds above the bank, so they read against the sky', () => {
+    const bankTop = SCENE.bankBase - SCENE.bankRise;
+    const tallest = Math.max(...[...REEDS_LEFT, ...REEDS_RIGHT].map((x) => x.h));
+    expect(SCENE.reedBase - tallest).toBeLessThan(bankTop);
+  });
+});
+
+// Reeds grow where the water is shallow, which is at the edges. The middle of
+// this pond has the greeting across it, so a reed standing there is a reed
+// behind type.
+describe('reeds', () => {
+  const ALL = [...REEDS_LEFT, ...REEDS_RIGHT];
+
+  it('keeps the middle of the pond clear', () => {
+    for (const reed of ALL) {
+      expect(reed.x < 0.15 || reed.x > 0.85).toBe(true);
+    }
   });
 
-  it('keeps every peak between the waterline and the top of the range', () => {
-    for (const peaks of [RIDGE_FAR, RIDGE_NEAR]) {
-      for (const [, h] of peaks) {
-        expect(h).toBeGreaterThan(0);
-        expect(h).toBeLessThanOrEqual(1);
+  it('gives no two the same height, so the row is not a fence', () => {
+    for (const side of [REEDS_LEFT, REEDS_RIGHT]) {
+      expect(new Set(side.map((x) => x.h)).size).toBe(side.length);
+      expect(new Set(side.map((x) => x.lean)).size).toBe(side.length);
+    }
+  });
+
+  it('leans some one way and some the other', () => {
+    for (const side of [REEDS_LEFT, REEDS_RIGHT]) {
+      expect(side.some((x) => x.lean > 0)).toBe(true);
+      expect(side.some((x) => x.lean < 0)).toBe(true);
+    }
+  });
+
+  it('stands each stem on the waterline and takes it to its own tip', () => {
+    const d = reedStem(40, 180, 60, 7);
+    expect(d.startsWith('M 40 180')).toBe(true);
+    expect(d.trimEnd().endsWith('47 120')).toBe(true);
+  });
+
+  it('closes every blade, so it is a leaf and not a stroke', () => {
+    const d = reedBlade(40, 180, 50, 30);
+    expect(d.startsWith('M 40 180')).toBe(true);
+    expect(d.trimEnd().endsWith('Z')).toBe(true);
+  });
+
+  it('puts the bulrush head under its own tip, not above it', () => {
+    const h = reedHead(40, 180, 60, 8);
+    expect(h.cy).toBeGreaterThan(180 - 60);
+    expect(h.cx).toBeGreaterThan(40);
+    expect(h.ry).toBeGreaterThan(h.rx);
+  });
+
+  it('never writes NaN into a reed', () => {
+    for (const width of [320, 360, 390, 412, 448]) {
+      for (const reed of ALL) {
+        expect(reedStem(width * reed.x, 180, 60, reed.lean)).not.toMatch(/NaN/);
+        if (reed.blade) expect(reedBlade(width * reed.x, 180, 50, reed.blade)).not.toMatch(/NaN/);
       }
     }
-  });
-
-  it('gives the two ranges different peaks, so one is not a copy of the other', () => {
-    const far = RIDGE_FAR.map(([x]) => x);
-    const near = RIDGE_NEAR.map(([x]) => x);
-    expect(far).not.toEqual(near);
   });
 });
 
