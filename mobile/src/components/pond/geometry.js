@@ -190,92 +190,151 @@ export const SCENE = {
 // single silhouette spans the frame, which is the shape that kept reading as a
 // line.
 
+// Each range is a list of mountains rather than one zig-zag line, because a
+// mountain has to be shaded on its own to be a mountain at all. The zig-zag
+// came back as "triangles thrown one over another", and it was right: a single
+// flat silhouette has no faces, so there is nothing for light to fall on.
+//
+// `x` is the apex across the frame, `h` its height from 0 at the foot to 1 at
+// the top of the range, `l` and `r` how far its feet reach either side, and
+// `snow` whether it is high enough to hold any. Feet overlap their neighbours
+// on purpose — mountains stand in each other's way, and the gaps between
+// evenly spaced triangles are most of what made the last attempt read as a
+// row of tents.
 export const RANGE_FAR = [
-  [-0.14, 0.18],
-  [-0.04, 0.55],
-  [0.03, 0.4],
-  [0.09, 0.78],
-  [0.14, 0.62],
-  [0.2, 1.0],
-  [0.25, 0.7],
-  [0.3, 0.84],
-  [0.35, 0.52],
-  [0.41, 0.66],
-  [0.47, 0.44],
-  [0.53, 0.56],
-  [0.59, 0.3],
-  [0.65, 0.38],
-  [0.7, 0.12],
-  [0.74, 0.0],
+  { x: -0.03, h: 0.74, l: 0.16, r: 0.13, snow: false },
+  { x: 0.1, h: 0.93, l: 0.12, r: 0.14, snow: true },
+  { x: 0.2, h: 0.66, l: 0.09, r: 0.11, snow: false },
+  { x: 0.33, h: 1.0, l: 0.14, r: 0.15, snow: true },
+  { x: 0.45, h: 0.6, l: 0.1, r: 0.12, snow: false },
+  { x: 0.58, h: 0.79, l: 0.12, r: 0.16, snow: true },
 ];
 
 export const RANGE_MID = [
-  [0.33, 0.0],
-  [0.38, 0.3],
-  [0.43, 0.2],
-  [0.49, 0.52],
-  [0.54, 0.38],
-  [0.6, 0.68],
-  [0.65, 0.5],
-  [0.71, 0.62],
-  [0.77, 0.36],
-  [0.83, 0.48],
-  [0.89, 0.28],
-  [0.95, 0.4],
-  [1.02, 0.24],
-  [1.14, 0.34],
+  { x: 0.4, h: 0.56, l: 0.14, r: 0.13, snow: false },
+  { x: 0.53, h: 0.76, l: 0.12, r: 0.15, snow: false },
+  { x: 0.67, h: 0.58, l: 0.11, r: 0.12, snow: false },
+  { x: 0.8, h: 0.82, l: 0.14, r: 0.16, snow: true },
+  { x: 0.96, h: 0.61, l: 0.13, r: 0.19, snow: false },
 ];
 
-function rangePoints(width, baseY, rise, profile) {
-  return profile.map(([fx, fh]) => [width * fx, baseY - rise * fh]);
+// How far the slopes bow in. A straight line from foot to apex is a tent; a
+// real slope is concave — it flares at the bottom and steepens near the top —
+// and that one curve is most of the difference between a drawing of a mountain
+// and a triangle.
+const BOW = 0.3;
+
+function mountainPoints(width, baseY, rise, peak) {
+  const apexX = width * peak.x;
+  const apexY = baseY - rise * peak.h;
+  return {
+    apexX,
+    apexY,
+    leftX: apexX - width * peak.l,
+    rightX: apexX + width * peak.r,
+    dropY: baseY - (baseY - apexY) * BOW,
+  };
 }
 
-// The range as a shape to fill: straight to each peak, then down to its own
-// foot and back along it.
-export function peakPath(width, baseY, rise, profile) {
+// A point along one of the slopes, `t` from the foot to the apex. Used to put
+// the snowline on the slope itself rather than on a straight line near it.
+function onSlope(footX, baseY, ctrlX, ctrlY, apexX, apexY, t) {
+  const u = 1 - t;
+  return [
+    u * u * footX + 2 * u * t * ctrlX + t * t * apexX,
+    u * u * baseY + 2 * u * t * ctrlY + t * t * apexY,
+  ];
+}
+
+export function mountainPath(width, baseY, rise, peak) {
   if (!width) return '';
-  const pts = rangePoints(width, baseY, rise, profile);
-  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${r(x)} ${r(y)}`).join(' ');
-  return `${line} L ${r(pts[pts.length - 1][0])} ${r(baseY)} L ${r(pts[0][0])} ${r(baseY)} Z`;
-}
-
-// The slopes that face the light, as separate open lines to stroke.
-//
-// The sun sits high and to the right, so the faces that catch it are the ones
-// descending to the right. Picking them out is what turns a silhouette into
-// something with sides — and they are returned as their own paths because the
-// last time a highlight was stroked along a filled shape it drew the shape's
-// bottom edge as well, straight across the water.
-export function litSlopes(width, baseY, rise, profile) {
-  if (!width) return [];
-  const pts = rangePoints(width, baseY, rise, profile);
-  const runs = [];
-  let run = [];
-  for (let i = 0; i < pts.length - 1; i += 1) {
-    // Lower on the screen as x grows: the face is turned towards the light.
-    const descending = pts[i + 1][1] > pts[i][1];
-    if (descending) {
-      if (!run.length) run.push(pts[i]);
-      run.push(pts[i + 1]);
-    } else if (run.length) {
-      runs.push(run);
-      run = [];
-    }
-  }
-  if (run.length) runs.push(run);
-  return runs.map((pointsInRun) =>
-    pointsInRun.map(([x, y], i) => `${i ? 'L' : 'M'} ${r(x)} ${r(y)}`).join(' ')
+  const m = mountainPoints(width, baseY, rise, peak);
+  const lc = m.leftX + (m.apexX - m.leftX) * 0.62;
+  const rc = m.apexX + (m.rightX - m.apexX) * 0.38;
+  return (
+    `M ${r(m.leftX)} ${r(baseY)} ` +
+    `Q ${r(lc)} ${r(m.dropY)}, ${r(m.apexX)} ${r(m.apexY)} ` +
+    `Q ${r(rc)} ${r(m.dropY)}, ${r(m.rightX)} ${r(baseY)} Z`
   );
 }
 
-// The far bank, as fractions: x across the frame, and height from 0 at the
-// waterline to 1 at the top of the bank. It starts left of the frame and ends
-// right of it, which is the whole point — what you see is a window onto
-// something larger, not an object that ends where the screen does.
+// The half turned towards the light, as its own shape to fill a shade lighter.
+// Two values meeting along the ridgeline is what gives a mountain a near side
+// and a far one; a stroke along the top only outlines it.
+export function mountainLit(width, baseY, rise, peak) {
+  if (!width) return '';
+  const m = mountainPoints(width, baseY, rise, peak);
+  const rc = m.apexX + (m.rightX - m.apexX) * 0.38;
+  return (
+    `M ${r(m.apexX)} ${r(m.apexY)} ` +
+    `Q ${r(rc)} ${r(m.dropY)}, ${r(m.rightX)} ${r(baseY)} ` +
+    `L ${r(m.apexX)} ${r(baseY)} Z`
+  );
+}
+
+// Snow, on the ones high enough to hold it. The underside is ragged because
+// snow lies in the gullies and melts off the ridges, and a straight snowline
+// is the one thing that makes a painted mountain look painted.
+export function mountainSnow(width, baseY, rise, peak, drop = 0.26) {
+  if (!width || !peak.snow) return '';
+  const m = mountainPoints(width, baseY, rise, peak);
+  const lc = m.leftX + (m.apexX - m.leftX) * 0.62;
+  const rc = m.apexX + (m.rightX - m.apexX) * 0.38;
+  const t = 1 - drop;
+  const [lx, ly] = onSlope(m.leftX, baseY, lc, m.dropY, m.apexX, m.apexY, t);
+  const [rx, ry] = onSlope(m.rightX, baseY, rc, m.dropY, m.apexX, m.apexY, t);
+  const span = rx - lx;
+  const dip = (ry - m.apexY) * 0.42;
+  return (
+    `M ${r(lx)} ${r(ly)} L ${r(m.apexX)} ${r(m.apexY)} L ${r(rx)} ${r(ry)} ` +
+    `L ${r(lx + span * 0.78)} ${r(ry - dip)} ` +
+    `L ${r(lx + span * 0.58)} ${r(ry + dip * 0.5)} ` +
+    `L ${r(lx + span * 0.36)} ${r(ly - dip * 0.8)} ` +
+    `L ${r(lx + span * 0.18)} ${r(ly + dip * 0.4)} Z`
+  );
+}
+
+// Gullies: the creases that run down from the ridge. Two per mountain, short,
+// and only on the lit side where they would actually be seen as shadow.
+export function mountainGullies(width, baseY, rise, peak) {
+  if (!width) return [];
+  const m = mountainPoints(width, baseY, rise, peak);
+  const rc = m.apexX + (m.rightX - m.apexX) * 0.38;
+  return [0.34, 0.6].map((reach) => {
+    const [ex, ey] = onSlope(m.rightX, baseY, rc, m.dropY, m.apexX, m.apexY, 1 - reach);
+    const midX = m.apexX + (ex - m.apexX) * 0.45;
+    const midY = m.apexY + (ey - m.apexY) * 0.62;
+    return `M ${r(m.apexX)} ${r(m.apexY)} Q ${r(midX)} ${r(midY)}, ${r(ex)} ${r(ey)}`;
+  });
+}
+
+// The treeline at the foot of the ranges.
 //
-// Clumps rather than peaks. Distant planting has no points on it; it has
-// rounded masses with dips between them, which is what alternating these
-// numbers gives.
+// It replaces a smoothed silhouette that was reported as "an unknown curved
+// line" — which is fair, because a soft wave between mountains and water is
+// not obviously anything. A row of small, uneven conifer tops is read as trees
+// immediately and as a line never.
+//
+// The jitter is from a fixed seed rather than Math.random: the far shore must
+// be the same shore on every render, or it crawls.
+export function treeLine(width, baseY, rise, step = 9, seed = 7) {
+  if (!width) return '';
+  let state = seed;
+  const next = () => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
+  };
+  const from = -step * 2;
+  const to = width + step * 2;
+  let d = `M ${r(from)} ${r(baseY)}`;
+  for (let x = from; x < to; x += step) {
+    const tip = baseY - rise * (0.42 + 0.58 * next());
+    const foot = baseY - rise * 0.14 * next();
+    d += ` L ${r(x + step * 0.5)} ${r(tip)} L ${r(x + step)} ${r(foot)}`;
+  }
+  return `${d} L ${r(to)} ${r(baseY)} L ${r(from)} ${r(baseY)} Z`;
+}
+
 export const BANK = [
   [-0.12, 0.54],
   [0.05, 0.93],

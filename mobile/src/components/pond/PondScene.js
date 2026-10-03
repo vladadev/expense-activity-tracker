@@ -4,10 +4,11 @@ import Svg, { Path, Rect, Circle, Ellipse, Defs, LinearGradient, RadialGradient,
 import {
   wavePath,
   SCENE,
-  bankPath,
-  bankLine,
-  peakPath,
-  litSlopes,
+  mountainPath,
+  mountainLit,
+  mountainSnow,
+  mountainGullies,
+  treeLine,
   RANGE_FAR,
   RANGE_MID,
   reedStem,
@@ -68,8 +69,11 @@ const DAY = {
   padRim: '#33C7A3',
   padVein: '#1E9B7E',
   sheen: '#FFFFFF',
-  mtnFar: '#115F50',
-  mtnMid: '#0C4B40',
+  mtnFar: '#0F5446',
+  mtnFarLit: '#1A7563',
+  mtnMid: '#0A463B',
+  mtnMidLit: '#136356',
+  snow: '#D7EFE2',
   ridgeFar: '#083A31',
   ridgeNear: '#06302A',
   ridgeLight: '#2E8A72',
@@ -90,8 +94,11 @@ const NIGHT = {
   padRim: '#1C7A68',
   padVein: '#176B5E',
   sheen: '#CFE4F2',
-  mtnFar: '#0A2A33',
-  mtnMid: '#072029',
+  mtnFar: '#09262E',
+  mtnFarLit: '#113B47',
+  mtnMid: '#061C23',
+  mtnMidLit: '#0C2E39',
+  snow: '#B9D4E6',
   ridgeFar: '#05191F',
   ridgeNear: '#03161C',
   ridgeLight: '#1A4A58',
@@ -255,7 +262,7 @@ function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
       style={{
         ...StyleSheet.absoluteFillObject,
         transformOrigin: [middle, base],
-        transform: [{ rotate: sway.interpolate({ inputRange: [0, 1], outputRange: ['-0.9deg', '1deg'] }) }],
+        transform: [{ rotate: sway.interpolate({ inputRange: [0, 1], outputRange: ['-4.2deg', '4.6deg'] }) }],
       }}
     >
       <Svg width={width} height={height}>
@@ -421,42 +428,56 @@ export default function PondScene({ width, height, fadeTo, children }) {
             <Stop offset="0.45" stopColor={c.skyMid} />
             <Stop offset="1" stopColor={c.skyLow} />
           </LinearGradient>
+          <LinearGradient {...{ id: `${uid}-pondHaze` }} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={c.skyLow} stopOpacity="0" />
+            <Stop offset="1" stopColor={c.skyLow} stopOpacity="0.85" />
+          </LinearGradient>
         </Defs>
 
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-pondSky)`} />
 
-        {/* Two ranges, overlapping, neither crossing the whole frame. The far
-            one climbs out of the left edge and runs down into the water two
-            thirds across; the other starts behind it and carries on out to the
-            right. Straight slopes meeting at angles, because that is what rock
-            is — the bank below is smoothed, and a smoothed outline has no
-            faces and reads as one curved line however many bumps are in it. */}
-        <Path
-          d={peakPath(width, height * SCENE.mountainBase, height * SCENE.mountainRiseFar, RANGE_FAR)}
-          fill={c.mtnFar}
-          opacity={0.85}
-        />
-        {litSlopes(width, height * SCENE.mountainBase, height * SCENE.mountainRiseFar, RANGE_FAR).map((d) => (
-          <Path key={d} d={d} stroke={c.ridgeLight} strokeWidth={1.1} fill="none" opacity={0.34} strokeLinejoin="round" />
-        ))}
-        <Path
-          d={peakPath(width, height * SCENE.mountainBase, height * SCENE.mountainRiseMid, RANGE_MID)}
-          fill={c.mtnMid}
-          opacity={0.92}
-        />
-        {litSlopes(width, height * SCENE.mountainBase, height * SCENE.mountainRiseMid, RANGE_MID).map((d) => (
-          <Path key={d} d={d} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.26} strokeLinejoin="round" />
-        ))}
+        {/* Each mountain is shaded on its own: a dark body, a lit half
+            meeting it along the ridgeline, snow on the high ones and a couple
+            of gullies creasing the lit side. One flat silhouette has no faces
+            for light to fall on, which is why the last attempt came back as
+            triangles thrown one over another. */}
+        {[
+          { peaks: RANGE_FAR, rise: SCENE.mountainRiseFar, fill: c.mtnFar, lit: c.mtnFarLit, opacity: 0.9 },
+          { peaks: RANGE_MID, rise: SCENE.mountainRiseMid, fill: c.mtnMid, lit: c.mtnMidLit, opacity: 0.96 },
+        ].map((range) => {
+          const base = height * SCENE.mountainBase;
+          const rise = height * range.rise;
+          return (
+            <G key={range.fill} opacity={range.opacity}>
+              {range.peaks.map((peak) => (
+                <G key={peak.x}>
+                  <Path d={mountainPath(width, base, rise, peak)} fill={range.fill} />
+                  <Path d={mountainLit(width, base, rise, peak)} fill={range.lit} />
+                  {mountainGullies(width, base, rise, peak).map((d) => (
+                    <Path key={d} d={d} stroke={range.fill} strokeWidth={1.1} fill="none" opacity={0.55} />
+                  ))}
+                  {peak.snow && <Path d={mountainSnow(width, base, rise, peak)} fill={c.snow} opacity={0.9} />}
+                </G>
+              ))}
+            </G>
+          );
+        })}
 
-        {/* The far bank, in front of the ranges and hiding where they stand.
-            Low, soft and the darkest of the three, because it is the nearest —
-            and its own foot goes under the first wave, which is what puts all
-            of this behind the water instead of on top of it. */}
-        <Path d={bankPath(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} opacity={0.92} />
-        {/* The skyline, and ONLY the skyline. Stroking the filled shape drew
-            its bottom edge as well — a hard line straight along the waterline,
-            across the whole width. */}
-        <Path d={bankLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} stroke={c.ridgeLight} strokeWidth={1} fill="none" opacity={0.2} />
+        {/* Haze at the feet, so the ranges dissolve into distance instead of
+            being cut off by whatever is in front of them. */}
+        <Rect
+          x="0"
+          y={height * (SCENE.mountainBase - SCENE.mountainRiseFar * 0.5)}
+          width={width}
+          height={height * SCENE.mountainRiseFar * 0.5}
+          fill={`url(#${uid}-pondHaze)`}
+        />
+
+        {/* The treeline on the far shore. It replaces a smoothed silhouette
+            that read as an unknown curved line — a soft wave between mountains
+            and water is not obviously anything, and a row of uneven conifer
+            tops is read as trees at once. */}
+        <Path d={treeLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} />
       </Svg>
 
       {/* The sun, on its way out. Each light keeps its own colour through the

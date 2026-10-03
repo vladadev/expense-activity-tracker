@@ -8,8 +8,7 @@ import {
   SCENE,
   bankPath,
   bankLine,
-  peakPath,
-  litSlopes,
+  mountainPath,
   RANGE_FAR,
   RANGE_MID,
   reedStem,
@@ -271,99 +270,41 @@ describe('bankPath and bankLine', () => {
   });
 });
 
-// Mountains are made of slopes, and a slope is straight. The attempt before
-// this one ran the ranges through the same Catmull-Rom as the bank, which
-// rounds everything it touches: the result had no faces and was reported, both
-// times, as one curved line above the water however many bumps were in it.
-describe('peakPath', () => {
+// The ranges were rebuilt as individually shaded mountains after the zig-zag
+// version came back as "triangles thrown one over another". mountainPath,
+// mountainLit, mountainSnow, mountainGullies and treeLine are NOT covered yet
+// — that is owed, and the depths below are what is pinned in the meantime.
+describe('mountainPath', () => {
   const W = 390;
   const BASE = 144;
   const RISE = 69;
 
-  it('draws straight slopes and nothing curved', () => {
-    for (const profile of [RANGE_FAR, RANGE_MID]) {
-      const d = peakPath(W, BASE, RISE, profile);
-      expect(d).not.toContain('C');
-      expect(d).not.toContain('Q');
-      expect(d).not.toContain('S');
+  it('closes each mountain on its own feet', () => {
+    for (const peak of [...RANGE_FAR, ...RANGE_MID]) {
+      const d = mountainPath(W, BASE, RISE, peak);
+      expect(d.trimEnd().endsWith('Z')).toBe(true);
+      expect(d).not.toMatch(/NaN/);
     }
-  });
-
-  it('closes along its own foot', () => {
-    const d = peakPath(W, BASE, RISE, RANGE_FAR);
-    expect(d.trimEnd().endsWith('Z')).toBe(true);
-    expect(d).toContain(`${BASE}`);
   });
 
   it('has nothing in it before the scene has been measured', () => {
-    expect(peakPath(0, BASE, RISE, RANGE_FAR)).toBe('');
+    expect(mountainPath(0, BASE, RISE, RANGE_FAR[0])).toBe('');
   });
 
-  it('never writes NaN, at any width', () => {
-    for (const width of [0, 320, 360, 390, 412, 448]) {
-      expect(peakPath(width, BASE, RISE, RANGE_MID)).not.toMatch(/NaN/);
-    }
-  });
-
-  // Neither range alone crosses the frame. One silhouette spanning the whole
-  // width is the shape that kept reading as a line.
-  it('leaves each range short of the far side', () => {
-    expect(RANGE_FAR[RANGE_FAR.length - 1][0]).toBeLessThan(1);
-    expect(RANGE_MID[0][0]).toBeGreaterThan(0);
-  });
-
-  it('starts the far range off the left edge and ends the other off the right', () => {
-    expect(RANGE_FAR[0][0]).toBeLessThan(0);
-    expect(RANGE_MID[RANGE_MID.length - 1][0]).toBeGreaterThan(1);
-  });
-
-  it('overlaps them, so there is a landscape rather than two backdrops', () => {
-    expect(RANGE_MID[0][0]).toBeLessThan(RANGE_FAR[RANGE_FAR.length - 1][0]);
-  });
-
-  it('brings each range down to the water where it ends', () => {
-    expect(RANGE_FAR[RANGE_FAR.length - 1][1]).toBe(0);
-    expect(RANGE_MID[0][1]).toBe(0);
-  });
-});
-
-describe('litSlopes', () => {
-  const W = 390;
-  const BASE = 144;
-  const RISE = 69;
-
-  // A range running down INTO the water touches the waterline at its last
-  // point, and that is correct. What must never appear is a SEGMENT along it —
-  // two points both at the waterline — because that is the line that was drawn
-  // across the whole screen twice.
-  it('returns open lines, and never a segment that runs along the water', () => {
-    for (const profile of [RANGE_FAR, RANGE_MID]) {
-      for (const d of litSlopes(W, BASE, RISE, profile)) {
-        expect(d).not.toContain('Z');
-        const ys = [...d.matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
-        for (let i = 1; i < ys.length; i += 1) {
-          expect(ys[i] === BASE && ys[i - 1] === BASE).toBe(false);
-        }
+  it('overlaps its neighbours, so they stand in each other away', () => {
+    for (const range of [RANGE_FAR, RANGE_MID]) {
+      for (let i = 0; i < range.length - 1; i += 1) {
+        const rightFoot = range[i].x + range[i].r;
+        const nextLeftFoot = range[i + 1].x - range[i + 1].l;
+        expect(rightFoot).toBeGreaterThan(nextLeftFoot);
       }
     }
   });
 
-  it('picks only the faces turned towards the light', () => {
-    // The sun is high and to the right, so a lit face falls as x grows —
-    // which on screen means y grows.
-    for (const d of litSlopes(W, BASE, RISE, RANGE_FAR)) {
-      const ys = [...d.matchAll(/[ML] [-\d.]+ ([-\d.]+)/g)].map((m) => Number(m[1]));
-      for (let i = 1; i < ys.length; i += 1) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+  it('keeps the snow for the high ones only', () => {
+    for (const range of [RANGE_FAR, RANGE_MID]) {
+      for (const peak of range) if (peak.snow) expect(peak.h).toBeGreaterThan(0.7);
     }
-  });
-
-  it('finds some on both ranges', () => {
-    expect(litSlopes(W, BASE, RISE, RANGE_FAR).length).toBeGreaterThan(2);
-    expect(litSlopes(W, BASE, RISE, RANGE_MID).length).toBeGreaterThan(2);
-  });
-
-  it('has none before the scene has been measured', () => {
-    expect(litSlopes(0, BASE, RISE, RANGE_FAR)).toEqual([]);
   });
 });
 
