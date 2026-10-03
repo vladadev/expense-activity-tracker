@@ -82,7 +82,7 @@ export default function Screen({
       {/* Outside the SafeAreaView on purpose: the water has to run up under
           the status bar, and the safe area is the padding that keeps the title
           out of it. */}
-      {onWater && <PondHorizon width={width} night={theme.isDark} fadeTo={theme.background} />}
+      {onWater && <PondHorizon width={width} fadeTo={theme.background} />}
 
       <SafeAreaView style={[styles.safe, !onWater && { backgroundColor: theme.background }]} edges={['top']}>
         {title != null && (

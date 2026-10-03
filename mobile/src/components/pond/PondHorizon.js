@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Defs, LinearGradient, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
 import { wavePath, horizonLayout, HORIZON_HEIGHT } from './geometry';
+import { mixHex } from '../../theme/mix';
 import { motion } from '../../theme/scale';
+import { useTheme } from '../../context/ThemeContext';
 
 // The pond seen from further off.
 //
@@ -21,32 +23,42 @@ import { motion } from '../../theme/scale';
 // and the gear are top right, and anything bright behind either of them makes
 // both harder to read. Below the waterline is where nothing else is — and
 // where it sits exactly is in geometry.js, with the tests.
+//
+// It crosses from day to night with the rest of the app: the light goes down
+// on one side and the other comes up from the opposite one. Smaller travel
+// than the home screen's, because there is less sky here to cross.
 
-function palette(night) {
-  if (night) {
-    return {
-      skyTop: '#040F14',
-      skyMid: '#07202A',
-      skyLow: '#0A3138',
-      orb: '#F1EADA',
-      orbEdge: '#C2BAA9',
-      halo: '#CFE4F2',
-      wave: '#0A3A42',
-    };
-  }
-  return {
-    skyTop: '#07382F',
-    skyMid: '#0C5648',
-    skyLow: '#14735F',
-    orb: '#F7C863',
-    orbEdge: '#F2B33D',
-    halo: '#F7C863',
-    wave: '#17795F',
-  };
+const DAY = {
+  skyTop: '#07382F',
+  skyMid: '#0C5648',
+  skyLow: '#14735F',
+  wave: '#17795F',
+};
+
+const NIGHT = {
+  skyTop: '#040F14',
+  skyMid: '#07202A',
+  skyLow: '#0A3138',
+  wave: '#0A3A42',
+};
+
+const SUN_HALO = '#F7C863';
+const MOON_HALO = '#CFE4F2';
+
+function palette(p) {
+  if (p <= 0) return DAY;
+  if (p >= 1) return NIGHT;
+  const out = {};
+  for (const key of Object.keys(DAY)) out[key] = mixHex(DAY[key], NIGHT[key], p);
+  return out;
 }
 
+const ORB_BOX = 120;
+const ORB_C = ORB_BOX / 2;
+
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, top: 0 },
+  // The light travels out of the strip, so the strip has to hold it in.
+  wrap: { position: 'absolute', left: 0, top: 0, overflow: 'hidden' },
   layer: { position: 'absolute', left: 0, top: 0 },
 });
 
@@ -56,8 +68,9 @@ const styles = StyleSheet.create({
 // component writes carries its own instance's prefix.
 let horizonSeq = 0;
 
-export default function PondHorizon({ width, height = HORIZON_HEIGHT, night, fadeTo }) {
-  const c = useMemo(() => palette(night), [night]);
+export default function PondHorizon({ width, height = HORIZON_HEIGHT, fadeTo }) {
+  const { nightness, nightT } = useTheme();
+  const c = useMemo(() => palette(nightness), [nightness]);
   const uid = useRef(`horizon${(horizonSeq += 1)}`).current;
 
   const drift = useRef(new Animated.Value(0)).current;
@@ -76,8 +89,22 @@ export default function PondHorizon({ width, height = HORIZON_HEIGHT, night, fad
 
   if (!width) return null;
 
-  const orbR = night ? 15 : 17;
-  const { orbX, orbY, crest } = horizonLayout(width, height, orbR);
+  const { orbX, orbY, crest } = horizonLayout(width, height, 17);
+
+  const sunStyle = {
+    opacity: nightT.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.12, 0] }),
+    transform: [
+      { translateX: nightT.interpolate({ inputRange: [0, 1], outputRange: [0, width * 0.42] }) },
+      { translateY: nightT.interpolate({ inputRange: [0, 1], outputRange: [0, height * 0.3] }) },
+    ],
+  };
+  const moonStyle = {
+    opacity: nightT.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 0.12, 1] }),
+    transform: [
+      { translateX: nightT.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.5, 0] }) },
+      { translateY: nightT.interpolate({ inputRange: [0, 1], outputRange: [height * 0.3, 0] }) },
+    ],
+  };
 
   return (
     <View style={[styles.wrap, { width, height }]} pointerEvents="none">
@@ -88,34 +115,55 @@ export default function PondHorizon({ width, height = HORIZON_HEIGHT, night, fad
             <Stop offset="0.5" stopColor={c.skyMid} />
             <Stop offset="1" stopColor={c.skyLow} />
           </LinearGradient>
-          <RadialGradient {...{ id: `${uid}-halo` }} cx="0.5" cy="0.5" r="0.5">
-            <Stop offset="0" stopColor={c.halo} stopOpacity={night ? 0.42 : 0.66} />
-            <Stop offset="0.45" stopColor={c.halo} stopOpacity={night ? 0.12 : 0.22} />
-            <Stop offset="1" stopColor={c.halo} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient {...{ id: `${uid}-orb` }} cx={night ? '0.38' : '0.5'} cy={night ? '0.34' : '0.42'} r="0.78">
-            <Stop offset="0" stopColor={night ? '#FFFDF6' : '#FFF0CE'} />
-            <Stop offset="1" stopColor={c.orbEdge} />
-          </RadialGradient>
-          <ClipPath {...{ id: `${uid}-orbClip` }}>
-            <Circle cx={orbX} cy={orbY} r={orbR} />
-          </ClipPath>
         </Defs>
-
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-sky)`} />
-
-        {/* 3 radii, not the scene's 3.6: the glow has the header above it
-            here, and a wider one reaches the bell. */}
-        <Circle cx={orbX} cy={orbY} r={orbR * 3} fill={`url(#${uid}-halo)`} />
-        <Circle cx={orbX} cy={orbY} r={orbR} fill={`url(#${uid}-orb)`} />
-        {night && (
-          <G clipPath={`url(#${uid}-orbClip)`}>
-            <Circle cx={orbX - 5} cy={orbY - 6} r={4.2} fill="#C8BFAE" opacity={0.55} />
-            <Circle cx={orbX + 5} cy={orbY + 6} r={3.2} fill="#C8BFAE" opacity={0.5} />
-            <Circle cx={orbX + 2} cy={orbY - 9} r={1.9} fill="#CCC3B2" opacity={0.5} />
-          </G>
-        )}
       </Svg>
+
+      <Animated.View style={[styles.layer, { left: orbX - ORB_C, top: orbY - ORB_C }, sunStyle]}>
+        <Svg width={ORB_BOX} height={ORB_BOX}>
+          <Defs>
+            {/* 3 radii, not the scene's 3.6: the glow has the header above it
+                here, and a wider one reaches the bell. */}
+            <RadialGradient {...{ id: `${uid}-sunHalo` }} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor={SUN_HALO} stopOpacity="0.66" />
+              <Stop offset="0.45" stopColor={SUN_HALO} stopOpacity="0.22" />
+              <Stop offset="1" stopColor={SUN_HALO} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-sun` }} cx="0.5" cy="0.42" r="0.78">
+              <Stop offset="0" stopColor="#FFF0CE" />
+              <Stop offset="1" stopColor="#F2B33D" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={ORB_C} cy={ORB_C} r={51} fill={`url(#${uid}-sunHalo)`} />
+          <Circle cx={ORB_C} cy={ORB_C} r={17} fill={`url(#${uid}-sun)`} />
+        </Svg>
+      </Animated.View>
+
+      <Animated.View style={[styles.layer, { left: orbX - ORB_C, top: orbY - ORB_C }, moonStyle]}>
+        <Svg width={ORB_BOX} height={ORB_BOX}>
+          <Defs>
+            <RadialGradient {...{ id: `${uid}-moonHalo` }} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor={MOON_HALO} stopOpacity="0.42" />
+              <Stop offset="0.45" stopColor={MOON_HALO} stopOpacity="0.12" />
+              <Stop offset="1" stopColor={MOON_HALO} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-moon` }} cx="0.38" cy="0.34" r="0.78">
+              <Stop offset="0" stopColor="#FFFDF6" />
+              <Stop offset="1" stopColor="#C2BAA9" />
+            </RadialGradient>
+            <ClipPath {...{ id: `${uid}-moonClip` }}>
+              <Circle cx={ORB_C} cy={ORB_C} r={15} />
+            </ClipPath>
+          </Defs>
+          <Circle cx={ORB_C} cy={ORB_C} r={45} fill={`url(#${uid}-moonHalo)`} />
+          <Circle cx={ORB_C} cy={ORB_C} r={15} fill={`url(#${uid}-moon)`} />
+          <G clipPath={`url(#${uid}-moonClip)`}>
+            <Circle cx={ORB_C - 5} cy={ORB_C - 6} r={4.2} fill="#C8BFAE" opacity={0.55} />
+            <Circle cx={ORB_C + 5} cy={ORB_C + 6} r={3.2} fill="#C8BFAE" opacity={0.5} />
+            <Circle cx={ORB_C + 2} cy={ORB_C - 9} r={1.9} fill="#CCC3B2" opacity={0.5} />
+          </G>
+        </Svg>
+      </Animated.View>
 
       <Animated.View
         style={[

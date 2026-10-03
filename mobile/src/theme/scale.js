@@ -75,4 +75,9 @@ export const motion = {
   waveMid: 24000,
   waveNear: 17000,
   bob: 9000,
+  // Day into night. Far longer than anything else here, and deliberately: this
+  // is the one change in the app that is meant to be watched rather than
+  // merely noticed. Shorter and the sun looks like it was deleted; much
+  // longer and you are waiting for your own app.
+  crossing: 1400,
 };

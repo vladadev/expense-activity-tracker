@@ -131,13 +131,12 @@ export default function HomeScreen({ navigation }) {
 
   const showSkeleton = useDeferredSkeleton(!loaded);
   const sceneHeight = Math.round(width * SCENE_RATIO * 1.75);
-  const night = theme.isDark;
   const remaining = earned - spent;
   const ratio = earned > 0 ? Math.min(1, spent / earned) : 0;
 
   return (
     <View style={styles.screen}>
-      <PondScene width={width} height={sceneHeight} night={night} fadeTo={theme.background}>
+      <PondScene width={width} height={sceneHeight} fadeTo={theme.background}>
         {/* Sitting on the water, to the right, clear of the greeting. Empty
             until the frog is drawn — see components/pond/MascotSlot. */}
         <MascotSlot slot="scene" style={{ position: 'absolute', right: space.lg, top: sceneHeight * 0.44 }} />

@@ -121,18 +121,28 @@ have meant drawing it twice.
 - [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
       entries today and needs a precise tap on a small arrow to open.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
-- [~] **Day and night crossing.** The sun or moon in Home's header switches
-      the two by hand, which is how both themes get judged while they are being
-      drawn — and which stays afterwards as the way to overrule the automatic
-      one for an evening. The two icons trade places rather than cut: one
-      swings out as the other swings in, around the same centre.
+- [~] **Day and night crossing.** Built, in both directions and over 1.4
+      seconds. The sun leaves on one side while the moon rises on the other
+      into the place it left; the reflection dims while nothing is above it;
+      and **every colour in the app travels with them**, because the palette is
+      blended rather than swapped — see `theme/mix.js`, which is where the
+      arithmetic lives and is tested. The sun and moon in the header are not an
+      imitation of it: they read the same value the sky does, so the two cannot
+      drift apart.
 
-      What is left is the crossing itself: the sun walking off one side as the
-      moon rises on the other, sky and cards crossing with them, the glints
-      changing colour and length — gold and long by day, silver and short by
-      night. Automatic by the real sunrise and sunset, with Light / Dark /
-      Automatic in settings, because automation that cannot be switched off is
-      imposition.
+      Position is animated natively and colour is stepped 24 times across the
+      crossing, which is the one number worth knowing here: every screen's
+      StyleSheet is rebuilt from the palette, and rebuilding it once a frame is
+      work nobody sees and everybody feels.
+
+      The canvas board **"Prelaz dan u noć"** holds it as four moments, since a
+      board cannot hold the movement itself.
+
+      What is left: making it automatic by the real sunrise and sunset, with
+      Light / Dark / Automatic in settings, because automation that cannot be
+      switched off is imposition. Also still to do — the glints should change
+      length as well as colour: gold and long by day, silver and short by
+      night.
 - [ ] **Analysis.** Opens with one plain sentence about the month, then the
       detail. Its own screen is now in the right place; what it still lacks is
       the sentence. This is the fix for the screen he called the worst: it was

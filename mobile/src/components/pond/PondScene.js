@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Circle, Ellipse, Defs, LinearGradient, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
 import { wavePath, LEAF_VIEWBOX, LEAF_BODY, LEAF_VEINS, LEAF_SHEEN } from './geometry';
+import { mixHex } from '../../theme/mix';
+import { useTheme } from '../../context/ThemeContext';
 
 // The pond behind the top of a screen.
 //
@@ -32,51 +34,59 @@ const PADS = [
   { x: 0.38, y: 0.76, w: 68, delay: 600, opacity: 1 },
 ];
 
-function palette(night) {
-  if (night) {
-    return {
-      skyTop: '#040F14',
-      skyMid: '#07202A',
-      skyLow: '#0A3138',
-      orb: '#F1EADA',
-      orbEdge: '#C2BAA9',
-      halo: '#CFE4F2',
-      glint: '#DCEAF4',
-      waveFar: '#06252E',
-      waveMid: '#082E37',
-      waveNear: '#0A3A42',
-      deep: '#0C454C',
-      padFill: '#136056',
-      padRim: '#1C7A68',
-      padVein: '#176B5E',
-      sheen: '#CFE4F2',
-      reed: '#03161C',
-    };
-  }
-  return {
-    skyTop: '#07382F',
-    skyMid: '#0C5648',
-    skyLow: '#14735F',
-    orb: '#F7C863',
-    orbEdge: '#F2B33D',
-    halo: '#F7C863',
-    glint: '#FFE6A8',
-    waveFar: '#0B5247',
-    waveMid: '#116352',
-    waveNear: '#17795F',
-    deep: '#1C8D6F',
-    padFill: '#2BB694',
-    padRim: '#33C7A3',
-    padVein: '#1E9B7E',
-    sheen: '#FFFFFF',
-    reed: '#06302A',
-  };
+const DAY = {
+  skyTop: '#07382F',
+  skyMid: '#0C5648',
+  skyLow: '#14735F',
+  halo: '#F7C863',
+  glint: '#FFE6A8',
+  waveFar: '#0B5247',
+  waveMid: '#116352',
+  waveNear: '#17795F',
+  padFill: '#2BB694',
+  padRim: '#33C7A3',
+  padVein: '#1E9B7E',
+  sheen: '#FFFFFF',
+  reed: '#06302A',
+};
+
+const NIGHT = {
+  skyTop: '#040F14',
+  skyMid: '#07202A',
+  skyLow: '#0A3138',
+  halo: '#CFE4F2',
+  glint: '#DCEAF4',
+  waveFar: '#06252E',
+  waveMid: '#082E37',
+  waveNear: '#0A3A42',
+  padFill: '#136056',
+  padRim: '#1C7A68',
+  padVein: '#176B5E',
+  sheen: '#CFE4F2',
+  reed: '#03161C',
+};
+
+// Not a choice between two sets any more: every colour in the pond is somewhere
+// between them, at whatever hour the app currently thinks it is.
+function palette(p) {
+  if (p <= 0) return DAY;
+  if (p >= 1) return NIGHT;
+  const out = {};
+  for (const key of Object.keys(DAY)) out[key] = mixHex(DAY[key], NIGHT[key], p);
+  return out;
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, top: 0 },
+  // overflow matters now that the light travels: without it the sun carries on
+  // across the cards below the scene on its way out.
+  wrap: { position: 'absolute', left: 0, top: 0, overflow: 'hidden' },
   layer: { position: 'absolute', left: 0, top: 0 },
 });
+
+// The box each light source is drawn in, big enough to hold its halo. Both get
+// the same one so they can be swapped without the geometry changing.
+const ORB_BOX = 200;
+const ORB_C = ORB_BOX / 2;
 
 function useLoop(duration, delay = 0) {
   const v = useRef(new Animated.Value(0)).current;
@@ -167,8 +177,12 @@ function Glint({ x, y, rx, delay, colour }) {
 
 let sceneSeq = 0;
 
-export default function PondScene({ width, height, night, fadeTo, children }) {
-  const c = useMemo(() => palette(night), [night]);
+export default function PondScene({ width, height, fadeTo, children }) {
+  // The hour of day comes from the theme rather than a prop, so the scene is
+  // never a frame behind the screen it sits on, and so a crossing started from
+  // anywhere reaches it.
+  const { nightness, nightT } = useTheme();
+  const c = useMemo(() => palette(nightness), [nightness]);
   // Gradient ids are global in react-native-svg on Android, not scoped to the
   // component, so two scenes rendered at once would steal each other's fills.
   const uid = useRef(`pond${(sceneSeq += 1)}`).current;
@@ -182,7 +196,33 @@ export default function PondScene({ width, height, night, fadeTo, children }) {
   // same side.
   const orbX = width * 0.78;
   const orbY = height * 0.2;
-  const orbR = night ? 26 : 21;
+
+  // The crossing. The sun does not fade where it stands and the moon does not
+  // appear in its place — one leaves and the other arrives, from the other
+  // side, and for a moment in the middle neither of them is really there.
+  //
+  // Position is interpolated off the native value, so this runs at the
+  // screen's own rate however busy the JS side is repainting the palette.
+  const sunStyle = {
+    opacity: nightT.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.12, 0] }),
+    transform: [
+      { translateX: nightT.interpolate({ inputRange: [0, 1], outputRange: [0, width * 0.55] }) },
+      { translateY: nightT.interpolate({ inputRange: [0, 1], outputRange: [0, height * 0.5] }) },
+    ],
+  };
+  const moonStyle = {
+    opacity: nightT.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 0.12, 1] }),
+    transform: [
+      { translateX: nightT.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.62, 0] }) },
+      { translateY: nightT.interpolate({ inputRange: [0, 1], outputRange: [height * 0.5, 0] }) },
+    ],
+  };
+  // The reflection belongs to whatever is above it, so it dims while nothing
+  // is: a column of glints sitting bright under an empty sky is the one thing
+  // that would give the crossing away.
+  const reflection = {
+    opacity: nightT.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.18, 1] }),
+  };
 
   return (
     <View style={[styles.wrap, { width, height }]} pointerEvents="box-none">
@@ -193,38 +233,9 @@ export default function PondScene({ width, height, night, fadeTo, children }) {
             <Stop offset="0.45" stopColor={c.skyMid} />
             <Stop offset="1" stopColor={c.skyLow} />
           </LinearGradient>
-          <RadialGradient {...{ id: `${uid}-pondHalo` }} cx="0.5" cy="0.5" r="0.5">
-            <Stop offset="0" stopColor={c.halo} stopOpacity={night ? 0.5 : 0.8} />
-            <Stop offset="0.45" stopColor={c.halo} stopOpacity={night ? 0.14 : 0.26} />
-            <Stop offset="1" stopColor={c.halo} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient {...{ id: `${uid}-pondOrb` }} cx={night ? '0.38' : '0.5'} cy={night ? '0.34' : '0.42'} r="0.78">
-            <Stop offset="0" stopColor={night ? '#FFFDF6' : '#FFF0CE'} />
-            <Stop offset="1" stopColor={night ? c.orbEdge : c.orbEdge} />
-          </RadialGradient>
-          <RadialGradient {...{ id: `${uid}-pondTerminator` }} cx="0.26" cy="0.3" r="0.95">
-            <Stop offset="0.55" stopColor="#0A2028" stopOpacity="0" />
-            <Stop offset="1" stopColor="#0A2028" stopOpacity="0.42" />
-          </RadialGradient>
-          <ClipPath {...{ id: `${uid}-pondOrbClip` }}>
-            <Circle cx={orbX} cy={orbY} r={orbR} />
-          </ClipPath>
         </Defs>
 
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${uid}-pondSky)`} />
-
-        <Circle cx={orbX} cy={orbY} r={orbR * 3.6} fill={`url(#${uid}-pondHalo)`} />
-        <Circle cx={orbX} cy={orbY} r={orbR} fill={`url(#${uid}-pondOrb)`} />
-        {night && (
-          <G clipPath={`url(#${uid}-pondOrbClip)`}>
-            <Circle cx={orbX - 8} cy={orbY - 10} r={7} fill="#C8BFAE" opacity={0.55} />
-            <Circle cx={orbX - 8} cy={orbY - 10} r={4.6} fill="#D9D1C1" opacity={0.6} />
-            <Circle cx={orbX + 9} cy={orbY + 10} r={5.4} fill="#C8BFAE" opacity={0.5} />
-            <Circle cx={orbX + 3} cy={orbY - 15} r={3} fill="#CCC3B2" opacity={0.5} />
-            <Circle cx={orbX - 14} cy={orbY + 8} r={3.6} fill="#CCC3B2" opacity={0.45} />
-            <Rect x={orbX - orbR} y={orbY - orbR} width={orbR * 2} height={orbR * 2} fill={`url(#${uid}-pondTerminator)`} />
-          </G>
-        )}
 
         <Path
           d={`M0 ${height * 0.38} q ${width * 0.05} -26 ${width * 0.09} -4 q ${width * 0.02} -34 ${width * 0.06} -2 q ${width * 0.035} -22 ${width * 0.06} 2 L${width * 0.21} ${height * 0.46} L0 ${height * 0.46} Z`}
@@ -237,6 +248,66 @@ export default function PondScene({ width, height, night, fadeTo, children }) {
           opacity={0.45}
         />
       </Svg>
+
+      {/* The sun, on its way out. Each light keeps its own colour through the
+          crossing — only the sky and the water are in between. */}
+      <Animated.View
+        style={[styles.layer, { left: orbX - ORB_C, top: orbY - ORB_C }, sunStyle]}
+        pointerEvents="none"
+      >
+        <Svg width={ORB_BOX} height={ORB_BOX}>
+          <Defs>
+            <RadialGradient {...{ id: `${uid}-sunHalo` }} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor={DAY.halo} stopOpacity="0.8" />
+              <Stop offset="0.45" stopColor={DAY.halo} stopOpacity="0.26" />
+              <Stop offset="1" stopColor={DAY.halo} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-sun` }} cx="0.5" cy="0.42" r="0.78">
+              <Stop offset="0" stopColor="#FFF0CE" />
+              <Stop offset="1" stopColor="#F2B33D" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={ORB_C} cy={ORB_C} r={75.6} fill={`url(#${uid}-sunHalo)`} />
+          <Circle cx={ORB_C} cy={ORB_C} r={21} fill={`url(#${uid}-sun)`} />
+        </Svg>
+      </Animated.View>
+
+      {/* The moon, rising on the other side into the place the sun left. */}
+      <Animated.View
+        style={[styles.layer, { left: orbX - ORB_C, top: orbY - ORB_C }, moonStyle]}
+        pointerEvents="none"
+      >
+        <Svg width={ORB_BOX} height={ORB_BOX}>
+          <Defs>
+            <RadialGradient {...{ id: `${uid}-moonHalo` }} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor={NIGHT.halo} stopOpacity="0.5" />
+              <Stop offset="0.45" stopColor={NIGHT.halo} stopOpacity="0.14" />
+              <Stop offset="1" stopColor={NIGHT.halo} stopOpacity="0" />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-moon` }} cx="0.38" cy="0.34" r="0.78">
+              <Stop offset="0" stopColor="#FFFDF6" />
+              <Stop offset="1" stopColor="#C2BAA9" />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-moonTerm` }} cx="0.26" cy="0.3" r="0.95">
+              <Stop offset="0.55" stopColor="#0A2028" stopOpacity="0" />
+              <Stop offset="1" stopColor="#0A2028" stopOpacity="0.42" />
+            </RadialGradient>
+            <ClipPath {...{ id: `${uid}-moonClip` }}>
+              <Circle cx={ORB_C} cy={ORB_C} r={26} />
+            </ClipPath>
+          </Defs>
+          <Circle cx={ORB_C} cy={ORB_C} r={93.6} fill={`url(#${uid}-moonHalo)`} />
+          <Circle cx={ORB_C} cy={ORB_C} r={26} fill={`url(#${uid}-moon)`} />
+          <G clipPath={`url(#${uid}-moonClip)`}>
+            <Circle cx={ORB_C - 8} cy={ORB_C - 10} r={7} fill="#C8BFAE" opacity={0.55} />
+            <Circle cx={ORB_C - 8} cy={ORB_C - 10} r={4.6} fill="#D9D1C1" opacity={0.6} />
+            <Circle cx={ORB_C + 9} cy={ORB_C + 10} r={5.4} fill="#C8BFAE" opacity={0.5} />
+            <Circle cx={ORB_C + 3} cy={ORB_C - 15} r={3} fill="#CCC3B2" opacity={0.5} />
+            <Circle cx={ORB_C - 14} cy={ORB_C + 8} r={3.6} fill="#CCC3B2" opacity={0.45} />
+            <Rect x={ORB_C - 26} y={ORB_C - 26} width={52} height={52} fill={`url(#${uid}-moonTerm)`} />
+          </G>
+        </Svg>
+      </Animated.View>
 
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(far) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
@@ -254,9 +325,11 @@ export default function PondScene({ width, height, night, fadeTo, children }) {
         </Svg>
       </Animated.View>
 
-      {GLINTS.map((g) => (
-        <Glint key={`${g.y}-${g.rx}`} x={orbX} y={height * g.y} rx={g.rx} delay={g.delay} colour={c.glint} />
-      ))}
+      <Animated.View style={[styles.layer, { width, height }, reflection]} pointerEvents="none">
+        {GLINTS.map((g) => (
+          <Glint key={`${g.y}-${g.rx}`} x={orbX} y={height * g.y} rx={g.rx} delay={g.delay} colour={c.glint} />
+        ))}
+      </Animated.View>
 
       {PADS.map((p) => (
         <FloatingPad key={`${p.x}-${p.y}`} width={width} height={height} pad={p} colours={c} />
