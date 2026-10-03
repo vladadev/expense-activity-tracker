@@ -89,26 +89,38 @@ describe('barPath', () => {
     expect((d.match(/C /g) || []).length).toBeGreaterThanOrEqual(4);
   });
 
-  // Two earlier attempts failed here: dropping the bay left the outer tabs
-  // with a flat edge, and squeezing it left half a curve, which looks like a
-  // mistake rather than a shape. The bay keeps its width and moves its centre
-  // inboard instead.
-  it('keeps a full, symmetric bay at both ends', () => {
-    for (const centre of [0, 10, 43.8, 346.2, 390]) {
+  // Three attempts protected the corner at the leaf's expense: dropping the
+  // bay, squeezing it, then sliding its centre inboard. All three showed. The
+  // bay is simply narrow enough never to reach a corner, so every tab gets
+  // the same shape and the dip is always under the leaf.
+  it('is the same shape under every tab', () => {
+    const shapes = [43.8, 119.4, 195, 270.6, 346.2].map((centre) => {
       const path = barPath(W, TOP, BOTTOM, centre);
-      const dip = path.match(/C ([\d.]+) \d+[^C]*C/);
-      expect(dip).not.toBeNull();
-      const [, from] = path.match(/H ([\d.]+) C/);
-      const [, to] = path.match(/, ([\d.]+) \d+ H /);
-      expect(+(Number(to) - Number(from)).toFixed(4)).toBe(BAY_HALF * 2);
+      const [, from] = path.match(/H ([\d.-]+) C/);
+      const [, to] = path.match(/, ([\d.-]+) \d+ H /);
+      return { width: +(Number(to) - Number(from)).toFixed(4), offset: +(centre - Number(from)).toFixed(4) };
+    });
+    for (const shape of shapes) {
+      expect(shape.width).toBe(BAY_HALF * 2);
+      expect(shape.offset).toBe(BAY_HALF);
     }
   });
 
-  it('never lets the bay cross a corner', () => {
-    for (const centre of [0, 8, 20, 370, 382, 390]) {
-      const path = barPath(W, TOP, BOTTOM, centre);
-      const [, from] = path.match(/H ([\d.-]+) C/);
-      expect(Number(from)).toBeGreaterThanOrEqual(BAR_RADIUS);
+  it('dips exactly under the leaf, never beside it', () => {
+    for (const centre of [43.8, 195, 346.2]) {
+      expect(barPath(W, TOP, BOTTOM, centre)).toContain(`, ${centre} ${TOP + 7.5}`);
+    }
+  });
+
+  // 48 across clears a 12px corner even at the outermost of five tabs on the
+  // narrowest phone this app runs on, so nothing has to be special-cased.
+  it('clears the corner on every phone width without being moved', () => {
+    for (const phone of [320, 360, 390, 412, 448]) {
+      const centres = tabCentres(5, phone, 6);
+      const first = barPath(phone, TOP, BOTTOM, centres[0]).match(/H ([\d.-]+) C/);
+      const last = barPath(phone, TOP, BOTTOM, centres[4]).match(/, ([\d.-]+) \d+ H /);
+      expect(Number(first[1])).toBeGreaterThanOrEqual(BAR_RADIUS);
+      expect(Number(last[1])).toBeLessThanOrEqual(phone - BAR_RADIUS);
     }
   });
 

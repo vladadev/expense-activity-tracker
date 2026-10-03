@@ -12,7 +12,7 @@ export const BAND_H = 46; // water above the bar
 export const BAR_H = 64; // the bar itself, before the phone's own inset
 export const BAR_RADIUS = 12; // top corners only
 export const BAY_DEPTH = 7.5; // how far the edge dips under the leaf
-export const BAY_HALF = 32; // half the width it takes to leave and return
+export const BAY_HALF = 24; // half the width it takes to leave and return
 export const PAD_WIDTH = 30;
 export const GUTTER = 6;
 
@@ -41,28 +41,26 @@ export function barPath(width, top, bottom, bayCentre, radius = BAR_RADIUS) {
   if (!width) return '';
   const r = Math.min(radius, width / 2);
 
-  // A bay near either end would run into a rounded corner. Two attempts went
-  // wrong here. Dropping it left the edge flat under the outer tabs, which
-  // with five tabs is where it shows most. Squeezing it left half a curve —
-  // an edge that starts to dip and gives up, which looks like a mistake
-  // rather than a shape.
+  // The bay is the same shape under every tab, centred on the leaf, always.
   //
-  // So the bay keeps its full width and symmetry, and its CENTRE moves
-  // instead: pulled just far enough inboard to clear the corner. The leaf
-  // still sits over its tab, a few pixels off the middle of its own bay,
-  // which nobody can see — while half a curve is the first thing anybody
-  // sees.
-  const clear = r + 6;
-  const lowest = clear + BAY_HALF;
-  const highest = width - clear - BAY_HALF;
-  const c = lowest > highest ? width / 2 : Math.min(Math.max(bayCentre, lowest), highest);
+  // Three attempts went the other way and all three were visible. Dropping it
+  // near the corners left the outer tabs with a flat edge. Squeezing it left
+  // half a curve. Sliding its centre inboard made the dip sit beside the leaf
+  // instead of under it. Each was a rule invented to protect the corner, and
+  // each cost more than the corner was worth.
+  //
+  // The answer was to make the bay narrow enough that it never reaches a
+  // corner in the first place: 48 across, which clears the radius even at the
+  // outermost tab of five on the narrowest phone. Nothing to special-case,
+  // and every tab gets the identical shape.
+  const c = bayCentre;
   const left = c - BAY_HALF;
   const right = c + BAY_HALF;
   const dip = top + BAY_DEPTH;
 
   const edge =
-    `H ${left} C ${left + 11} ${top}, ${left + 13} ${dip}, ${c} ${dip} ` +
-    `C ${right - 13} ${dip}, ${right - 11} ${top}, ${right} ${top} H ${width - r}`;
+    `H ${left} C ${left + 9} ${top}, ${left + 11} ${dip}, ${c} ${dip} ` +
+    `C ${right - 11} ${dip}, ${right - 9} ${top}, ${right} ${top} H ${width - r}`;
 
   return (
     `M ${r} ${top} ${edge} ` +
