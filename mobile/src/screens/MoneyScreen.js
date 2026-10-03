@@ -45,10 +45,8 @@ export default function MoneyScreen({ navigation }) {
               <Pressable
                 key={f.key}
                 onPress={() => setFace(f.key)}
-                // 38 high with 6 either side comes to 50: the control has to
-                // fit inside the horizon strip, and the thumb still gets its
-                // 48.
-                hitSlop={{ top: 6, bottom: 6 }}
+                // 42 high with 3 either side is the 48 a thumb needs.
+                hitSlop={{ top: 3, bottom: 3 }}
                 style={[styles.segment, active && styles.segmentActive]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
@@ -74,11 +72,19 @@ function createStyles(theme) {
     switchRow: { paddingHorizontal: space.md, paddingBottom: space.sm },
     track: {
       flexDirection: 'row',
-      borderRadius: radius.pill,
-      padding: 3,
-      // Over the water, not over a surface: a solid chip here would be a bar
-      // laid across the pond.
-      backgroundColor: 'rgba(244, 242, 236, 0.16)',
+      // The segment's radius plus the padding around it, so the two curves are
+      // concentric rather than nearly so.
+      borderRadius: radius.control + 4,
+      padding: 4,
+      // A DARK veil over the water, with a hairline of light to give it an
+      // edge. The first version used a light film, which is wrong in a way
+      // that only shows on the phone: the sun passes behind this control, a
+      // light film goes nearly white where it does, and the inactive label —
+      // itself nearly white — vanishes into it. Dark keeps both labels legible
+      // whatever the strip is doing behind them.
+      backgroundColor: theme.isDark ? 'rgba(4, 15, 20, 0.5)' : 'rgba(7, 56, 47, 0.42)',
+      borderWidth: 1,
+      borderColor: 'rgba(244, 242, 236, 0.18)',
     },
     // flex, not flexGrow. flexGrow shares out the SPARE space while each
     // segment still starts at the width of its own word, so "Analiza" would
@@ -86,13 +92,13 @@ function createStyles(theme) {
     // which is what RN's `flex: 1` sets.
     segment: {
       flex: 1,
-      height: 38,
+      height: 42,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radius.pill,
+      borderRadius: radius.control,
     },
-    segmentActive: { backgroundColor: ON_WATER },
+    segmentActive: { backgroundColor: theme.isDark ? theme.surface : ON_WATER },
     segmentText: { ...type.bodyStrong, fontSize: 14, color: ON_WATER_DIM },
-    segmentTextActive: { color: theme.isDark ? '#06201A' : '#07382F' },
+    segmentTextActive: { color: theme.isDark ? theme.text : '#07382F' },
   });
 }
