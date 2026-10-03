@@ -80,6 +80,37 @@ export function wavePath(width, crest, bottom, amplitude) {
   return `M 0 ${crest} ${run(0)} ${run(w)} L ${w * 2} ${bottom} L 0 ${bottom} Z`;
 }
 
+// The horizon: the strip of pond that fits behind the header of a screen whose
+// job is figures.
+//
+// These four numbers are the whole constraint, and they are here rather than
+// in the component because getting them wrong is invisible on the phone the
+// design was drawn on and obvious on the next one. A header sits across the
+// top of this strip — the status bar, which is 24 to 48 points depending on
+// the phone, and then 48 of header — and the bell and the gear are at the
+// right-hand end of it. So the sun has to clear about 96 points from the top,
+// and stay left of the icons, and still leave the waterline room to blend into
+// the page below. There is not much between those.
+export const HORIZON_HEIGHT = 150;
+export const HORIZON_ORB_X = 0.68;
+export const HORIZON_ORB_Y = 0.78;
+export const HORIZON_WATERLINE = 0.86;
+
+export function horizonLayout(width, height = HORIZON_HEIGHT, orbR = 17) {
+  const crest = height * HORIZON_WATERLINE;
+  const orbY = height * HORIZON_ORB_Y;
+  return {
+    orbX: width * HORIZON_ORB_X,
+    orbY,
+    crest,
+    // The top of the sun, which is what has to stay out of the header, and
+    // the depth left for the blend, which is what keeps the horizon from
+    // being a drawn line.
+    orbTop: orbY - orbR,
+    blend: height - crest,
+  };
+}
+
 // The leaf, in its own space so it can be scaled anywhere without these
 // numbers changing. The wedge runs from the rim to the centre, where the stem
 // meets it and where every vein starts — that is what makes it a lily pad

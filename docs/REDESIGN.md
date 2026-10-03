@@ -52,44 +52,71 @@ with it.
       under a lily pad, rings from the leaf at rest, a wake left behind on
       crossing, the leaf leaning into the direction it travels. Icons redrawn,
       money as a wallet.
+- [x] **Four tabs: Home · Calendar · Money · Lists.** Reached without deleting
+      anything — see below for what moved where.
+- [x] **The horizon.** `PondHorizon`: the strip of pond that fits behind the
+      header of a screen that carries figures. Sky, the sun or the moon low
+      over the water, one wave, then the blend into the page. One wave and not
+      three because movement that is noticed competes with the amounts under
+      it. Its four numbers live in `geometry.js` with tests: a header sits
+      across the top of the strip, the status bar inside it is 24 points on
+      one phone and 48 on another, and the bell and the gear are at the right
+      end — so the sun has about four points of room to spare, and nobody
+      would ever find that by reading the file.
+- [x] **Light ink on the water.** The pond is dark in both themes, so a title
+      over it does not come from the palette: `ON_WATER` is one colour in both,
+      and it is also the Pond background, so the title and the page under it
+      are the same stuff. The status bar follows, tied to focus and restoring
+      the theme's own style on the way out — which also fixed Home, where dark
+      status icons had been sitting on the darkest thing in the app.
 
-## The shape it has to end in
+## The shape it ends in
 
-**Four tabs: Home · Calendar · Money · Lists.** Right now there are six, because
-Home was added without anything being taken away. That is not only untidy: at
-390 points across, six tabs leave 63 each, and a word like "Podešavanja" does
-not fit in 63.
+**Four tabs: Home · Calendar · Money · Lists.** There were six, because Home
+was added without anything being taken away. That was not only untidy: at 390
+points across, six tabs leave 63 each, and a word like "Podešavanja" does not
+fit in 63. Four leave 97.
 
-The two that go are not deletions. **Statistics folds into Money** as its second
-face — it was never badly drawn, it simply had no question of its own to answer,
-and the answer to "how has it been" belongs beside "where do we stand".
-**Settings moves to a gear in the header**, beside the bell, because it is
-opened about once a month and was taking the same room as the tab opened daily.
+Neither of the two that went was a deletion.
 
-**This comes before the remaining screens**, and the order matters. Settings in
-the header changes the shared header every screen uses. Statistics folding in
-changes what the Money screen *is*. Redesigning Money first and folding
-statistics in afterwards means drawing Money twice.
+**Statistics is the Analysis face of Money.** It was never badly drawn — it
+simply had no question of its own to answer, and the answer to "how has it
+been" belongs beside "where do we stand". Two tabs apart meant one was opened
+daily and the other almost never. Money now carries a *Sada / Analiza* switch
+on the horizon, and each face is still a whole screen: both render `embedded`,
+which means they draw their body and let the title, the eye and the gear
+belong to Money.
+
+**Settings is a gear in the header**, beside the bell, because it is opened
+about once a month and was taking the same room as the tab opened every day.
+The route moved to the outer stack, next to Notifications, so the gear reaches
+it from inside any tab. Home got the bell and the gear too — it draws its own
+header, since the greeting is its title, and without them the first tab in the
+app would have been the only one with no way to reach either.
+
+Doing this before the remaining screens was the point. Settings in the header
+changes the shared header every screen uses, and folding Statistics in changes
+what the Money screen *is* — drawing Money first and folding afterwards would
+have meant drawing it twice.
 
 ## Next, in this order
 
-- [~] **Home.** Built and shipping: the pond across the top with sun or moon,
-      three layers of water, floating pads and the light broken into glints;
-      the greeting; the month in one figure against income with a bar and what
-      is left; today's plans and a line for tomorrow; one button to add an
-      expense. Day and night from the theme. It is the first tab in the design
-      build only.
+- [~] **Home.** The pond across the top with sun or moon, three layers of
+      water, floating pads and the light broken into glints; the greeting; the
+      month in one figure against income with a bar and what is left; today's
+      plans and a line for tomorrow; one button to add an expense. The bell and
+      the gear sit over the water at the top right. Day and night from the
+      theme.
 
       Still open on it: the scene does not yet know the hour of day on its own
       (it follows the theme), and there is no mascot in it until the frog
       exists.
-- [ ] **Settings into the header.** A gear beside the bell in the shared
-      header, and the tab removed. Touches every screen, so it goes first.
-- [ ] **Statistics into Money.** Money gets two faces, Now and Analysis, and
-      the Statistics tab goes. Six tabs become four.
-- [ ] **Money.** The horizon treatment — the same sky and sun or moon, one
-      wave, about 150px behind the header — with the figures on calm ground
-      below it. Day and night.
+- [~] **Money.** The horizon is on it, day and night, with the switch between
+      its two faces sitting on the water. What is below the horizon is still
+      the old screen: the cards, spacing and type on both faces are the ones
+      from before the tokens existed. Next on it is the *Sada* face in the new
+      system — the remaining figure, income, expenses and savings — and then
+      the transactions list under it.
 - [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
       entries today and needs a precise tap on a small arrow to open.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
@@ -100,8 +127,12 @@ statistics in afterwards means drawing Money twice.
       in settings, because automation that cannot be switched off is
       imposition.
 - [ ] **Analysis.** Opens with one plain sentence about the month, then the
-      detail. This is the fix for the screen he called the worst: it was never
-      badly drawn, it had no question to answer.
+      detail. Its own screen is now in the right place; what it still lacks is
+      the sentence. This is the fix for the screen he called the worst: it was
+      never badly drawn, it had no question to answer.
+- [ ] **Settings itself.** Now that it is a pushed screen rather than a tab, it
+      is the one place in the design build still wearing the old look
+      end to end. It is also the least seen, so it waits.
 
 ## After the screens
 
@@ -117,7 +148,8 @@ statistics in afterwards means drawing Money twice.
 - Whether the leaf or the bloom marks the active tab was settled as the leaf,
   in both themes.
 - How much of the pond belongs on screens that carry figures — settled as the
-  horizon, but it has only been seen on Money so far.
+  horizon, and now seen on Money. Calendar and Lists get the same treatment,
+  which is the next chance for it to be wrong.
 
 ## Rules this redesign is held to
 

@@ -82,7 +82,10 @@ function computeSummary(list) {
   return s;
 }
 
-export default function StatsScreen({ navigation }) {
+// `embedded` means this screen is a face of Money rather than a destination of
+// its own: it draws its body, and the title, the eye and the gear belong to the
+// screen above it. See MoneyScreen.
+export default function StatsScreen({ navigation, embedded = false }) {
   const { isSolo } = useHouseholds();
   const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
@@ -307,14 +310,14 @@ export default function StatsScreen({ navigation }) {
 
   if (!everLoaded) {
     return (
-      <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle>
+      <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle bare={embedded}>
         {showSkeleton ? <StatsSkeleton /> : <View />}
       </Screen>
     );
   }
 
   return (
-    <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle>
+    <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle bare={embedded}>
       <StaleNotice at={staleAt} />
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <View style={styles.segmentRow}>

@@ -7,6 +7,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import { CURRENCIES } from '../config/categories';
 import Screen from '../components/Screen';
+import { IS_DESIGN } from '../theme/variant';
 import { isErrorReportingEnabled, sendTestEvent } from '../utils/errorReporting';
 
 const LANGUAGES = [
@@ -45,8 +46,12 @@ export default function SettingsScreen({ navigation }) {
     );
   }
 
+  // showBack is stated rather than left to canGoBack(): in the redesign this
+  // screen is pushed from the gear in the header and needs the arrow, while in
+  // the app in daily use it is still a tab — where canGoBack() answers true
+  // anyway, because a tab navigator counts "back" as a return to the first tab.
   return (
-    <Screen title={t('nav.settings')} showBack={false}>
+    <Screen title={t('nav.settings')} showBack={IS_DESIGN}>
       <ScrollView contentContainerStyle={{ padding: 24 }}>
         <Text style={styles.name}>{user?.name}</Text>
         <Text style={styles.email}>{user?.email}</Text>

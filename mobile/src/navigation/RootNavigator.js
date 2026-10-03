@@ -37,6 +37,7 @@ import ManageCategoriesScreen from '../screens/ManageCategoriesScreen';
 import SavingsScreen from '../screens/SavingsScreen';
 import SavingsFormScreen from '../screens/SavingsFormScreen';
 import FinancesScreen from '../screens/FinancesScreen';
+import MoneyScreen from '../screens/MoneyScreen';
 import IncomeFormScreen from '../screens/IncomeFormScreen';
 import WishlistScreen from '../screens/WishlistScreen';
 import WishlistFolderScreen from '../screens/WishlistFolderScreen';
@@ -89,13 +90,21 @@ function StatsStack() {
 function FinancesStack() {
   return (
     <Stack.Navigator screenOptions={NO_HEADER}>
-      <Stack.Screen name="FinancesHome" component={FinancesScreen} />
+      {/* The route keeps its name. In the redesign what sits at it is Money,
+          which holds Finances and Stats as its two faces — but every
+          navigate('FinancesHome') in the app, and the wallet in the tab bar,
+          are keyed on the name, and renaming it would be a rename for the
+          sake of one. */}
+      <Stack.Screen name="FinancesHome" component={IS_DESIGN ? MoneyScreen : FinancesScreen} />
       <Stack.Screen name="SavingsHome" component={SavingsScreen} />
       <Stack.Screen name="SavingsForm" component={SavingsFormScreen} />
       <Stack.Screen name="IncomeForm" component={IncomeFormScreen} />
       {/* Reachable from the transactions list on Finances, where tapping an
           expense opens it for editing. */}
       <Stack.Screen name="ExpenseForm" component={ExpenseFormScreen} />
+      {/* The day breakdown the Analysis face opens when a bar is tapped. It
+          came in with Stats, which used to be a tab of its own. */}
+      {IS_DESIGN && <Stack.Screen name="ExpenseStats" component={ExpenseStatsScreen} />}
     </Stack.Navigator>
   );
 }
@@ -176,10 +185,23 @@ function MainTabs() {
           the calendar until the whole thing moves across together. */}
       {IS_DESIGN && <Tab.Screen name="Home" component={GUARDED.Home} options={{ tabBarLabel: t('nav.home') }} />}
       <Tab.Screen name="Calendar" component={GUARDED.Calendar} options={{ tabBarLabel: t('nav.calendar') }} />
-      <Tab.Screen name="Stats" component={GUARDED.Stats} options={{ tabBarLabel: t('nav.stats') }} />
-      <Tab.Screen name="Finances" component={GUARDED.Finances} options={{ tabBarLabel: t('nav.finances') }} />
+      {/* Statistics is a tab only in the app in daily use. In the redesign it
+          is the Analysis face of Money: the answer to "how has it been"
+          belongs beside "where do we stand", and two tabs apart meant one was
+          opened daily and the other almost never. */}
+      {!IS_DESIGN && <Tab.Screen name="Stats" component={GUARDED.Stats} options={{ tabBarLabel: t('nav.stats') }} />}
+      <Tab.Screen
+        name="Finances"
+        component={GUARDED.Finances}
+        options={{ tabBarLabel: IS_DESIGN ? t('nav.money') : t('nav.finances') }}
+      />
       <Tab.Screen name="Wishlist" component={GUARDED.Wishlist} options={{ tabBarLabel: t('nav.wishlist') }} />
-      <Tab.Screen name="Settings" component={GUARDED.Settings} options={{ tabBarLabel: t('nav.settings') }} />
+      {/* And settings is a gear in the header — see SettingsGear. Opened about
+          once a month, it was taking the same room as the tabs opened every
+          day. Four tabs left: Home, Calendar, Money, Lists. */}
+      {!IS_DESIGN && (
+        <Tab.Screen name="Settings" component={GUARDED.Settings} options={{ tabBarLabel: t('nav.settings') }} />
+      )}
     </Tab.Navigator>
   );
 }
@@ -200,6 +222,12 @@ function AppStack() {
           <Stack.Navigator screenOptions={NO_HEADER}>
             <Stack.Screen name="Tabs" component={MainTabs} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            {/* Settings sits here, beside Notifications, for the same reason:
+                the gear is in the header of every tab, and a route on the
+                outer stack is one any of them can reach by bubbling up. It is
+                registered only in the design build, where the tab is gone —
+                with both, the name would resolve to the tab instead. */}
+            {IS_DESIGN && <Stack.Screen name="Settings" component={GUARDED.Settings} />}
           </Stack.Navigator>
           <PendingBanner />
           </ToastProvider>

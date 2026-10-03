@@ -53,6 +53,31 @@ The channel is `preview`. The installed APKs are preview builds, so that is the
 branch they poll. The app checks on launch and applies the update on the next
 launch — so tell the user to open the app twice.
 
+## The design channel
+
+The Pond redesign ships to a **separate app** — `Pond (test)`, its own Android
+package — so that the app in daily use on her phone does not show half a
+redesign. Same three steps, with `APP_VARIANT=design` on every one of them and
+the branch stated by hand:
+
+```bash
+cd mobile && APP_VARIANT=design npm run ota:export
+```
+
+```bash
+cd mobile && APP_VARIANT=design npm run ota:maps
+```
+
+```bash
+cd mobile && APP_VARIANT=design npx eas-cli update --branch design --input-dir dist --skip-bundler --message "what changed"
+```
+
+`APP_VARIANT` has to be set on the export too, not only the publish: it is what
+`app.config.js` reads to pick the package name, and an export made without it
+is the real app's bundle going to the design branch.
+
+Anything for the redesign goes here and nowhere else — see `docs/REDESIGN.md`.
+
 ## Native build
 
 ```bash
@@ -66,9 +91,13 @@ the Play Store. Source maps upload on their own during the build, from the
 ## Before shipping anything
 
 - `cd mobile && npm test` and `cd backend && npm test` both pass
+- `cd mobile && npx eslint src` reports 0 errors — read the exit code, not the
+  tail of the output
 - backend changes deploy separately — an app change that calls a route the
   server does not have yet will fail on every phone at once
-- the user runs all git commands himself; never commit or push for him
+- commit and push the change yourself. He handed that over on 3 October 2026:
+  "Mozes od sada da guras ti sve na github, comituj i pushuj sta god treba."
+  A force push is the exception — he runs those.
 
 ## Environment notes
 

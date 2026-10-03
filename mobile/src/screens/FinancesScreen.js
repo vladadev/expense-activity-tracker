@@ -84,7 +84,10 @@ function buildBuckets(incomeList, savingsList, statsByCurrency) {
   return { byCurrency, byOwner };
 }
 
-export default function FinancesScreen({ navigation }) {
+// `embedded` means this screen is a face of Money rather than a destination of
+// its own: it draws its body, and the title, the eye and the gear belong to the
+// screen above it. See MoneyScreen.
+export default function FinancesScreen({ navigation, embedded = false }) {
   const personColor = usePersonColor();
   const { t, language, formatAmount } = useSettings();
   const { theme } = useTheme();
@@ -260,14 +263,14 @@ export default function FinancesScreen({ navigation }) {
 
   if (!loaded) {
     return (
-      <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
+      <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle bare={embedded}>
         {loadFailed ? <LoadFailed onRetry={load} /> : showSkeleton ? <FinancesSkeleton /> : <View />}
       </Screen>
     );
   }
 
   return (
-    <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle>
+    <Screen title={t('nav.finances')} showBack={false} showPrivacyToggle bare={embedded}>
       <StaleNotice at={staleAt} />
       <ScrollView
         ref={scrollRef}

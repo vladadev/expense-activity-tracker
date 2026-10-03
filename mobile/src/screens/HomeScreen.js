@@ -9,6 +9,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useHouseholds } from '../context/HouseholdContext';
 import { usePersonColor } from '../context/PersonColorsContext';
 import PondScene from '../components/pond/PondScene';
+import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
+import NotificationBell from '../components/NotificationBell';
+import SettingsGear from '../components/SettingsGear';
 import Money from '../components/AmountText';
 import LoadFailed from '../components/LoadFailed';
 import StaleNotice from '../components/StaleNotice';
@@ -57,6 +60,9 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  // The pond runs up under the status bar here, and the theme asks for dark
+  // icons by day — on the darkest thing in the app.
+  useStatusBarOnWater();
 
   const [spent, setSpent] = useState(0);
   const [earned, setEarned] = useState(0);
@@ -135,12 +141,22 @@ export default function HomeScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
       >
         <View style={[styles.greeting, { paddingTop: insets.top + space.lg }]}>
-          <Text style={styles.hello} numberOfLines={2}>
-            {t(greetingKey(now.getHours()), { name: user?.name || '' })}
-          </Text>
-          <Text style={styles.sub} numberOfLines={1}>
-            {today.length > 0 ? t('home.planned', { count: today.length }) : t('home.nothingToday')}
-          </Text>
+          <View style={styles.greetingText}>
+            <Text style={styles.hello} numberOfLines={2}>
+              {t(greetingKey(now.getHours()), { name: user?.name || '' })}
+            </Text>
+            <Text style={styles.sub} numberOfLines={1}>
+              {today.length > 0 ? t('home.planned', { count: today.length }) : t('home.nothingToday')}
+            </Text>
+          </View>
+          {/* This screen draws its own header because it has no title to put
+              in one — the greeting is the title. Without these two, the first
+              tab in the app would be the only one with no way to reach
+              notifications or settings. */}
+          <View style={styles.actions}>
+            <NotificationBell color={ON_WATER} />
+            <SettingsGear color={ON_WATER} />
+          </View>
         </View>
 
         <View style={{ height: sceneHeight * 0.3 }} />
@@ -233,9 +249,11 @@ export default function HomeScreen({ navigation }) {
 function createStyles(theme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.background },
-    greeting: { paddingHorizontal: space.md },
-    hello: { ...type.title, fontSize: 25, lineHeight: 30, color: '#F4F2EC', maxWidth: 230 },
-    sub: { ...type.secondary, color: 'rgba(244,242,236,0.78)', marginTop: 5 },
+    greeting: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.md },
+    greetingText: { flex: 1 },
+    actions: { flexDirection: 'row', alignItems: 'center' },
+    hello: { ...type.title, fontSize: 25, lineHeight: 30, color: ON_WATER, maxWidth: 230 },
+    sub: { ...type.secondary, color: ON_WATER_DIM, marginTop: 5 },
     body: { paddingHorizontal: space.md, gap: space.md },
     card: {
       padding: space.lg - 4,

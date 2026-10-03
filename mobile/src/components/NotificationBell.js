@@ -22,7 +22,9 @@ const styles = StyleSheet.create({
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 });
 
-export default function NotificationBell() {
+// `color` is for the headers that sit on the pond rather than on a surface:
+// there the default ink is nearly the colour of the water behind it.
+export default function NotificationBell({ color }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
   const { unreadCount } = useNotifications();
@@ -33,9 +35,9 @@ export default function NotificationBell() {
       style={styles.button}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <Ionicons name="notifications-outline" size={24} color={theme.text} />
+      <Ionicons name="notifications-outline" size={24} color={color || theme.text} />
       {unreadCount > 0 && (
-        <View style={[styles.badge, { backgroundColor: theme.danger, borderColor: theme.surface }]}>
+        <View style={[styles.badge, { backgroundColor: theme.danger, borderColor: color || theme.surface }]}>
           <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
         </View>
       )}

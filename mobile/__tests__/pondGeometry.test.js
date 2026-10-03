@@ -1,4 +1,13 @@
-import { tabCentre, tabCentres, barPath, wavePath, BAY_HALF, BAR_RADIUS } from '../src/components/pond/geometry';
+import {
+  tabCentre,
+  tabCentres,
+  barPath,
+  wavePath,
+  horizonLayout,
+  BAY_HALF,
+  BAR_RADIUS,
+  HORIZON_HEIGHT,
+} from '../src/components/pond/geometry';
 
 // The leaf marks which tab you are on, so a centre off by even ten pixels puts
 // it beside the icon instead of under it. That happened three times during the
@@ -145,5 +154,49 @@ describe('wavePath', () => {
 
   it('closes along the bottom', () => {
     expect(wavePath(390, 24, 56, 4).trimEnd().endsWith('L 0 56 Z')).toBe(true);
+  });
+});
+
+// The horizon has a header across the top of it, which is the only reason
+// these numbers are hard. The status bar is 24 points on one phone and 48 on
+// another, the header is 48 more, and the bell and the gear sit at the right
+// end of it. A sun that clears all that on the phone the design was drawn on
+// and tucks under the bell on the next one is exactly the kind of defect that
+// is never found by looking at the file.
+describe('horizonLayout', () => {
+  // The worst case: the tallest status bar this app has seen plus the header.
+  const HEADER_BAND = 96;
+  // The widest phones leave the icons roughly here.
+  const ICONS_FROM = 0.76;
+
+  it('keeps the sun out of the header at the design height', () => {
+    expect(horizonLayout(390).orbTop).toBeGreaterThanOrEqual(HEADER_BAND);
+  });
+
+  it('keeps the sun out of the header on every width and both orb sizes', () => {
+    for (const width of [320, 360, 390, 412, 448]) {
+      for (const orbR of [15, 17]) {
+        const { orbTop } = horizonLayout(width, HORIZON_HEIGHT, orbR);
+        expect(orbTop).toBeGreaterThanOrEqual(HEADER_BAND);
+      }
+    }
+  });
+
+  // The glow may reach under the icons — it has no edge and almost no opacity
+  // out there. The sun itself may not: it is the one bright, hard thing in the
+  // strip, and a bell on top of it is a bell that cannot be read.
+  it('keeps the sun itself left of the bell and the gear', () => {
+    for (const width of [320, 360, 390, 412, 448]) {
+      expect(horizonLayout(width).orbX + 17).toBeLessThan(width * ICONS_FROM);
+    }
+  });
+
+  it('leaves the waterline enough depth to blend rather than draw a line', () => {
+    expect(horizonLayout(390).blend).toBeGreaterThanOrEqual(16);
+  });
+
+  it('holds the sun above the waterline, not under it', () => {
+    const { orbY, crest } = horizonLayout(390);
+    expect(orbY).toBeLessThan(crest);
   });
 });
