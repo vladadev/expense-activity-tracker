@@ -124,7 +124,8 @@ have meant drawing it twice.
 - [~] **Day and night crossing.** The sun or moon in Home's header switches
       the two by hand, which is how both themes get judged while they are being
       drawn — and which stays afterwards as the way to overrule the automatic
-      one for an evening.
+      one for an evening. The two icons trade places rather than cut: one
+      swings out as the other swings in, around the same centre.
 
       What is left is the crossing itself: the sun walking off one side as the
       moon rises on the other, sky and cards crossing with them, the glints
@@ -151,13 +152,18 @@ have meant drawing it twice.
       the real screen in both themes before anything is drawn. The first one is
       on Home.
 
-      **When to draw it:** at the start of onboarding, not before. Three of the
-      four poses do a job on screens that do not exist yet — onboarding, empty
-      states, a moment worth marking — so drawing them now means drawing
-      against guesses. By then the four screens are settled and the poses can
-      be judged where they will live. It is also the one piece that is art
-      rather than code, so it never sits on the critical path: it can be drawn
-      while the screens are finished.
+      **The character is being settled now, the poses later.** He asked for the
+      base frog early so the look is agreed before anything depends on it;
+      round one is four candidates on the canvas board "Maskota — kandidati",
+      each shown large and again at 96 and 48 over the water, because that is
+      the size the choice actually has to survive. Once one is chosen it goes
+      into Home's slot.
+
+      The four poses wait for onboarding. Three of them do a job on screens
+      that do not exist yet — onboarding, empty states, a moment worth marking
+      — so drawing them now means drawing against guesses. It is also the one
+      piece that is art rather than code, so it never sits on the critical
+      path: it can be drawn while the screens are finished.
 - [ ] **A name.** Pond is a working title he accepted quickly and wants to
       better. Nothing is published under it and nothing depends on it.
 
