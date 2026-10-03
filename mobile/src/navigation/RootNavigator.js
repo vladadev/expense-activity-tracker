@@ -24,6 +24,7 @@ import DuoLoader from '../components/duo/DuoLoader';
 import { registerForPushNotifications } from '../utils/notifications';
 
 import LoginScreen from '../screens/LoginScreen';
+import HomeScreen from '../screens/HomeScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import DayDetailScreen from '../screens/DayDetailScreen';
 import ExpenseStatsScreen from '../screens/ExpenseStatsScreen';
@@ -53,6 +54,14 @@ const Tab = createBottomTabNavigator();
 // header wasn't reserving status bar space correctly on this device for ANY
 // pushed screen, not just stack roots.
 const NO_HEADER = { headerShown: false };
+
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={NO_HEADER}>
+      <Stack.Screen name="HomeMain" component={HomeScreen} />
+    </Stack.Navigator>
+  );
+}
 
 function CalendarStack() {
   return (
@@ -127,6 +136,7 @@ function guarded(name, Component) {
 }
 
 const GUARDED = {
+  Home: guarded('Home', HomeStack),
   Calendar: guarded('Calendar', CalendarStack),
   Stats: guarded('Stats', StatsStack),
   Finances: guarded('Finances', FinancesStack),
@@ -161,6 +171,10 @@ function MainTabs() {
         ),
       })}
     >
+      {/* Home exists only in the design build for now. It is the screen the
+          redesign is built around, and the app in daily use keeps opening on
+          the calendar until the whole thing moves across together. */}
+      {IS_DESIGN && <Tab.Screen name="Home" component={GUARDED.Home} options={{ tabBarLabel: t('nav.home') }} />}
       <Tab.Screen name="Calendar" component={GUARDED.Calendar} options={{ tabBarLabel: t('nav.calendar') }} />
       <Tab.Screen name="Stats" component={GUARDED.Stats} options={{ tabBarLabel: t('nav.stats') }} />
       <Tab.Screen name="Finances" component={GUARDED.Finances} options={{ tabBarLabel: t('nav.finances') }} />

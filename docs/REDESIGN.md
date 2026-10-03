@@ -40,6 +40,10 @@ with it.
 
 ## Done
 
+- [x] **The pond scene** as a component, so every screen that wants it gets the
+      same water: `PondScene`, with its gradient ids made unique per instance
+      because they are global in react-native-svg on Android and two scenes on
+      screen at once would steal each other's fills.
 - [x] **Palette and scales.** Pond in light and night beside the old themes,
       spacing on a grid of four, radii, type scale, motion durations. Outfit
       for what is noticed, IBM Plex Sans for what is read, both loaded.
@@ -51,9 +55,16 @@ with it.
 
 ## Next, in this order
 
-- [ ] **Home.** The screen that does not exist yet: the pond scene across the
-      top, the greeting, the month in one figure against income, today and
-      tomorrow, and one large button to add an expense. Day and night.
+- [~] **Home.** Built and shipping: the pond across the top with sun or moon,
+      three layers of water, floating pads and the light broken into glints;
+      the greeting; the month in one figure against income with a bar and what
+      is left; today's plans and a line for tomorrow; one button to add an
+      expense. Day and night from the theme. It is the first tab in the design
+      build only.
+
+      Still open on it: the scene does not yet know the hour of day on its own
+      (it follows the theme), and there is no mascot in it until the frog
+      exists.
 - [ ] **Money.** The horizon treatment — the same sky and sun or moon, one
       wave, about 150px behind the header — with the figures on calm ground
       below it. Day and night.
