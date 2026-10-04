@@ -138,10 +138,18 @@ export default function Frog({ size = 100, style }) {
       { translateY: nod.interpolate({ inputRange: [0, 1], outputRange: [at(1.4), at(-1.8)] }) },
     ],
   };
-  // Shuts about the lip line, so the jaw hinges where a jaw does.
+  // Shuts about the lip line, so the jaw hinges where a jaw does — and goes
+  // out before it gets there.
+  //
+  // Squeezed to a few per cent, the mouth and the tongue inside it both become
+  // a line about a pixel high, and the tongue is the brightest thing in the
+  // face: it showed as a thin pink streak across a shut mouth, which is what
+  // was reported. A shut mouth should be the lip line and nothing else, so the
+  // whole jaw fades out over the last of the movement.
   const jaw = {
     transformOrigin: [at(93), at(74)],
-    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.06] }) }],
+    opacity: mouth.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.9, 0] }),
+    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] }) }],
   };
   const eyes = {
     transform: [
@@ -302,8 +310,17 @@ export default function Frog({ size = 100, style }) {
           {/* The jaw, hinged on the lip line. */}
           <Animated.View style={[StyleSheet.absoluteFill, jaw]}>
             <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+              <Defs>
+                <ClipPath {...{ id: `${uid}-cmouth` }}>
+                  <Path d={MOUTH_OPEN} />
+                </ClipPath>
+              </Defs>
               <Path d={MOUTH_OPEN} fill={c.mouth} />
-              <Ellipse {...TONGUE} fill={c.tongue} />
+              {/* Cut to the mouth, so the tongue cannot reach past the lip at
+                  any stage of the movement. */}
+              <G clipPath={`url(#${uid}-cmouth)`}>
+                <Ellipse {...TONGUE} fill={c.tongue} />
+              </G>
             </Svg>
           </Animated.View>
 
