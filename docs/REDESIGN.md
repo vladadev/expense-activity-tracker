@@ -154,7 +154,24 @@ have meant drawing it twice.
       wrong for both languages the app speaks and would have left the week row
       disagreeing with the month above it.
 
-      Still open on it: the horizon, and the rest of the screen on the tokens.
+      The horizon is on it now, and the whole screen is on the tokens — the
+      grid's own type included, because the library draws that grid and will
+      use the system font unless it is handed ours. The one screen made of
+      numbers was the last place that could afford to be in a different face.
+
+      The view switch is the same control Money wears: same place, same veil,
+      same two halves. Its icons went. Two switches one tab apart, one with
+      icons and one without, read as two controls rather than one idea, and
+      Kalendar and Lista are two short words that carry it alone.
+
+      **Found while drawing it on the canvas:** with the month open and a day
+      chosen — which is the state you land on — the grid, the handle, the
+      legend and the day below them come to more than an 844pt phone has, and
+      the bottom of the day was simply being cut off. The screen has one scroll
+      now. That is not the nested scroll taken out of the day panel: that was a
+      box scrolling inside a screen that scrolled, two gestures in one place
+      and no way for the finger to tell which it had hold of. This is the
+      screen scrolling, and nothing scrolls inside it.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
 - [~] **Day and night crossing.** Built, in both directions and over 1.4
       seconds. The sun leaves on one side while the moon rises on the other

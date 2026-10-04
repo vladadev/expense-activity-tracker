@@ -17,7 +17,8 @@ import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
 import { usePersonColor } from '../context/PersonColorsContext';
 import WeekRow from '../components/WeekRow';
-import { space, radius, type, HIT } from '../theme/scale';
+import { space, radius, type, font, tabular, HIT } from '../theme/scale';
+import { ON_WATER, ON_WATER_DIM } from '../components/pond/onWater';
 
 const ACTIVITY_COLOR = '#F59E0B';
 
@@ -157,23 +158,31 @@ export default function CalendarScreen({ navigation }) {
           : null;
 
   return (
-    <Screen title={t('nav.calendar')} showBack={false} showPrivacyToggle>
-      <View style={styles.segmentWrap}>
-        <View style={styles.segmentRow}>
+    <Screen title={t('nav.calendar')} showBack={false} showPrivacyToggle horizon>
+      {/* The same control Money wears, in the same place, on the same water.
+          The icons went: two switches sitting one tab apart, one with icons
+          and one without, read as two different controls rather than one
+          idea. The words are two and short, and carry it on their own. */}
+      <View style={styles.switchRow}>
+        <View style={styles.track}>
           {[
-            { key: 'calendar', label: t('agenda.calendarView'), icon: 'calendar-outline' },
-            { key: 'list', label: t('agenda.listView'), icon: 'list-outline' },
-          ].map((seg) => (
-            <TouchableOpacity
-              key={seg.key}
-              style={[styles.segment, view === seg.key && styles.segmentActive]}
-              onPress={() => setView(seg.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={seg.icon} size={16} color={view === seg.key ? '#fff' : theme.textSecondary} />
-              <Text style={[styles.segmentText, view === seg.key && styles.segmentTextActive]}>{seg.label}</Text>
-            </TouchableOpacity>
-          ))}
+            { key: 'calendar', label: t('agenda.calendarView') },
+            { key: 'list', label: t('agenda.listView') },
+          ].map((seg) => {
+            const active = view === seg.key;
+            return (
+              <Pressable
+                key={seg.key}
+                onPress={() => setView(seg.key)}
+                hitSlop={{ top: 3, bottom: 3 }}
+                style={[styles.segment, active && styles.segmentActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{seg.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
@@ -181,7 +190,20 @@ export default function CalendarScreen({ navigation }) {
       {view === 'list' ? (
         <AgendaScreen navigation={navigation} />
       ) : (
-        <View style={{ flex: 1 }}>
+        // One scroll, on the screen itself. With the month open and a day
+        // chosen — which is the state you land on — the grid, the handle, the
+        // legend and the day below it come to more than a 844pt phone has, and
+        // without this the bottom of the day was simply cut off.
+        //
+        // This is not the nested scroll that was taken out of the day panel.
+        // That was a box scrolling inside a screen that scrolled: two gestures
+        // in one place, and the finger cannot see which it has hold of. This is
+        // the screen scrolling, and nothing scrolls inside it.
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: space.md }}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.calendarCard}>
             {monthOpen ? (
             <Calendar
@@ -208,14 +230,17 @@ export default function CalendarScreen({ navigation }) {
                 selectedDayBackgroundColor: theme.primary,
                 selectedDayTextColor: '#fff',
                 textSectionTitleColor: theme.textSecondary,
-                // Larger type: the month grid is the focal point of this
-                // screen, and the default sizing left it small and cramped.
+                // The library draws this grid, so it has to be handed the
+                // same type the rest of the app uses or the one screen made of
+                // numbers ends up in the system font. Days are figures, so
+                // they take Outfit; the weekday letters are read, so they
+                // take Plex.
+                textDayFontFamily: font.displayMedium,
                 textDayFontSize: 17,
-                textDayFontWeight: '500',
+                textMonthFontFamily: font.display,
                 textMonthFontSize: 18,
-                textMonthFontWeight: '700',
+                textDayHeaderFontFamily: font.bodySemiBold,
                 textDayHeaderFontSize: 12,
-                textDayHeaderFontWeight: '600',
               }}
               style={styles.calendar}
             />
@@ -342,7 +367,7 @@ export default function CalendarScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ScrollView>
       )}
     </Screen>
   );
@@ -350,51 +375,66 @@ export default function CalendarScreen({ navigation }) {
 
 function createStyles(theme) {
   return StyleSheet.create({
-    // Sits on the page background, not on a surface, so it reads as a
-    // control above the calendar rather than part of it.
-    segmentWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-    segmentRow: {
+    // On the water, under the header, exactly where Money's switch sits.
+    switchRow: { paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: space.sm },
+    track: {
       flexDirection: 'row',
-      backgroundColor: hexToRgba(theme.textSecondary, 0.1),
-      borderRadius: 12,
+      borderRadius: radius.control + 4,
       padding: 4,
+      // Dark veil, light hairline — a light film goes nearly white where the
+      // sun passes behind it and takes the inactive label with it.
+      backgroundColor: theme.isDark ? 'rgba(4, 15, 20, 0.5)' : 'rgba(7, 56, 47, 0.42)',
+      borderWidth: 1,
+      borderColor: 'rgba(244, 242, 236, 0.18)',
     },
     segment: {
+      // flex, not flexGrow: equal halves need a basis of zero, or each segment
+      // starts at the width of its own word.
       flex: 1,
-      flexDirection: 'row',
+      height: 42,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 9,
-      borderRadius: 9,
+      borderRadius: radius.control,
     },
-    segmentActive: {
-      backgroundColor: theme.primary,
-    },
-    segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
-    segmentTextActive: { color: '#fff' },
+    segmentActive: { backgroundColor: theme.isDark ? theme.surface : ON_WATER },
+    segmentText: { ...type.bodyStrong, fontSize: 14, color: ON_WATER_DIM },
+    segmentTextActive: { color: theme.isDark ? theme.text : '#07382F' },
+
     calendarCard: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
-      marginHorizontal: 16,
-      marginTop: 8,
-      paddingBottom: 10,
+      borderRadius: radius.card,
+      marginHorizontal: space.md,
+      paddingBottom: space.sm + 2,
       overflow: 'hidden',
+      // The card carries its own edge in the dark, where surface and
+      // background are close enough to merge without one.
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
     },
-    calendar: { paddingBottom: 4 },
+    calendar: { paddingBottom: space.xs },
     legendRow: {
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: 18,
-      paddingTop: 6,
+      gap: space.md + 2,
+      paddingTop: space.sm - 2,
       borderTopWidth: 1,
       borderTopColor: theme.border,
-      marginHorizontal: 16,
+      marginHorizontal: space.md,
     },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: space.xs + 1 },
     legendDot: { width: 7, height: 7, borderRadius: 3.5 },
-    legendText: { fontSize: 11, color: theme.textSecondary },
-    dayPanel: { flex: 1, marginTop: space.md - 2, paddingHorizontal: space.md },
+    legendText: { ...type.secondary, fontSize: 12, color: theme.textSecondary },
+
+    handle: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingTop: space.xs + 2,
+      paddingBottom: space.xs,
+    },
+    handleBar: { width: 34, height: 4, borderRadius: 2, backgroundColor: theme.border },
+
+    dayPanel: { marginTop: space.md - 2, paddingHorizontal: space.md },
     dayBody: { gap: space.xs + 2 },
     // The row has always opened the day. It never looked as though it would,
     // so nobody pressed it except on the arrow — which is the whole reason
@@ -411,55 +451,61 @@ function createStyles(theme) {
       borderWidth: theme.isDark ? 1 : 0,
       borderColor: theme.border,
     },
+    dayPanelTitle: { ...type.section, color: theme.text },
+    dayPanelDate: { ...type.secondary, color: theme.textSecondary, marginTop: 1 },
+
     moreRow: { justifyContent: 'center', minHeight: HIT - 10, paddingHorizontal: space.sm + 4 },
     moreText: { ...type.bodyStrong, fontSize: 13, color: theme.primary },
-    handle: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 3,
-      paddingTop: space.xs + 2,
-      paddingBottom: space.xs,
-    },
-    handleBar: { width: 34, height: 4, borderRadius: 2, backgroundColor: theme.border },
-    dayPanelTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
-    dayPanelDate: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
+
     totalRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: space.sm,
       backgroundColor: theme.surface,
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      marginBottom: 8,
+      borderRadius: radius.control,
+      paddingVertical: space.sm + 2,
+      paddingHorizontal: space.sm + 4,
+      marginBottom: space.sm,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
     },
-    totalText: { flex: 1, fontSize: 14, fontWeight: '700', color: theme.text },
-    totalCount: { fontSize: 12, color: theme.textSecondary },
+    totalText: { flex: 1, ...type.bodyStrong, color: theme.text },
+    totalCount: { ...type.secondary, color: theme.textSecondary },
+
     eventRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: space.sm + 2,
+      minHeight: HIT,
       backgroundColor: theme.surface,
-      borderRadius: 10,
+      borderRadius: radius.control,
       borderLeftWidth: 3,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      marginBottom: 8,
+      paddingVertical: space.sm + 2,
+      paddingHorizontal: space.sm + 4,
+      marginBottom: space.sm,
+      borderTopWidth: theme.isDark ? 1 : 0,
+      borderRightWidth: theme.isDark ? 1 : 0,
+      borderBottomWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
     },
-    eventTime: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, minWidth: 44 },
-    eventTitle: { flex: 1, fontSize: 14, fontWeight: '500', color: theme.text },
-    emptyDay: { fontSize: 13, color: theme.textSecondary, textAlign: 'center', paddingVertical: 20 },
-    quickActions: { flexDirection: 'row', gap: 10, paddingVertical: 10 },
+    // A time is a figure: Outfit, and tabular so 9:00 and 18:00 start at the
+    // same place down the column. 44 is the width of the widest of them.
+    eventTime: { ...type.secondary, fontFamily: font.bodySemiBold, ...tabular, color: theme.textSecondary, minWidth: 44 },
+    eventTitle: { flex: 1, ...type.bodyStrong, color: theme.text },
+    emptyDay: { ...type.secondary, color: theme.textSecondary, textAlign: 'center', paddingVertical: space.lg },
+
+    quickActions: { flexDirection: 'row', gap: space.sm + 2, paddingVertical: space.sm + 2 },
     quickAction: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
+      gap: space.xs + 2,
+      minHeight: HIT,
       backgroundColor: hexToRgba(theme.primary, 0.12),
-      borderRadius: 12,
-      paddingVertical: 12,
+      borderRadius: radius.control + 2,
+      paddingVertical: space.sm + 4,
     },
-    quickActionText: { color: theme.primary, fontSize: 13, fontWeight: '700' },
+    quickActionText: { ...type.bodyStrong, fontSize: 14, color: theme.primary },
   });
 }
