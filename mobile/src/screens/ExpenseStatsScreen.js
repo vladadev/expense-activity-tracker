@@ -14,7 +14,7 @@ import { useDeferredSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
 import { useOnDataEvent, applyDataEvent } from '../context/DataEventsContext';
-import DonutChart from '../components/DonutChart';
+import CategoryBars from '../components/stats/CategoryBars';
 import PersonTag from '../components/PersonTag';
 import Money from '../components/AmountText';
 import { usePersonColor } from '../context/PersonColorsContext';
@@ -222,14 +222,11 @@ export default function ExpenseStatsScreen({ route, navigation }) {
           byOwner[ownerName][e.type] += e.amount;
         }
 
-        const pieData = Object.entries(byCategory)
+        // The same ranked list the month uses, for the same reason: the ring
+        // was decoration above a legend that was already doing the work.
+        const categories = Object.entries(byCategory)
           .sort((a, b) => b[1] - a[1])
-          .map(([name, amount], i) => ({
-            name,
-            amount,
-            color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-            valueLabel: formatAmount(amount, currency),
-          }));
+          .map(([name, amount], i) => ({ name, amount, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }));
 
         return (
           <View key={currency} style={styles.currencySection}>
@@ -270,16 +267,10 @@ export default function ExpenseStatsScreen({ route, navigation }) {
             </View>
 
             <Animated.View style={{ opacity: fade }}>
-              {pieData.length > 0 ? (
+              {categories.length > 0 ? (
                 <View style={styles.sectionWrap}>
-                  <Text style={styles.sectionTitle}>{t('stats.categoryBreakdown')}</Text>
-                  <DonutChart
-                    data={pieData}
-                    total={filteredTotal}
-                    centerCaption={typeFilterLabel}
-                    centerValue={formatAmount(filteredTotal, currency)}
-                    theme={theme}
-                  />
+                  <Text style={styles.sectionTitle}>{t('stats.whereItWent')}</Text>
+                  <CategoryBars data={categories} total={filteredTotal} currency={currency} />
                 </View>
               ) : (
                 <Text style={styles.emptyText}>{t('expenseStats.noneYet')}</Text>

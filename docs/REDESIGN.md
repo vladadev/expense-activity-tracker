@@ -257,10 +257,47 @@ have meant drawing it twice.
       Still open: Automatski, which needs the real sunrise and sunset, and the
       privacy eye — it is still absent from Home, which is the last header
       inconsistency left.
-- [ ] **Analysis.** Opens with one plain sentence about the month, then the
-      detail. Its own screen is now in the right place; what it still lacks is
-      the sentence. This is the fix for the screen he called the worst: it was
-      never badly drawn, it had no question to answer.
+- [x] **Analysis.** It opens with the answer now. One figure for the period
+      and one plain sentence — "12% less than last month" — which is the
+      comparison every chart on it was being read for and the only one it
+      never made. It costs one extra request for the period before this one,
+      in a try of its own, because a headline without the comparison is still
+      a headline and failing to reach last month must not blank out this one.
+
+      **Three rings went.** `DonutChart` drew a 150pt ring and then printed a
+      full legend under it with every name and every amount — the legend was
+      already doing the work, and past about six categories the slices were
+      too thin to read anyway, so the eye went to the legend regardless. A
+      ranked list with the share drawn behind each row says the same thing in
+      less space, reads top to bottom in the order that matters, and works
+      with three categories or fifteen. Personal against together is two
+      numbers, so it is one divided bar rather than a second ring. The file is
+      deleted; the day-detail screen uses the same list.
+
+      **The day chart was lying by omission.** `.slice(-10)` on the days that
+      HAD an entry: the heading said September while the chart showed a tenth
+      of it, and because it was keyed on days with entries rather than days,
+      two neighbouring bars could be one day apart or nine — an axis that
+      looked like time without being it. It plots every day of the period now,
+      the empty ones included, stacked by who spent it, sorted by name so the
+      colours stay in the same order and the eye can follow one band across
+      the month. Tapping a day still opens the day, which already answers what
+      it went on.
+
+      It grows out of the baseline under one clip rectangle rather than each
+      bar animating its own height: a month of stacked bars is sixty-odd
+      rects, and sixty JS-driven interpolations a frame is the kind of work
+      nobody sees and everybody feels.
+
+      **And it no longer repeats itself once per currency**, which was what
+      made it three screens long instead of one. The currency this household
+      spends in leads; the rest wait behind a pill in the row that already
+      says how wide you are looking. Period length and currency share that
+      row, because both are "how wide am I looking" and each was taking one
+      of its own.
+
+      The two breakdowns under the chart open on a handle you can see — the
+      same bargain the calendar struck with its month.
 
 ## Then the screens behind the tabs
 
