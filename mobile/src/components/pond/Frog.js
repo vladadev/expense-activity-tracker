@@ -23,7 +23,7 @@ import {
   BELLY,
   BACK_TOES,
   FRONT_TOES,
-  TOE_PADS,
+  toePads,
   SPOTS_HEAD,
   SPOTS_NEAR,
   SPOTS_FAR,
@@ -252,7 +252,9 @@ export default function Frog({ size = 100, style }) {
           {dots(FRONT_TOES.slice(3), c.haunchFar)}
           <Path d={ARM_NEAR} fill={c.limb} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.6} />
           {dots(FRONT_TOES.slice(0, 3), c.limb)}
-          {TOE_PADS.map((t) => (
+          {/* Pads on every toe, derived from the toes — listed by hand they
+              only ever covered one side. */}
+          {toePads([...BACK_TOES, ...FRONT_TOES]).map((t) => (
             <Circle key={`${t.cx}-${t.cy}`} cx={t.cx} cy={t.cy} r={t.r} fill={c.pad} opacity={0.5} />
           ))}
         </Svg>

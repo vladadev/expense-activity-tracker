@@ -168,6 +168,13 @@ have meant drawing it twice.
       Canvas board: **"Maskota — nacrtana"**, beside the generated candidates
       that settled the look.
 
+      It shipped broken once, on 4 October 2026: a shape module was renamed and
+      only one of the two files using it was updated, so the component imported
+      names that no longer existed and the home screen crashed on open. There
+      is a test for that now — `__tests__/imports.test.js` checks every named
+      import in `src` against what its module actually exports, because ESLint
+      here has no resolver and cannot see it.
+
       What is left: the three poses that do a job — waving for onboarding,
       sitting for empty states, holding a lily pad over the figures in privacy
       mode, arms up for a moment worth marking. They wait for the screens they

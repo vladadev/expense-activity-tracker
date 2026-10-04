@@ -28,8 +28,11 @@ export const TURN = 5;
 export const EYE = {
   // Near eye: larger, further from the centre line.
   near: { cx: 62 - TURN, cy: 40, rx: 23, ry: 25, irisR: 15, pupilR: 8.5 },
-  // Far eye: foreshortened, and tucked in towards the middle.
-  far: { cx: 136 - TURN, cy: 43, rx: 19, ry: 21, irisR: 12.5, pupilR: 7 },
+  // Far eye. Foreshortened and tucked in towards the middle — but only a
+  // little. At four fifths of the near one it was read as one eye being bigger
+  // than the other, which is a fault; at nine tenths it is read as a head
+  // turned slightly away, which is the point.
+  far: { cx: 135 - TURN, cy: 42, rx: 21, ry: 22.5, irisR: 13.6, pupilR: 7.8 },
   // Both irises sit in and down. Dead centre reads as a stare.
   irisDx: 2.5,
   irisDy: 3.5,
@@ -75,7 +78,7 @@ export const HEAD =
 // creature rather than balls balanced on it.
 export const EYE_BUMPS = [
   { cx: 62 - TURN, cy: 40, r: 29 },
-  { cx: 136 - TURN, cy: 43, r: 25 },
+  { cx: 135 - TURN, cy: 42, r: 26.5 },
 ];
 
 // A ridge over each eye. Small, and the thing that gives the face an
@@ -86,7 +89,7 @@ export const EYE_BUMPS = [
 // the whites now, so even a stray one cannot land on an eye.
 export const BROWS = [
   'M 32 33 Q 57 7, 83 31',
-  'M 110 37 Q 131 14, 153 37',
+  'M 108 36 Q 130 12, 153 36',
 ];
 
 // The muzzle: a lighter mass under the eyes, which is what makes the mouth sit
@@ -126,13 +129,17 @@ export const BACK_TOES = [
   { cx: 156, cy: 186, r: 8 },
 ];
 
+// Set ON the hands. They used to be drawn beside them — the first toe of each
+// hand sat clear of the arm it belonged to, which is the fingers "not square"
+// that was reported. The near hand ends about x 40 to 66, the far one about
+// 135 to 157, and these are inside both.
 export const FRONT_TOES = [
-  { cx: 34, cy: 176, r: 6.5 },
-  { cx: 46, cy: 181, r: 7 },
-  { cx: 58, cy: 180, r: 6.5 },
-  { cx: 166, cy: 175, r: 6 },
-  { cx: 155, cy: 180, r: 6.5 },
-  { cx: 144, cy: 179, r: 6 },
+  { cx: 42, cy: 177, r: 6.5 },
+  { cx: 53, cy: 182, r: 7 },
+  { cx: 64, cy: 180, r: 6.5 },
+  { cx: 155, cy: 176, r: 6 },
+  { cx: 145, cy: 181, r: 6.5 },
+  { cx: 135, cy: 180, r: 6 },
 ];
 
 // Dapples belong to the part they are on and are cut to its shape. Scattered
@@ -157,16 +164,12 @@ export const SPOTS_FAR = [
   { cx: 170, cy: 158, rx: 3.2, ry: 2.6 },
 ];
 
-// Pale tips on the toes. Small, and the kind of thing that is only noticed
-// when it is missing.
-export const TOE_PADS = [
-  { cx: 14, cy: 177, r: 4 },
-  { cx: 29, cy: 184, r: 4.2 },
-  { cx: 47, cy: 185, r: 4 },
-  { cx: 34, cy: 173, r: 3 },
-  { cx: 46, cy: 178, r: 3.2 },
-  { cx: 58, cy: 177, r: 3 },
-];
+// Pale tips, taken from the toes themselves rather than listed by hand. Listed
+// they covered one side only, which is exactly how it looked: dots on the toes
+// down one side and none down the other. Derived, there is no side to forget.
+export function toePads(toes) {
+  return toes.map((t) => ({ cx: t.cx - t.r * 0.18, cy: t.cy - t.r * 0.34, r: t.r * 0.46 }));
+}
 
 export function palette(night) {
   if (night) {
