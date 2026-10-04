@@ -110,7 +110,7 @@ have meant drawing it twice.
 
       Its own header, because the greeting is the title and is too big to sit
       in a row of controls: which household you are in on the left, and on the
-      right the sun or moon, the bell and the gear. The greeting goes under it.
+      right the bell and your own face. The greeting goes under it.
 
       Still open on it: the scene does not yet know the hour of day on its own
       (it follows the theme).
@@ -178,6 +178,41 @@ have meant drawing it twice.
       switched off is imposition. Also still to do — the glints should change
       length as well as colour: gold and long by day, silver and short by
       night.
+- [x] **The profile, and where the controls live.** Taken on 4 October 2026,
+      and his decision both times. The problem he put his finger on: the theme
+      switch was only on Home, the privacy eye was only on every screen except
+      Home, and the header was collecting one more button per screen with no
+      rule saying which.
+
+      **The gear became you.** Same corner, same one tap, same destination —
+      what changed is what it says. A gear says "options"; a face says "you",
+      and the screen behind it now opens with your name, your email and your
+      household before it gets to any switch. It is deliberately **not** a
+      drawer: a panel behind an icon is a layer of navigation nothing on the
+      screen admits to, and this app has already been caught twice shipping
+      controls that worked and did not look like it.
+
+      **The theme moved into settings, and the control is a piece of pond.**
+      His worry was right — the crossing took a long time to build, and behind
+      a dry screen nobody would ever see it play. So the theme row *is* 104
+      points of horizon: same sky, same sun, one wave, with Dan and Noć
+      standing on the water. This is the one pushed screen with water on it,
+      and the exception does not break the rule that pushed screens stay dry,
+      because the water here is not wallpaper — it is a preview of the thing
+      being chosen.
+
+      **On a tab root the household takes the title's place.** The tab bar
+      already says which screen you are on, in colour, at the bottom of it;
+      nothing else said whose figures these were. On a pushed screen the title
+      comes back, because there the tab bar has stopped answering. That also
+      settled the crowding: chip, title, eye, bell and face in one 390pt row
+      was one thing too many.
+
+      Gone with it: `SettingsGear.js` and `pond/DayNightToggle.js`.
+
+      Still open: Automatski, which needs the real sunrise and sunset, and the
+      privacy eye — it is still absent from Home, which is the last header
+      inconsistency left.
 - [ ] **Analysis.** Opens with one plain sentence about the month, then the
       detail. Its own screen is now in the right place; what it still lacks is
       the sentence. This is the fix for the screen he called the worst: it was

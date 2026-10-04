@@ -10,13 +10,12 @@ import { useHouseholds } from '../context/HouseholdContext';
 import { usePersonColor } from '../context/PersonColorsContext';
 import PondScene from '../components/pond/PondScene';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
-import DayNightToggle from '../components/pond/DayNightToggle';
 import Frog from '../components/pond/Frog';
 import { SCENE, LEAF_VIEWBOX } from '../components/pond/geometry';
 import { FOOT_LINE } from '../components/pond/frogShapes';
 import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
-import SettingsGear from '../components/SettingsGear';
+import ProfileButton from '../components/ProfileButton';
 import Money from '../components/AmountText';
 import LoadFailed from '../components/LoadFailed';
 import StaleNotice from '../components/StaleNotice';
@@ -176,9 +175,8 @@ export default function HomeScreen({ navigation }) {
         <View style={[styles.topRow, { paddingTop: insets.top + space.md }]}>
           <HouseholdChip onWater />
           <View style={{ flex: 1 }} />
-          <DayNightToggle onWater />
           <NotificationBell color={ON_WATER} />
-          <SettingsGear color={ON_WATER} />
+          <ProfileButton onWater />
         </View>
 
         <View style={styles.greeting}>

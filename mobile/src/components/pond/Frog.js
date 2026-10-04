@@ -81,38 +81,45 @@ const styles = StyleSheet.create({
   lid: { position: 'absolute' },
 });
 
-export default function Frog({ size = 100, style }) {
+// `still` is for the frog used as a picture of someone rather than as a
+// creature in a scene — an avatar in a header that breathes is noise in the
+// corner of every screen.
+export default function Frog({ size = 100, style, still = false }) {
   const { theme } = useTheme();
   const c = useMemo(() => palette(theme.isDark), [theme.isDark]);
   // Gradient ids are global in react-native-svg on Android, so two frogs on
   // screen at once would wear each other's colours.
   const uid = useRef(`frog${(frogSeq += 1)}`).current;
 
-  const breath = useLoopValue((v) => swing(v, BREATHE_MS), []);
-  const turn = useLoopValue((v) => swing(v, TURN_MS, 1100), []);
-  const look = useLoopValue((v) => swing(v, LOOK_MS, 700), []);
-  const shift = useLoopValue((v) => swing(v, SHIFT_MS, 1800), []);
-  const nod = useLoopValue((v) => swing(v, NOD_MS, 400), []);
+  const breath = useLoopValue((v) => (still ? Animated.delay(1) : swing(v, BREATHE_MS)), [still]);
+  const turn = useLoopValue((v) => (still ? Animated.delay(1) : swing(v, TURN_MS, 1100)), [still]);
+  const look = useLoopValue((v) => (still ? Animated.delay(1) : swing(v, LOOK_MS, 700)), [still]);
+  const shift = useLoopValue((v) => (still ? Animated.delay(1) : swing(v, SHIFT_MS, 1800)), [still]);
+  const nod = useLoopValue((v) => (still ? Animated.delay(1) : swing(v, NOD_MS, 400)), [still]);
   // Mostly open, and every so often it closes its mouth for a moment. A smile
   // held without interruption is a photograph of a smile.
   const mouth = useLoopValue(
     (v) =>
-      Animated.sequence([
+      still
+        ? Animated.delay(1)
+        : Animated.sequence([
         Animated.delay(MOUTH_HOLD),
         Animated.timing(v, { toValue: 1, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }),
         Animated.delay(260),
-        Animated.timing(v, { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      ]),
-    []
+            Animated.timing(v, { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          ]),
+    [still]
   );
   const blink = useLoopValue(
     (v) =>
-      Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: BLINK_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: BLINK_MS * 1.5, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-        Animated.delay(BLINK_EVERY),
-      ]),
-    []
+      still
+        ? Animated.delay(1)
+        : Animated.sequence([
+            Animated.timing(v, { toValue: 1, duration: BLINK_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(v, { toValue: 0, duration: BLINK_MS * 1.5, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+            Animated.delay(BLINK_EVERY),
+          ]),
+    [still]
   );
 
   const k = size / FROG_BOX;

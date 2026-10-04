@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSettings } from '../context/SettingsContext';
 import NotificationBell from './NotificationBell';
-import SettingsGear from './SettingsGear';
+import ProfileButton from './ProfileButton';
+import HouseholdChip from './HouseholdChip';
 import PondHorizon from './pond/PondHorizon';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from './pond/onWater';
 import { IS_DESIGN } from '../theme/variant';
@@ -71,6 +72,7 @@ export default function Screen({
   // keeps the header and the tab bar it has until the whole thing moves across.
   const onWater = IS_DESIGN && horizon && !bare;
   const displaySettings = IS_DESIGN && (showSettings !== undefined ? showSettings : !displayBack);
+  const chipInstead = displaySettings && !displayBack;
   useStatusBarOnWater(onWater);
 
   if (bare) return <>{children}</>;
@@ -94,6 +96,12 @@ export default function Screen({
                 : { borderBottomColor: theme.border, backgroundColor: theme.surface },
             ]}
           >
+            {/* On a tab root the household takes the title's place. The tab
+                bar already says which screen you are on, and it says so in
+                colour at the bottom of it; nothing else says whose figures
+                these are. On a pushed screen the title stays, because there
+                the tab bar no longer answers the question. */}
+            {chipInstead && <HouseholdChip onWater={onWater} />}
             {displayBack && (
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
@@ -103,9 +111,13 @@ export default function Screen({
                 <Ionicons name="chevron-back" size={24} color={onWater ? ink : theme.primary} />
               </TouchableOpacity>
             )}
-            <Text style={[styles.title, { color: ink }]} numberOfLines={1}>
-              {title}
-            </Text>
+            {chipInstead ? (
+              <View style={{ flex: 1 }} />
+            ) : (
+              <Text style={[styles.title, { color: ink }]} numberOfLines={1}>
+                {title}
+              </Text>
+            )}
             {showPrivacyToggle && (
               <TouchableOpacity
                 onPress={toggleHideAmounts}
@@ -134,7 +146,7 @@ export default function Screen({
               </TouchableOpacity>
             )}
             {showBell && <NotificationBell color={onWater ? ink : undefined} />}
-            {displaySettings && <SettingsGear color={onWater ? ink : undefined} />}
+            {displaySettings && <ProfileButton onWater={onWater} />}
           </View>
         )}
         <View style={{ flex: 1, paddingBottom: keyboardHeight }}>{children}</View>

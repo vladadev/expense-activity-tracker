@@ -9,6 +9,10 @@ import { CURRENCIES } from '../config/categories';
 import Screen from '../components/Screen';
 import { IS_DESIGN } from '../theme/variant';
 import { isErrorReportingEnabled, sendTestEvent } from '../utils/errorReporting';
+import Frog from '../components/pond/Frog';
+import ThemePicker from '../components/pond/ThemePicker';
+import { useHouseholds } from '../context/HouseholdContext';
+import { space, type } from '../theme/scale';
 
 const LANGUAGES = [
   { code: 'sr', label: 'Srpski' },
@@ -19,6 +23,7 @@ export default function SettingsScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { t, language, setLanguage, currency, setCurrency } = useSettings();
   const { theme, themeName, setThemeName, availableThemes } = useTheme();
+  const { active } = useHouseholds();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [testing, setTesting] = useState(false);
@@ -53,22 +58,37 @@ export default function SettingsScreen({ navigation }) {
   return (
     <Screen title={t('nav.settings')} showBack={IS_DESIGN}>
       <ScrollView contentContainerStyle={{ padding: 24 }}>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
+        {/* Who you are, before what you can change. The gear in the header
+            became this face, and a face that opens a list of switches is a
+            face that lied. */}
+        <View style={styles.profile}>
+          <View style={styles.avatar}>
+            <Frog size={70} still style={{ marginTop: 6 }} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.name} numberOfLines={1}>{user?.name}</Text>
+            <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+            {active ? <Text style={styles.household} numberOfLines={1}>{active.name}</Text> : null}
+          </View>
+        </View>
 
         <Text style={styles.sectionLabel}>{t('settings.theme')}</Text>
-        <View style={styles.chipRow}>
-          {Object.entries(availableThemes).map(([key, palette]) => (
-            <TouchableOpacity
-              key={key}
-              style={[styles.chip, themeName === key && styles.chipActive]}
-              onPress={() => setThemeName(key)}
-            >
-              <View style={[styles.swatch, { backgroundColor: palette.primary }]} />
-              <Text style={[styles.chipText, themeName === key && styles.chipTextActive]}>{palette.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {IS_DESIGN ? (
+          <ThemePicker />
+        ) : (
+          <View style={styles.chipRow}>
+            {Object.entries(availableThemes).map(([key, palette]) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.chip, themeName === key && styles.chipActive]}
+                onPress={() => setThemeName(key)}
+              >
+                <View style={[styles.swatch, { backgroundColor: palette.primary }]} />
+                <Text style={[styles.chipText, themeName === key && styles.chipTextActive]}>{palette.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         <Text style={styles.sectionLabel}>{t('settings.language')}</Text>
         <View style={styles.chipRow}>
@@ -142,8 +162,21 @@ export default function SettingsScreen({ navigation }) {
 function createStyles(theme) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    name: { fontSize: 22, fontWeight: '700', color: theme.text },
-    email: { fontSize: 14, color: theme.textSecondary, marginTop: 4, marginBottom: 24 },
+    profile: { flexDirection: 'row', alignItems: 'center', gap: space.md - 2, marginBottom: space.lg },
+    avatar: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.primaryLight,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    name: { ...type.title, color: theme.text },
+    email: { ...type.secondary, color: theme.textSecondary, marginTop: 2 },
+    household: { ...type.secondary, color: theme.primary, marginTop: 4 },
     versionRow: { alignItems: 'center', paddingVertical: 20 },
     versionText: { fontSize: 11, color: theme.textSecondary },
     sectionLabel: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginBottom: 8 },

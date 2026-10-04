@@ -196,9 +196,9 @@ function MainTabs() {
         options={{ tabBarLabel: IS_DESIGN ? t('nav.money') : t('nav.finances') }}
       />
       <Tab.Screen name="Wishlist" component={GUARDED.Wishlist} options={{ tabBarLabel: t('nav.wishlist') }} />
-      {/* And settings is a gear in the header — see SettingsGear. Opened about
-          once a month, it was taking the same room as the tabs opened every
-          day. Four tabs left: Home, Calendar, Money, Lists. */}
+      {/* And settings is your own face in the header — see ProfileButton.
+          Opened about once a month, it was taking the same room as the tabs
+          opened every day. Four tabs left: Home, Calendar, Money, Lists. */}
       {!IS_DESIGN && (
         <Tab.Screen name="Settings" component={GUARDED.Settings} options={{ tabBarLabel: t('nav.settings') }} />
       )}
