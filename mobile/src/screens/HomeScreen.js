@@ -12,7 +12,7 @@ import PondScene from '../components/pond/PondScene';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
 import DayNightToggle from '../components/pond/DayNightToggle';
 import MascotSlot, { MASCOT_SIZES } from '../components/pond/MascotSlot';
-import { SCENE } from '../components/pond/geometry';
+import { SCENE, LEAF_VIEWBOX } from '../components/pond/geometry';
 import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
 import SettingsGear from '../components/SettingsGear';
@@ -132,6 +132,12 @@ export default function HomeScreen({ navigation }) {
 
   const showSkeleton = useDeferredSkeleton(!loaded);
   const sceneHeight = Math.round(width * SCENE_RATIO * 1.75);
+  // The lily pad the frog sits on, in the scene's own coordinates, so the
+  // reserved slot can be put on it rather than near it.
+  const perch = useMemo(() => {
+    const height = (SCENE.perchW * LEAF_VIEWBOX.height) / LEAF_VIEWBOX.width;
+    return { height, top: sceneHeight * (SCENE.perchY + SCENE.drop) - height / 2 };
+  }, [sceneHeight]);
   const remaining = earned - spent;
   const ratio = earned > 0 ? Math.min(1, spent / earned) : 0;
 
@@ -149,7 +155,9 @@ export default function HomeScreen({ navigation }) {
           style={{
             position: 'absolute',
             left: width * SCENE.perchX - MASCOT_SIZES.scene.width / 2,
-            top: sceneHeight * SCENE.perchY - MASCOT_SIZES.scene.height + 10,
+            // Standing on the pad's back third, so the front of the pad is
+            // still there to be seen under whatever ends up on it.
+            top: perch.top + perch.height * 0.35 - MASCOT_SIZES.scene.height,
           }}
         />
       </PondScene>

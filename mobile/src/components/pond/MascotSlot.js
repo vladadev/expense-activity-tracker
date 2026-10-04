@@ -22,7 +22,7 @@ export const MASCOT_SIZES = {
   celebrate: { width: 96, height: 96, pose: 'celebrating' },
   // The home scene's frog is not in the table: it does no job there, it is the
   // one place the character is simply present. Sized to the water it sits on.
-  scene: { width: 112, height: 124, pose: 'sitting' },
+  scene: { width: 96, height: 100, pose: 'sitting' },
 };
 
 const styles = StyleSheet.create({

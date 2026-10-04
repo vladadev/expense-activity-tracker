@@ -178,7 +178,14 @@ export const SCENE = {
   // pad. Kept apart they drifted, and the reserved slot ended up hanging over
   // open water with a pad halfway through it.
   perchX: 0.8,
-  perchY: 0.68,
+  perchY: 0.633,
+  perchW: 86, // the biggest pad on the pond, because something sits on it
+  // Everything in the scene except the sky sits this much lower than it used
+  // to. The sky still fills from the very top of the phone — it is the water,
+  // the ranges and the light that come down, which opens a band of plain sky
+  // behind the header and the greeting where before they were read against
+  // whatever the pond happened to be doing.
+  drop: 0.06,
 };
 
 // The ranges behind the bank.

@@ -57,7 +57,7 @@ const PADS = [
   {
     x: SCENE.perchX,
     y: SCENE.perchY,
-    w: 48,
+    w: SCENE.perchW,
     delay: 1400,
     opacity: 0.82,
     shape: 2,
@@ -281,7 +281,7 @@ function ReedClump({ reeds, width, height, colour, period, delay = 0 }) {
   // it.
   const gust = useSway(Math.round(period * 0.19), delay + 700);
 
-  const base = height * SCENE.reedBase;
+  const base = height * (SCENE.reedBase + SCENE.drop);
   const middle = (reeds.reduce((sum, reed) => sum + reed.x, 0) / reeds.length) * width;
   const origin = { transformOrigin: [middle, base] };
 
@@ -427,8 +427,17 @@ export default function PondScene({ width, height, fadeTo, children }) {
   // The light sits high and to the right, and everything else in the scene
   // answers to it: the glints fall below it, the pads carry their sheen on the
   // same side.
-  const orbX = width * 0.78;
-  const orbY = height * 0.2;
+  // Every feature of the scene is placed through this, so the whole pond
+  // moves together and the sky keeps the top of the phone to itself.
+  const dy = (f) => height * (f + SCENE.drop);
+
+  // High and towards the middle, in the one gap along the top that nothing
+  // else wants: the household chip ends before it and the bell and the gear
+  // begin after it, and the greeting starts below it. It used to sit at 0.78 —
+  // directly behind those icons, and a full moon behind an icon is an icon
+  // nobody can read.
+  const orbX = width * 0.58;
+  const orbY = dy(0.14);
 
   // The crossing. The sun does not fade where it stands and the moon does not
   // appear in its place — one leaves and the other arrives, from the other
@@ -483,7 +492,7 @@ export default function PondScene({ width, height, fadeTo, children }) {
           { peaks: RANGE_FAR, rise: SCENE.mountainRiseFar, fill: c.mtnFar, lit: c.mtnFarLit, opacity: 0.9 },
           { peaks: RANGE_MID, rise: SCENE.mountainRiseMid, fill: c.mtnMid, lit: c.mtnMidLit, opacity: 0.96 },
         ].map((range) => {
-          const base = height * SCENE.mountainBase;
+          const base = dy(SCENE.mountainBase);
           const rise = height * range.rise;
           return (
             <G key={range.fill} opacity={range.opacity}>
@@ -505,7 +514,7 @@ export default function PondScene({ width, height, fadeTo, children }) {
             being cut off by whatever is in front of them. */}
         <Rect
           x="0"
-          y={height * (SCENE.mountainBase - SCENE.mountainRiseFar * 0.5)}
+          y={dy(SCENE.mountainBase - SCENE.mountainRiseFar * 0.5)}
           width={width}
           height={height * SCENE.mountainRiseFar * 0.5}
           fill={`url(#${uid}-pondHaze)`}
@@ -515,7 +524,7 @@ export default function PondScene({ width, height, fadeTo, children }) {
             that read as an unknown curved line — a soft wave between mountains
             and water is not obviously anything, and a row of uneven conifer
             tops is read as trees at once. */}
-        <Path d={treeLine(width, height * SCENE.bankBase, height * SCENE.bankRise)} fill={c.ridgeFar} />
+        <Path d={treeLine(width, dy(SCENE.bankBase), height * SCENE.bankRise)} fill={c.ridgeFar} />
       </Svg>
 
       {/* The sun, on its way out. Each light keeps its own colour through the
@@ -580,12 +589,12 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(far) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * SCENE.waveFar, height, 7)} fill={c.waveFar} opacity={0.62} />
+          <Path d={wavePath(width, dy(SCENE.waveFar), height, 7)} fill={c.waveFar} opacity={0.62} />
         </Svg>
       </Animated.View>
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(mid) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * SCENE.waveMid, height, 8)} fill={c.waveMid} opacity={0.7} />
+          <Path d={wavePath(width, dy(SCENE.waveMid), height, 8)} fill={c.waveMid} opacity={0.7} />
         </Svg>
       </Animated.View>
       {/* Reeds stand between the second wave and the third, so the water in
@@ -598,13 +607,13 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
       <Animated.View style={[styles.layer, { transform: [{ translateX: shift(near) }] }]} pointerEvents="none">
         <Svg width={width * 2} height={height}>
-          <Path d={wavePath(width, height * SCENE.waveNear, height, 9)} fill={c.waveNear} opacity={0.72} />
+          <Path d={wavePath(width, dy(SCENE.waveNear), height, 9)} fill={c.waveNear} opacity={0.72} />
         </Svg>
       </Animated.View>
 
       <Animated.View style={[styles.layer, { width, height }, reflection]} pointerEvents="none">
         {GLINTS.map((g) => (
-          <Glint key={`${g.y}-${g.rx}`} x={orbX} y={height * g.y} rx={g.rx} delay={g.delay} colour={c.glint} />
+          <Glint key={`${g.y}-${g.rx}`} x={orbX} y={dy(g.y)} rx={g.rx} delay={g.delay} colour={c.glint} />
         ))}
       </Animated.View>
 
@@ -612,7 +621,7 @@ export default function PondScene({ width, height, fadeTo, children }) {
         const w = p.w;
         const h = (w * LEAF_VIEWBOX.height) / LEAF_VIEWBOX.width;
         const left = width * p.x - w / 2;
-        const top = height * p.y - h / 2;
+        const top = dy(p.y) - h / 2;
         return (
           <React.Fragment key={`${p.x}-${p.y}`}>
             {/* The water first, so the leaf sits on it rather than under it. */}
@@ -624,6 +633,11 @@ export default function PondScene({ width, height, fadeTo, children }) {
 
       <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
         <Defs>
+          <LinearGradient {...{ id: `${uid}-pondTop` }} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#021A16" stopOpacity="0.52" />
+            <Stop offset="0.55" stopColor="#021A16" stopOpacity="0.26" />
+            <Stop offset="1" stopColor="#021A16" stopOpacity="0" />
+          </LinearGradient>
           <LinearGradient {...{ id: `${uid}-pondFade` }} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={fadeTo} stopOpacity="0" />
             <Stop offset="0.6" stopColor={fadeTo} stopOpacity="0.72" />
@@ -631,7 +645,14 @@ export default function PondScene({ width, height, fadeTo, children }) {
             <Stop offset="1" stopColor={fadeTo} stopOpacity="1" />
           </LinearGradient>
         </Defs>
-        <Rect x="0" y={height * 0.5} width={width} height={height * 0.5} fill={`url(#${uid}-pondFade)`} />
+        <Rect x="0" y={dy(0.5)} width={width} height={height * 0.5} fill={`url(#${uid}-pondFade)`} />
+        {/* A shade across the top, under the header and the greeting that the
+            screen draws over this. Light ink on a scene is only as readable as
+            the brightest thing that can pass behind it, and the moon can pass
+            behind anything — so rather than keeping every bright thing out of
+            the corners for ever, the top half-stop of the sky is dimmed and
+            the text is safe wherever the light goes. */}
+        <Rect x="0" y="0" width={width} height={dy(0.42)} fill={`url(#${uid}-pondTop)`} />
       </Svg>
 
       {children}
