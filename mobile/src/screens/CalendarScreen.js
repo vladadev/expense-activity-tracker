@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState  } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { Calendar } from 'react-native-calendars';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
@@ -16,8 +16,15 @@ import { useOnDataEvent } from '../context/DataEventsContext';
 import { BlurredText } from '../components/AmountText';
 import AgendaScreen from './AgendaScreen';
 import { usePersonColor } from '../context/PersonColorsContext';
+import WeekRow from '../components/WeekRow';
+import { space, radius, type, HIT } from '../theme/scale';
 
 const ACTIVITY_COLOR = '#F59E0B';
+
+// How many of a day's entries the panel shows before it stops and says how
+// many more there are. Three, because a panel that shows everything has to
+// scroll and a panel that scrolls inside a screen that scrolls is a fight.
+const DAY_PREVIEW = 3;
 
 function hexToRgba(hex, alpha) {
   const clean = hex.replace('#', '');
@@ -48,6 +55,17 @@ export default function CalendarScreen({ navigation }) {
   // 'calendar' | 'list' — the month grid, or the agenda of every activity.
   const [view, setView] = useState('calendar');
   const today = todayString();
+  // The month grid takes half the screen whether you are reading the month or
+  // reading one day, and it is one day almost every time. Choosing a day
+  // folds it to that day's week; the handle under it opens the month again.
+  const [monthOpen, setMonthOpen] = useState(true);
+  // The locale's short day names start on Sunday; the grid starts on Monday,
+  // so the row has to be turned by one or the letters sit over the wrong days.
+  const weekHeadings = useMemo(() => {
+    const names = LocaleConfig.locales[LocaleConfig.defaultLocale]?.dayNamesShort ||
+      LocaleConfig.locales['']?.dayNamesShort || ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return [...names.slice(1), names[0]];
+  }, [language]);
   const [selected, setSelected] = useState(today);
   // Set when the screen is showing its last good copy instead of live data.
   const [staleAt, setStaleAt] = useState(null);
@@ -165,13 +183,21 @@ export default function CalendarScreen({ navigation }) {
       ) : (
         <View style={{ flex: 1 }}>
           <View style={styles.calendarCard}>
+            {monthOpen ? (
             <Calendar
               key={theme.background /* re-render internal theme when palette changes */}
               current={today}
               markedDates={marks}
               markingType="multi-dot"
-              onDayPress={(day) => setSelected(day.dateString)}
+              onDayPress={(day) => {
+                setSelected(day.dateString);
+                setMonthOpen(false);
+              }}
               enableSwipeMonths
+              // Monday. The grid defaulted to Sunday, which is wrong for every
+              // language this app speaks, and the week row below could not
+              // have agreed with it.
+              firstDay={1}
               theme={{
                 calendarBackground: 'transparent',
                 dayTextColor: theme.text,
@@ -193,6 +219,33 @@ export default function CalendarScreen({ navigation }) {
               }}
               style={styles.calendar}
             />
+            ) : (
+              <WeekRow
+                selected={selected}
+                today={today}
+                marks={marks}
+                headings={weekHeadings}
+                onPick={setSelected}
+              />
+            )}
+
+            {/* A handle you can see, not a swipe you have to guess at. The
+                whole point of the day row below was that a control which works
+                but does not look like one is a control nobody uses. */}
+            <Pressable
+              onPress={() => setMonthOpen((open) => !open)}
+              style={styles.handle}
+              hitSlop={{ top: 6, bottom: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel={monthOpen ? t('calendar.showWeek') : t('calendar.showMonth')}
+            >
+              <View style={styles.handleBar} />
+              <Ionicons
+                name={monthOpen ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color={theme.textSecondary}
+              />
+            </Pressable>
 
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
@@ -223,7 +276,11 @@ export default function CalendarScreen({ navigation }) {
               <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <ScrollView contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
+            {/* No scroll in here. A scrolling box inside a scrolling screen
+                is a fight between two gestures that the finger cannot see, and
+                the panel was short enough to show two entries out of six. It
+                shows three and says how many more there are. */}
+            <View style={styles.dayBody}>
               {totalEntries.length > 0 && (
                 <View style={styles.totalRow}>
                   <Ionicons name="wallet-outline" size={16} color={theme.primary} />
@@ -234,7 +291,7 @@ export default function CalendarScreen({ navigation }) {
                 </View>
               )}
 
-              {dayEvents.map((e) => (
+              {dayEvents.slice(0, DAY_PREVIEW).map((e) => (
                 <TouchableOpacity
                   key={e._id}
                   style={[styles.eventRow, { borderLeftColor: personColor(e.owner?.name) }]}
@@ -249,10 +306,22 @@ export default function CalendarScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
 
+              {dayEvents.length > DAY_PREVIEW && (
+                <TouchableOpacity
+                  style={styles.moreRow}
+                  onPress={() => navigation.navigate('DayDetail', { date: selected })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.moreText}>
+                    {t('calendar.moreEntries', { count: dayEvents.length - DAY_PREVIEW })}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {totalEntries.length === 0 && dayEvents.length === 0 && (
                 <Text style={styles.emptyDay}>{t('dayDetail.nothingPlanned')}</Text>
               )}
-            </ScrollView>
+            </View>
 
             <View style={styles.quickActions}>
               <TouchableOpacity
@@ -325,8 +394,33 @@ function createStyles(theme) {
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     legendDot: { width: 7, height: 7, borderRadius: 3.5 },
     legendText: { fontSize: 11, color: theme.textSecondary },
-    dayPanel: { flex: 1, marginTop: 14, paddingHorizontal: 16 },
-    dayPanelHeader: { flexDirection: 'row', alignItems: 'center', paddingBottom: 10 },
+    dayPanel: { flex: 1, marginTop: space.md - 2, paddingHorizontal: space.md },
+    dayBody: { gap: space.xs + 2 },
+    // The row has always opened the day. It never looked as though it would,
+    // so nobody pressed it except on the arrow — which is the whole reason
+    // the day was called hard to open. It is a button now, and looks like one.
+    dayPanelHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space.sm,
+      minHeight: HIT,
+      paddingHorizontal: space.sm + 4,
+      marginBottom: space.sm + 2,
+      borderRadius: radius.card,
+      backgroundColor: theme.surface,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
+    },
+    moreRow: { justifyContent: 'center', minHeight: HIT - 10, paddingHorizontal: space.sm + 4 },
+    moreText: { ...type.bodyStrong, fontSize: 13, color: theme.primary },
+    handle: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingTop: space.xs + 2,
+      paddingBottom: space.xs,
+    },
+    handleBar: { width: 34, height: 4, borderRadius: 2, backgroundColor: theme.border },
     dayPanelTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
     dayPanelDate: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
     totalRow: {

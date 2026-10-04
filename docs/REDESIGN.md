@@ -129,8 +129,32 @@ have meant drawing it twice.
       and every one of them clears 48 points.
 
       Still open on it: the **Analiza** face.
-- [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
-      entries today and needs a precise tap on a small arrow to open.
+- [~] **Calendar.** The day panel is rebuilt. Three decisions, all his, taken
+      on 4 October 2026 and all for the stranger on the Play Store rather than
+      for the two people using it now:
+
+      **The month folds to a week.** The grid took half the screen whether you
+      were reading the month or reading one day, and it is one day almost every
+      time. Choosing a day folds it to that day's week; a handle under it opens
+      the month again.
+
+      **The day shows three entries and says how many more.** It used to hold a
+      scrolling box, which showed two of six — and a box that scrolls inside a
+      screen that scrolls is a fight between two gestures the finger cannot
+      see.
+
+      **The date row looks like a button**, which it already was. That was the
+      real fault behind "it needs a precise tap on a small arrow": the whole row
+      opened the day and always had, but nothing said so, so nobody pressed it
+      except on the arrow. A control that works and does not look like one is a
+      control nobody uses — which is also why the fold is a handle you can see
+      and not a swipe you have to guess at.
+
+      Fixed on the way past: the grid started the week on Sunday, which is
+      wrong for both languages the app speaks and would have left the week row
+      disagreeing with the month above it.
+
+      Still open on it: the horizon, and the rest of the screen on the tokens.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
 - [~] **Day and night crossing.** Built, in both directions and over 1.4
       seconds. The sun leaves on one side while the moon rises on the other
