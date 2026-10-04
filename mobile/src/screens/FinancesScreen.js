@@ -20,6 +20,7 @@ import { useDeferredSkeleton } from '../components/Skeleton';
 import { useOnDataEvent, applyDataEvent, useDataEvents } from '../context/DataEventsContext';
 import { usePersonColor } from '../context/PersonColorsContext';
 import { formatMonthYear } from '../i18n/dateFormat';
+import { space, radius, type, HIT } from '../theme/scale';
 
 const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
 
@@ -247,6 +248,9 @@ export default function FinancesScreen({ navigation, embedded = false }) {
   const month = bucketFor(monthData);
   const all = bucketFor(allData);
   const remainingMonth = month.income - month.expenses - month.netSavings;
+  // How much of what came in has gone out. Nothing in means nothing spent of
+  // it, not everything.
+  const spentRatio = month.income > 0 ? Math.min(1, month.expenses / month.income) : 0;
   const available = all.income - all.expenses - all.netSavings;
 
   const tabs = [
@@ -343,22 +347,31 @@ export default function FinancesScreen({ navigation, embedded = false }) {
             )}
 
             <Animated.View style={{ opacity: fade }}>
-              <View style={styles.heroCard}>
-                <View style={styles.heroHeader}>
-                  <Text style={styles.heroLabel}>
+              {/* One figure, and then what it is against — the same shape as
+                  Home, because the two screens answer halves of one question
+                  and ought to look like they know that. */}
+              <View style={styles.card}>
+                <View style={styles.cardHead}>
+                  <Text style={styles.label}>
                     {isCurrentMonth
                       ? t('finance.remainingThisMonth')
                       : `${t('finance.remainingInMonth')} · ${formatMonthYear(shownMonth, language)}`}
                   </Text>
-                  <View style={styles.currencyBadge}>
-                    <Text style={styles.currencyBadgeText}>{currency}</Text>
-                  </View>
+                  <View style={{ flex: 1 }} />
+                  <Text style={styles.sublabel}>{currency}</Text>
                 </View>
                 <Money
                   value={remainingMonth}
                   currency={currency}
-                  style={[styles.heroValue, { color: remainingMonth >= 0 ? theme.success : theme.danger }]}
+                  style={[styles.hero, remainingMonth < 0 && { color: theme.danger }]}
                 />
+                <View style={styles.track}>
+                  <View style={[styles.fill, { width: `${Math.round(spentRatio * 100)}%` }]} />
+                </View>
+                <Text style={[styles.sublabel, { marginTop: space.sm }]}>
+                  {t('home.spentOf')}{' '}
+                  <Text style={styles.strong}>{Math.round(month.income).toLocaleString('sr-RS')}</Text>
+                </Text>
               </View>
 
               <View style={styles.metricsRow}>
@@ -446,133 +459,115 @@ export default function FinancesScreen({ navigation, embedded = false }) {
 }
 
 function createStyles(theme) {
+  // Every number here comes from the tokens. A screen reaching for 13 or 17 is
+  // a screen drifting away from every other screen, and it shows up as the
+  // vague, slightly-off feeling that cannot be pointed at.
+  const card = {
+    padding: space.lg - 4,
+    backgroundColor: theme.surface,
+    borderRadius: radius.card + 4,
+    borderWidth: theme.isDark ? 1 : 0,
+    borderColor: theme.border,
+    shadowColor: '#07382F',
+    shadowOpacity: theme.isDark ? 0 : 0.16,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: theme.isDark ? 0 : 6,
+  };
+
   return StyleSheet.create({
-    personRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+    card,
+    cardHead: { flexDirection: 'row', alignItems: 'baseline', marginBottom: space.sm + 4 },
+    label: { ...type.label, color: theme.textSecondary },
+    sublabel: { ...type.secondary, color: theme.textSecondary },
+    strong: { ...type.bodyStrong, fontSize: 13, color: theme.text },
+    hero: { ...type.amountLarge, color: theme.text },
+    track: { height: 8, borderRadius: 4, backgroundColor: theme.border, marginTop: space.md - 2, overflow: 'hidden' },
+    fill: { height: 8, borderRadius: 4, backgroundColor: theme.primary },
+
+    // Mine, theirs, both. Alone there is one answer, so the row does not show.
+    personRow: { flexDirection: 'row', gap: space.sm, marginBottom: space.md },
     personChip: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 9,
-      borderRadius: 20,
+      gap: space.xs + 2,
+      height: HIT - 10,
+      borderRadius: radius.pill,
       borderWidth: 1.5,
       borderColor: theme.border,
       backgroundColor: theme.surface,
     },
     personChipDot: { width: 8, height: 8, borderRadius: 4 },
-    personChipText: { fontSize: 13, color: theme.textSecondary },
-    monthNavRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 12,
-    },
-    monthHeading: { fontSize: 16, fontWeight: '700', color: theme.text },
-    pastMonthNote: { fontSize: 11, color: theme.warning || '#BA7517', marginTop: 2 },
+    personChipText: { ...type.secondary, color: theme.textSecondary },
+
+    monthNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm + 4 },
+    monthHeading: { ...type.section, color: theme.text },
+    pastMonthNote: { ...type.secondary, fontSize: 11, color: theme.warning || '#BA7517', marginTop: 2 },
+
     currencyPillsRow: { flexDirection: 'row', justifyContent: 'flex-end' },
-    sectionTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 10,
-    },
     currencyPills: {
       flexDirection: 'row',
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: radius.pill,
       padding: 3,
-      marginBottom: 10,
+      marginBottom: space.sm + 2,
     },
-    currencyPill: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12 },
-    currencyPillText: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
-    heroCard: {
-      backgroundColor: theme.surface,
-      borderRadius: 14,
-      padding: 18,
-      alignItems: 'center',
-    },
-    heroHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-    heroLabel: { fontSize: 13, color: theme.textSecondary },
-    currencyBadge: {
-      backgroundColor: hexToRgba(theme.primary, 0.14),
-      borderRadius: 8,
-      paddingVertical: 2,
-      paddingHorizontal: 10,
-    },
-    currencyBadgeText: { fontSize: 12, fontWeight: '700', color: theme.primary },
-    heroValue: { fontSize: 32, fontWeight: '700' },
-    metricsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+    currencyPill: { paddingVertical: space.xs, paddingHorizontal: space.sm + 4, borderRadius: radius.control + 2 },
+    currencyPillText: { ...type.bodyStrong, fontSize: 12, color: theme.textSecondary },
+
+    // Income, spent, saved. Quiet on purpose: the figure above is the answer,
+    // these are the working.
+    metricsRow: { flexDirection: 'row', gap: space.sm, marginTop: space.sm + 4 },
     metricBox: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 6,
+      borderRadius: radius.card,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
+      paddingVertical: space.md - 4,
+      paddingHorizontal: space.sm - 2,
       alignItems: 'center',
     },
-    metricLabel: { fontSize: 11, color: theme.textSecondary, marginTop: 4 },
-    metricValue: { fontSize: 13, fontWeight: '700', color: theme.text, marginTop: 2 },
-    totalsCard: {
-      backgroundColor: theme.surface,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 4,
-    },
-    totalsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 12,
-    },
+    metricLabel: { ...type.secondary, fontSize: 11, color: theme.textSecondary, marginTop: space.xs },
+    metricValue: { ...type.amountSmall, color: theme.text, marginTop: 2 },
+
+    sectionTitle: { ...type.label, color: theme.textSecondary, marginBottom: space.sm + 2 },
+    totalsCard: { ...card, paddingVertical: space.xs, paddingHorizontal: space.md - 2 },
+    totalsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space.md - 4 },
     totalsRowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
-    totalsLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    totalsLabel: { fontSize: 14, color: theme.textSecondary },
-    totalsValue: { fontSize: 16, fontWeight: '700', color: theme.text },
-    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
+    totalsLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+    totalsLabel: { ...type.body, color: theme.textSecondary },
+    totalsValue: { ...type.amountSmall, fontSize: 16, color: theme.text },
+
+    actionsRow: { flexDirection: 'row', gap: space.sm + 2, marginTop: space.lg - 4 },
     actionPrimary: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: space.xs + 2,
       backgroundColor: theme.primary,
-      borderRadius: 12,
-      paddingVertical: 13,
+      borderRadius: radius.card,
+      height: HIT,
     },
-    actionPrimaryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+    actionPrimaryText: { ...type.section, fontSize: 14, color: theme.isDark ? '#06201A' : '#FFFFFF' },
     actionSecondary: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: space.xs + 2,
       backgroundColor: theme.surface,
-      borderRadius: 12,
-      paddingVertical: 13,
+      borderRadius: radius.card,
+      height: HIT,
       borderWidth: 1.5,
-      borderColor: hexToRgba(theme.primary, 0.4),
+      borderColor: theme.border,
     },
-    actionSecondaryText: { color: theme.primary, fontSize: 14, fontWeight: '600' },
-    sectionWrap: {
-      marginTop: 24,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-    },
-    cardSubtext: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
-    emptyText: { color: theme.textSecondary, marginBottom: 8 },
-    entryRow: {
-      flexDirection: 'row',
-      backgroundColor: theme.surface,
-      borderRadius: 10,
-      padding: 12,
-      marginBottom: 8,
-      alignItems: 'center',
-    },
-    entryAmount: { fontSize: 16, fontWeight: '700', color: theme.success },
-    hint: { fontSize: 12, color: theme.textSecondary, textAlign: 'center', marginVertical: 16 },
+    actionSecondaryText: { ...type.section, fontSize: 14, color: theme.primary },
+
+    emptyText: { ...type.secondary, color: theme.textSecondary, marginBottom: space.sm },
+    hint: { ...type.secondary, color: theme.textSecondary, textAlign: 'center', marginVertical: space.md },
   });
 }

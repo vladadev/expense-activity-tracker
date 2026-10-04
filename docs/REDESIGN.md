@@ -115,11 +115,15 @@ have meant drawing it twice.
       Still open on it: the scene does not yet know the hour of day on its own
       (it follows the theme).
 - [~] **Money.** The horizon is on it, day and night, with the switch between
-      its two faces sitting on the water. What is below the horizon is still
-      the old screen: the cards, spacing and type on both faces are the ones
-      from before the tokens existed. Next on it is the *Sada* face in the new
-      system — the remaining figure, income, expenses and savings — and then
-      the transactions list under it.
+      its two faces sitting on the water. The **Sada** face is now drawn in the
+      new system: one figure — what is left this month — with a bar under it
+      showing how much of what came in has gone out, and the working below that
+      in quiet metrics. It is deliberately the same shape as Home, because the
+      two screens answer halves of one question and ought to look like they
+      know that.
+
+      Still open on it: the transactions list underneath, which is the last
+      piece of the old screen, and the **Analiza** face.
 - [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
       entries today and needs a precise tap on a small arrow to open.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
@@ -177,10 +181,15 @@ feel like the calendar, not like a different app.
 - [ ] **Before the app**: the login screen, which is the first thing anyone
       ever sees and is currently the last thing on this list.
 
-**Open question for these:** how much pond, if any, belongs on a screen you
-have pushed into rather than switched to. The horizon was settled for tab
-roots. A form is not a place you look at; it is a place you leave as fast as
-possible, and a sky behind it may be exactly wrong.
+**Settled, 4 October 2026: no pond on these.** The horizon stays on the four
+tab roots and nowhere else. A tab is a place you switch to, arrive at and look
+around; a pushed screen is a place you go into to do one thing and leave. You
+are on "add an expense" for eight seconds, and movement behind a field slows
+the eye that is trying to read it — and the horizon costs 150 points of height,
+which is exactly what a form with the keyboard up has none of.
+
+They get a calm header in the Pond palette instead: same colours, same type, no
+water. The pond is the place you come back to, not the wallpaper.
 
 ## The rest, which is not screens
 
@@ -227,6 +236,8 @@ None of this blocks the redesign, and all of it blocks shipping.
 - How much of the pond belongs on screens that carry figures — settled as the
   horizon, and now seen on Money. Calendar and Lists get the same treatment,
   which is the next chance for it to be wrong.
+- Whether screens you push into get the pond too — settled as no. See "Then
+  the screens behind the tabs".
 
 ## Rules this redesign is held to
 
