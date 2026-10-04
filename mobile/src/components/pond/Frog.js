@@ -138,18 +138,24 @@ export default function Frog({ size = 100, style }) {
       { translateY: nod.interpolate({ inputRange: [0, 1], outputRange: [at(1.4), at(-1.8)] }) },
     ],
   };
-  // Shuts about the lip line, so the jaw hinges where a jaw does — and goes
-  // out before it gets there.
+  // Shuts about the lip line, so the jaw hinges where a jaw does.
   //
-  // Squeezed to a few per cent, the mouth and the tongue inside it both become
-  // a line about a pixel high, and the tongue is the brightest thing in the
-  // face: it showed as a thin pink streak across a shut mouth, which is what
-  // was reported. A shut mouth should be the lip line and nothing else, so the
-  // whole jaw fades out over the last of the movement.
+  // It stays FULLY OPAQUE the whole way, and that is the fix for a streak that
+  // appeared halfway through the close. Fading the jaw out seemed the tidy
+  // answer and was the wrong tool: a dark mouth at two fifths opacity over a
+  // gold face is not dark, it is a pale pink band — which is precisely what it
+  // looked like. Transparency over a warm ground never reads as shadow.
+  //
+  // So the mouth simply shrinks, solid, to a dark line on the lip, which is
+  // what a closing mouth does. Only the tongue goes, and it goes early: it is
+  // the brightest thing in the face, and once it is below a pixel the screen
+  // blends it into pink however dark the mouth around it is.
   const jaw = {
     transformOrigin: [at(93), at(74)],
-    opacity: mouth.interpolate({ inputRange: [0, 0.55, 1], outputRange: [1, 0.9, 0] }),
-    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] }) }],
+    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.03] }) }],
+  };
+  const tongue = {
+    opacity: mouth.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] }),
   };
   const eyes = {
     transform: [
@@ -310,18 +316,23 @@ export default function Frog({ size = 100, style }) {
           {/* The jaw, hinged on the lip line. */}
           <Animated.View style={[StyleSheet.absoluteFill, jaw]}>
             <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
-              <Defs>
-                <ClipPath {...{ id: `${uid}-cmouth` }}>
-                  <Path d={MOUTH_OPEN} />
-                </ClipPath>
-              </Defs>
               <Path d={MOUTH_OPEN} fill={c.mouth} />
-              {/* Cut to the mouth, so the tongue cannot reach past the lip at
-                  any stage of the movement. */}
-              <G clipPath={`url(#${uid}-cmouth)`}>
-                <Ellipse {...TONGUE} fill={c.tongue} />
-              </G>
             </Svg>
+
+            {/* The tongue, cut to the mouth so it cannot reach past the lip,
+                and gone before the gap gets thin enough to blend. */}
+            <Animated.View style={[StyleSheet.absoluteFill, tongue]}>
+              <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+                <Defs>
+                  <ClipPath {...{ id: `${uid}-ctongue` }}>
+                    <Path d={MOUTH_OPEN} />
+                  </ClipPath>
+                </Defs>
+                <G clipPath={`url(#${uid}-ctongue)`}>
+                  <Ellipse {...TONGUE} fill={c.tongue} />
+                </G>
+              </Svg>
+            </Animated.View>
           </Animated.View>
 
           <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
