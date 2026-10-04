@@ -20,6 +20,12 @@
 
 export const FROG_BOX = 200;
 
+// Where the feet actually are in that box, as a fraction of it. The toes sit
+// at about 188 of 200, not at the bottom edge — so anything that stands the
+// frog on something has to aim THIS line at it, not the box. Aiming the box
+// left it hovering about seven points above whatever it was meant to be on.
+export const FOOT_LINE = 0.94;
+
 // How far the head is turned, in the drawing's own units. Everything in the
 // head leans by this, and the far eye is smaller and nearer the edge, which is
 // what a turn actually looks like — not a face slid sideways.

@@ -13,6 +13,7 @@ import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/
 import DayNightToggle from '../components/pond/DayNightToggle';
 import Frog from '../components/pond/Frog';
 import { SCENE, LEAF_VIEWBOX } from '../components/pond/geometry';
+import { FOOT_LINE } from '../components/pond/frogShapes';
 import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
 import SettingsGear from '../components/SettingsGear';
@@ -148,15 +149,17 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <PondScene width={width} height={sceneHeight} fadeTo={theme.background}>
-        {/* Sitting ON the pad, not beside it: centred on the perch and
-            resting its feet just past the pad's middle, which is where a frog
-            would be. */}
+        {/* Sitting ON the pad: centred on the perch, with its FEET a little
+            past the pad's middle, so a crescent of pad shows in front of it.
+            Its feet were at a third of the pad's depth before, which put it on
+            the back rim — and the box was aimed at the pad rather than the
+            foot line, which lifted it further still. */}
         <Frog
           size={FROG_SIZE}
           style={{
             position: 'absolute',
             left: width * SCENE.perchX - FROG_SIZE / 2,
-            top: perch.top + perch.height * 0.35 - FROG_SIZE,
+            top: perch.top + perch.height * 0.62 - FROG_SIZE * FOOT_LINE,
           }}
         />
       </PondScene>
