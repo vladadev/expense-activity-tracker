@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, Ellipse, Defs, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
 import {
@@ -16,6 +16,8 @@ import {
   MUZZLE,
   MOUTH_OPEN,
   MOUTH_LINE,
+  MOUTH_COVER,
+  COVER_DROP,
   TONGUE,
   NOSTRILS,
   ARM_NEAR,
@@ -138,25 +140,6 @@ export default function Frog({ size = 100, style }) {
       { translateY: nod.interpolate({ inputRange: [0, 1], outputRange: [at(1.4), at(-1.8)] }) },
     ],
   };
-  // Shuts about the lip line, so the jaw hinges where a jaw does.
-  //
-  // It stays FULLY OPAQUE the whole way, and that is the fix for a streak that
-  // appeared halfway through the close. Fading the jaw out seemed the tidy
-  // answer and was the wrong tool: a dark mouth at two fifths opacity over a
-  // gold face is not dark, it is a pale pink band — which is precisely what it
-  // looked like. Transparency over a warm ground never reads as shadow.
-  //
-  // So the mouth simply shrinks, solid, to a dark line on the lip, which is
-  // what a closing mouth does. Only the tongue goes, and it goes early: it is
-  // the brightest thing in the face, and once it is below a pixel the screen
-  // blends it into pink however dark the mouth around it is.
-  const jaw = {
-    transformOrigin: [at(93), at(74)],
-    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.03] }) }],
-  };
-  const tongue = {
-    opacity: mouth.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 0, 0] }),
-  };
   const eyes = {
     transform: [
       { translateX: look.interpolate({ inputRange: [0, 1], outputRange: [at(-2.4), at(2.4)] }) },
@@ -168,6 +151,22 @@ export default function Frog({ size = 100, style }) {
     transformOrigin: [at(70), at(104)],
     transform: [{ rotate: shift.interpolate({ inputRange: [0, 1], outputRange: ['-1.6deg', '2.2deg'] }) }],
   };
+
+  // How far the lower lip has come up, 0 open to 1 shut.
+  //
+  // Stepped in JS rather than driven natively, because what moves is a shape
+  // inside an SVG that is clipped by another shape: translate the whole SVG
+  // and the clip goes with it, which defeats the point. Twelve steps across a
+  // quarter of a second is smooth for a lip and is the same approach the tab
+  // bar's bay uses for the same reason.
+  const [cover, setCover] = useState(0);
+  useEffect(() => {
+    const id = mouth.addListener(({ value }) => {
+      const stepped = Math.round(value * 12) / 12;
+      setCover((prev) => (prev === stepped ? prev : stepped));
+    });
+    return () => mouth.removeListener(id);
+  }, [mouth]);
 
   const lid = (eye) => ({
     left: at(eye.cx - eye.rx),
@@ -310,30 +309,35 @@ export default function Frog({ size = 100, style }) {
                 <Path key={d} d={d} stroke={c.edge} strokeWidth={3.6} strokeLinecap="round" fill="none" opacity={0.32} />
               ))}
             </G>
-            <Ellipse {...MUZZLE} fill={c.muzzle} opacity={0.5} />
+            <Ellipse {...MUZZLE} fill={c.muzzle} />
           </Svg>
 
-          {/* The jaw, hinged on the lip line. */}
-          <Animated.View style={[StyleSheet.absoluteFill, jaw]}>
-            <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
-              <Path d={MOUTH_OPEN} fill={c.mouth} />
-            </Svg>
-
-            {/* The tongue, cut to the mouth so it cannot reach past the lip,
-                and gone before the gap gets thin enough to blend. */}
-            <Animated.View style={[StyleSheet.absoluteFill, tongue]}>
-              <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
-                <Defs>
-                  <ClipPath {...{ id: `${uid}-ctongue` }}>
-                    <Path d={MOUTH_OPEN} />
-                  </ClipPath>
-                </Defs>
-                <G clipPath={`url(#${uid}-ctongue)`}>
-                  <Ellipse {...TONGUE} fill={c.tongue} />
-                </G>
-              </Svg>
-            </Animated.View>
-          </Animated.View>
+          {/* The mouth, and the lip that comes up over it. Both sit in one
+              SVG so the cover can be clipped to the muzzle while it moves —
+              which is the whole reason this is not an animated transform. */}
+          <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
+            <Defs>
+              <ClipPath {...{ id: `${uid}-cmouth` }}>
+                <Path d={MOUTH_OPEN} />
+              </ClipPath>
+              <ClipPath {...{ id: `${uid}-cmuzzle` }}>
+                <Ellipse {...MUZZLE} />
+              </ClipPath>
+            </Defs>
+            <Path d={MOUTH_OPEN} fill={c.mouth} />
+            <G clipPath={`url(#${uid}-cmouth)`}>
+              <Ellipse {...TONGUE} fill={c.tongue} />
+            </G>
+            {/* In the muzzle's own colour, so wherever it is not covering the
+                mouth it cannot be told from the muzzle it slides on. */}
+            <G clipPath={`url(#${uid}-cmuzzle)`}>
+              <Path
+                d={MOUTH_COVER}
+                fill={c.muzzle}
+                transform={`translate(0 ${((1 - cover) * COVER_DROP).toFixed(1)})`}
+              />
+            </G>
+          </Svg>
 
           <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
             <Path d={MOUTH_LINE} stroke={c.edge} strokeWidth={3} strokeLinecap="round" fill="none" opacity={0.75} />

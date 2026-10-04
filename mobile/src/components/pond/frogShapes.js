@@ -110,6 +110,26 @@ export const MOUTH_OPEN =
 export const MOUTH_LINE = 'M 52 74 C 68 88, 126 88, 142 74';
 export const TONGUE = { cx: 97 - TURN, cy: 92, rx: 23, ry: 9 };
 
+// The mouth does not shut by shrinking. It shuts because the lower lip comes
+// up over it.
+//
+// Shrinking was tried twice and is wrong in principle: a scale maps a curve to
+// a flatter curve, so a mouth squeezed towards the lip line collapses onto a
+// STRAIGHT line while the lip itself stays an arc dipping ten points below it.
+// The two cannot meet, and what you get at the end of the close is a straight
+// dark line above the smile — a second mouth. That is what was reported, twice,
+// and no amount of easing fixes a shape that cannot reach its target.
+//
+// This is the lip curve with a body hanging under it, in the muzzle's own
+// colour. Slid down it is inside the muzzle and invisible; slid up its top edge
+// IS the lip curve, so the mouth behind it is covered exactly, with no seam to
+// line up and nothing left over.
+export const MOUTH_COVER = 'M 52 74 C 68 88, 126 88, 142 74 L 142 114 L 52 114 Z';
+
+// How far down it waits while the mouth is open. Far enough that the muzzle
+// clips all of it.
+export const COVER_DROP = 34;
+
 export const NOSTRILS = [
   { cx: 86 - TURN, cy: 62, r: 2.4 },
   { cx: 108 - TURN, cy: 62, r: 2.4 },
@@ -190,7 +210,7 @@ export function palette(night) {
       sheen: '#F0CC73',
       bellyTop: '#E6D9B8',
       bellyLow: '#C6B288',
-      muzzle: '#E2C97E',
+      muzzle: '#D2B268',
       spot: '#B2851F',
       eyeWhite: '#F2F0E6',
       iris: '#0B5A4B',
@@ -214,7 +234,7 @@ export function palette(night) {
     sheen: '#FFF0BC',
     bellyTop: '#FDF8E8',
     bellyLow: '#F0DFB4',
-    muzzle: '#FAE4A6',
+    muzzle: '#F4CF7D',
     spot: '#D9951F',
     eyeWhite: '#FFFDF4',
     iris: '#0E7C66',

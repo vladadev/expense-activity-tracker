@@ -74,8 +74,19 @@ head — about where the head meets the body, because a head that pivots on its
 own chin is a head on a spike. Its eyes travel inside that turn and a beat
 behind it, the way eyes lead and heads follow. It blinks. And it shifts its
 weight on the near haunch, slowest of all. And every so often it shuts its
-mouth for a moment, hinged on the lip line, because a smile held without
-interruption is a photograph of a smile.
+mouth for a moment, because a smile held without interruption is a photograph
+of a smile.
+
+**The mouth shuts because the lower lip comes up over it**, and it took three
+goes to learn why nothing else works. The lip is an arc that dips ten points
+below where it starts. Any scale maps a curve to a flatter curve, so a mouth
+squeezed towards the lip line lands on a STRAIGHT line the lip can never meet —
+and what you see at the end is a dark line above the smile, a second mouth. It
+is not an easing problem and no amount of fading hides it: fading a dark mouth
+over a gold face just turns it into a pale band halfway through. The cover's
+top edge IS the lip curve, so there is no seam to line up and nothing left
+over, and it is in the muzzle's own colour so it cannot be told from the muzzle
+it slides on.
 
 None of the six divides into another, so it never returns to where it started
 at the same moment twice, which is the difference between alive and looping.
