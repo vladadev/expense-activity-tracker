@@ -172,6 +172,13 @@ export const SCENE = {
   waveMid: 0.53,
   waveNear: 0.62,
   reedBase: 0.63, // the reeds enter the water under the nearest wave
+  // Where the frog sits, and therefore where the lily pad under it floats.
+  //
+  // One pair of numbers for both, because they are one thing: a frog sits on a
+  // pad. Kept apart they drifted, and the reserved slot ended up hanging over
+  // open water with a pad halfway through it.
+  perchX: 0.8,
+  perchY: 0.68,
 };
 
 // The ranges behind the bank.

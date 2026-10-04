@@ -485,6 +485,24 @@ describe('SCENE depths', () => {
     expect(SCENE.mountainRiseFar).toBeGreaterThan(SCENE.mountainRiseMid);
   });
 
+  // The frog sits on a pad, so the reserved slot and the pad under it come
+  // from the same pair of numbers. Placed separately they drifted: the slot
+  // ended up hanging over open water with a lily pad floating through its
+  // middle and its foot in the notice below.
+  it('floats the perch where the frog can be seen, clear of the reeds', () => {
+    const halfPad = 48 / 2 / 390;
+    expect(SCENE.perchX + halfPad).toBeLessThan(Math.min(...REEDS_RIGHT.map((reed) => reed.x)));
+    expect(SCENE.perchX - halfPad).toBeGreaterThan(0.5);
+  });
+
+  // The pad floats in front of everything, so it belongs nearer than the reeds
+  // standing behind it — but not so near that the fade into the page has
+  // started eating it.
+  it('floats the perch on open water, in front of the reeds', () => {
+    expect(SCENE.perchY).toBeGreaterThan(SCENE.reedBase);
+    expect(SCENE.perchY).toBeLessThan(0.85);
+  });
+
   it('still leaves the bank visible above that wave', () => {
     const top = SCENE.bankBase - SCENE.bankRise;
     expect(top).toBeLessThan(SCENE.waveFar);

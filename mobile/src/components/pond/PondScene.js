@@ -52,7 +52,19 @@ const GLINTS = [
 // nearest the front rides highest, which is also the only depth cue water has.
 const PADS = [
   { x: 0.16, y: 0.63, w: 54, delay: 0, opacity: 0.74, shape: 1, tint: 0.34, lift: 4.5, tilt: 1.6 },
-  { x: 0.86, y: 0.68, w: 48, delay: 1400, opacity: 0.82, shape: 2, tint: 0.18, lift: 3.5, tilt: 1.1 },
+  // The perch. Its place comes from SCENE so the frog's reserved slot cannot
+  // drift away from the pad it is supposed to be sitting on.
+  {
+    x: SCENE.perchX,
+    y: SCENE.perchY,
+    w: 48,
+    delay: 1400,
+    opacity: 0.82,
+    shape: 2,
+    tint: 0.18,
+    lift: 3.5,
+    tilt: 1.1,
+  },
   { x: 0.38, y: 0.76, w: 68, delay: 600, opacity: 1, shape: 0, tint: 0, lift: 6.5, tilt: 2.2 },
 ];
 

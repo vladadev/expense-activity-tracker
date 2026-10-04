@@ -33,6 +33,12 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: 18,
     gap: 3,
+    // Filled, not see-through. An empty outline lets the reeds, a lily pad and
+    // its rings all wander through the reserved space, which reads as the
+    // scene being broken rather than as a space being held — and it is not
+    // what will be there either, because a frog is opaque. Reserving the solid
+    // block is the honest preview.
+    overflow: 'hidden',
   },
   label: { fontFamily: font.bodySemiBold, fontSize: 11, letterSpacing: 0.9, textTransform: 'uppercase' },
   size: { fontFamily: font.body, fontSize: 10 },
@@ -48,7 +54,16 @@ export default function MascotSlot({ slot = 'scene', onWater = true, style }) {
   return (
     <View
       pointerEvents="none"
-      style={[styles.box, { width, height, borderColor: onWater ? 'rgba(244,242,236,0.55)' : '#C9D6D0' }, style]}
+      style={[
+        styles.box,
+        {
+          width,
+          height,
+          borderColor: onWater ? 'rgba(244,242,236,0.55)' : '#C9D6D0',
+          backgroundColor: onWater ? 'rgba(6, 38, 32, 0.72)' : 'rgba(244, 242, 236, 0.92)',
+        },
+        style,
+      ]}
     >
       <Text style={[styles.label, { color: ink }]}>Frog</Text>
       <Text style={[styles.size, { color: dim }]}>{pose}</Text>

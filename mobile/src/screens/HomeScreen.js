@@ -11,7 +11,8 @@ import { usePersonColor } from '../context/PersonColorsContext';
 import PondScene from '../components/pond/PondScene';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
 import DayNightToggle from '../components/pond/DayNightToggle';
-import MascotSlot from '../components/pond/MascotSlot';
+import MascotSlot, { MASCOT_SIZES } from '../components/pond/MascotSlot';
+import { SCENE } from '../components/pond/geometry';
 import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
 import SettingsGear from '../components/SettingsGear';
@@ -137,9 +138,20 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <PondScene width={width} height={sceneHeight} fadeTo={theme.background}>
-        {/* Sitting on the water, to the right, clear of the greeting. Empty
-            until the frog is drawn — see components/pond/MascotSlot. */}
-        <MascotSlot slot="scene" style={{ position: 'absolute', right: space.lg, top: sceneHeight * 0.44 }} />
+        {/* Sitting ON the pad, not beside it: centred on the perch and resting
+            its feet just past the pad's middle, so when the frog replaces the
+            box it is already standing where a frog would.
+
+            It used to be placed by eye, which put its foot through the stale
+            notice below and left a lily pad floating across its middle. */}
+        <MascotSlot
+          slot="scene"
+          style={{
+            position: 'absolute',
+            left: width * SCENE.perchX - MASCOT_SIZES.scene.width / 2,
+            top: sceneHeight * SCENE.perchY - MASCOT_SIZES.scene.height + 10,
+          }}
+        />
       </PondScene>
 
       <ScrollView
@@ -261,7 +273,9 @@ function createStyles(theme) {
     topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.md },
     greeting: { paddingHorizontal: space.md, paddingTop: space.sm },
     hello: { ...type.title, fontSize: 25, lineHeight: 30, color: ON_WATER, maxWidth: 230 },
-    sub: { ...type.secondary, color: ON_WATER_DIM, marginTop: 5 },
+    // Held to the same width as the greeting above it, so a long line of
+    // plans cannot run under the frog's corner.
+    sub: { ...type.secondary, color: ON_WATER_DIM, marginTop: 5, maxWidth: 230 },
     body: { paddingHorizontal: space.md, gap: space.md },
     card: {
       padding: space.lg - 4,
