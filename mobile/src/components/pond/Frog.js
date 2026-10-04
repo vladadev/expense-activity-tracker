@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
-import Svg, { Path, Circle, Ellipse, Defs, RadialGradient, Stop, G } from 'react-native-svg';
+import Svg, { Path, Circle, Ellipse, Defs, RadialGradient, Stop, G, ClipPath } from 'react-native-svg';
 import {
   FROG_BOX,
   EYE,
@@ -23,7 +23,10 @@ import {
   BELLY,
   BACK_TOES,
   FRONT_TOES,
-  SPOTS,
+  TOE_PADS,
+  SPOTS_HEAD,
+  SPOTS_NEAR,
+  SPOTS_FAR,
   palette,
 } from './frogShapes';
 import { useTheme } from '../../context/ThemeContext';
@@ -45,12 +48,14 @@ import { useTheme } from '../../context/ThemeContext';
 
 let frogSeq = 0;
 
-const BREATHE_MS = 3600;
+const BREATHE_MS = 2900;
 const TURN_MS = 5200;
 const LOOK_MS = 4100;
 const SHIFT_MS = 7300;
-const BLINK_MS = 130;
-const BLINK_EVERY = 4300;
+const NOD_MS = 3300;
+const BLINK_MS = 120;
+const BLINK_EVERY = 3400;
+const MOUTH_HOLD = 5200;
 
 function useLoopValue(build, deps) {
   const v = useRef(new Animated.Value(0)).current;
@@ -85,6 +90,19 @@ export default function Frog({ size = 100, style }) {
   const turn = useLoopValue((v) => swing(v, TURN_MS, 1100), []);
   const look = useLoopValue((v) => swing(v, LOOK_MS, 700), []);
   const shift = useLoopValue((v) => swing(v, SHIFT_MS, 1800), []);
+  const nod = useLoopValue((v) => swing(v, NOD_MS, 400), []);
+  // Mostly open, and every so often it closes its mouth for a moment. A smile
+  // held without interruption is a photograph of a smile.
+  const mouth = useLoopValue(
+    (v) =>
+      Animated.sequence([
+        Animated.delay(MOUTH_HOLD),
+        Animated.timing(v, { toValue: 1, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+        Animated.delay(260),
+        Animated.timing(v, { toValue: 0, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      ]),
+    []
+  );
   const blink = useLoopValue(
     (v) =>
       Animated.sequence([
@@ -99,11 +117,14 @@ export default function Frog({ size = 100, style }) {
   const at = (n) => n * k;
   const box = { width: size, height: size };
 
+  // Breathing, anchored at the ground. The whole frog used to rise and fall,
+  // which reads as the picture being moved rather than as a creature filling
+  // its chest — so it is held at its feet and only swells.
   const body = {
+    transformOrigin: [at(100), at(184)],
     transform: [
-      { translateY: breath.interpolate({ inputRange: [0, 1], outputRange: [0, at(-2.2)] }) },
-      { scaleY: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.022] }) },
-      { scaleX: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 0.994] }) },
+      { scaleY: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
+      { scaleX: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.012] }) },
     ],
   };
   // The head turns about where it meets the body, not about the middle of the
@@ -113,7 +134,14 @@ export default function Frog({ size = 100, style }) {
     transform: [
       { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['-4.5deg', '3.5deg'] }) },
       { translateX: turn.interpolate({ inputRange: [0, 1], outputRange: [at(-1.5), at(1.5)] }) },
+      // A nod of its own, on a count that has nothing to do with the turn.
+      { translateY: nod.interpolate({ inputRange: [0, 1], outputRange: [at(1.4), at(-1.8)] }) },
     ],
+  };
+  // Shuts about the lip line, so the jaw hinges where a jaw does.
+  const jaw = {
+    transformOrigin: [at(93), at(74)],
+    transform: [{ scaleY: mouth.interpolate({ inputRange: [0, 1], outputRange: [1, 0.06] }) }],
   };
   const eyes = {
     transform: [
@@ -139,6 +167,11 @@ export default function Frog({ size = 100, style }) {
     transformOrigin: 'top',
     transform: [{ scaleY: blink }],
   });
+
+  const spots = (list) =>
+    list.map((t) => (
+      <Ellipse key={`${t.cx}-${t.cy}`} cx={t.cx} cy={t.cy} rx={t.rx} ry={t.ry} fill={c.spot} opacity={0.45} />
+    ));
 
   const dots = (list, fill) =>
     list.map((t) => (
@@ -167,21 +200,27 @@ export default function Frog({ size = 100, style }) {
               <Stop offset="0" stopColor={c.bodyTop} />
               <Stop offset="1" stopColor={c.bodyLow} />
             </RadialGradient>
-            <RadialGradient {...{ id: `${uid}-belly` }} cx="0.44" cy="0.3" r="0.8">
-              <Stop offset="0" stopColor={c.bellyTop} />
-              <Stop offset="1" stopColor={c.bellyLow} />
-            </RadialGradient>
+            <ClipPath {...{ id: `${uid}-cfar` }}>
+              <Path d={HAUNCH_FAR} />
+            </ClipPath>
           </Defs>
 
           <Ellipse {...GROUND} fill={c.ground} opacity={0.28} />
           <Path d={HAUNCH_FAR} fill={c.haunchFar} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.5} />
+          <G clipPath={`url(#${uid}-cfar)`}>{spots(SPOTS_FAR)}</G>
           {dots(BACK_TOES.slice(3), c.haunchFar)}
         </Svg>
 
         {/* The near leg, which takes the weight and gives it back. */}
         <Animated.View style={[StyleSheet.absoluteFill, leg]}>
           <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+            <Defs>
+              <ClipPath {...{ id: `${uid}-cnear` }}>
+                <Path d={HAUNCH_NEAR} />
+              </ClipPath>
+            </Defs>
             <Path d={HAUNCH_NEAR} fill={c.haunch} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.55} />
+            <G clipPath={`url(#${uid}-cnear)`}>{spots(SPOTS_NEAR)}</G>
             {dots(BACK_TOES.slice(0, 3), c.haunch)}
           </Svg>
         </Animated.View>
@@ -196,20 +235,26 @@ export default function Frog({ size = 100, style }) {
               <Stop offset="0" stopColor={c.bellyTop} />
               <Stop offset="1" stopColor={c.bellyLow} />
             </RadialGradient>
+            <ClipPath {...{ id: `${uid}-ctorso` }}>
+              <Path d={TORSO} />
+            </ClipPath>
           </Defs>
           <Path d={TORSO} fill={`url(#${uid}-body2)`} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.55} />
-          {/* A core shadow down the far side and a light along the near one.
-              A gradient on its own gives a ball; these give a body. */}
-          <Path d={SHADE} fill={c.shade} opacity={0.5} />
-          <Path d={SHEEN} fill={c.sheen} opacity={0.4} />
-          {SPOTS.map((s) => (
-            <Ellipse key={`${s.cx}-${s.cy}`} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={c.spot} opacity={0.5} />
-          ))}
-          <Ellipse {...BELLY} fill={`url(#${uid}-belly2)`} />
+          {/* A core shadow down the far side and a light along the near one,
+              both cut to the body. Loose, they hung outside the silhouette —
+              the smudges that were reported. */}
+          <G clipPath={`url(#${uid}-ctorso)`}>
+            <Path d={SHADE} fill={c.shade} opacity={0.45} />
+            <Path d={SHEEN} fill={c.sheen} opacity={0.38} />
+          </G>
+          <Ellipse {...BELLY} fill={`url(#${uid}-belly2)`} stroke={c.edge} strokeWidth={2} strokeOpacity={0.3} />
           <Path d={ARM_FAR} fill={c.haunchFar} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.6} />
           {dots(FRONT_TOES.slice(3), c.haunchFar)}
           <Path d={ARM_NEAR} fill={c.limb} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.6} />
           {dots(FRONT_TOES.slice(0, 3), c.limb)}
+          {TOE_PADS.map((t) => (
+            <Circle key={`${t.cx}-${t.cy}`} cx={t.cx} cy={t.cy} r={t.r} fill={c.pad} opacity={0.5} />
+          ))}
         </Svg>
 
         {/* The head, which turns as one piece and carries its eyes with it. */}
@@ -220,6 +265,12 @@ export default function Frog({ size = 100, style }) {
                 <Stop offset="0" stopColor={c.bodyTop} />
                 <Stop offset="1" stopColor={c.bodyLow} />
               </RadialGradient>
+              <ClipPath {...{ id: `${uid}-chead` }}>
+                <Path d={HEAD} />
+                {EYE_BUMPS.map((b) => (
+                  <Circle key={`${b.cx}`} cx={b.cx} cy={b.cy} r={b.r} />
+                ))}
+              </ClipPath>
             </Defs>
             {EYE_BUMPS.map((b) => (
               <Circle
@@ -234,18 +285,43 @@ export default function Frog({ size = 100, style }) {
               />
             ))}
             <Path d={HEAD} fill={`url(#${uid}-head)`} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.5} />
-            <Ellipse {...MUZZLE} fill={c.muzzle} opacity={0.55} />
-            <Path d={MOUTH_OPEN} fill={c.mouth} />
-            <Ellipse {...TONGUE} fill={c.tongue} />
-            <Path d={MOUTH_LINE} stroke={c.edge} strokeWidth={3} strokeLinecap="round" fill="none" opacity={0.8} />
+            {/* Spots and brows cut to the head, and the brows laid on BEFORE
+                the whites, so a stray one cannot end up across an eye — which
+                is exactly what happened when they went on last. */}
+            <G clipPath={`url(#${uid}-chead)`}>
+              {spots(SPOTS_HEAD)}
+              {BROWS.map((d) => (
+                <Path key={d} d={d} stroke={c.edge} strokeWidth={3.6} strokeLinecap="round" fill="none" opacity={0.32} />
+              ))}
+            </G>
+            <Ellipse {...MUZZLE} fill={c.muzzle} opacity={0.5} />
+          </Svg>
+
+          {/* The jaw, hinged on the lip line. */}
+          <Animated.View style={[StyleSheet.absoluteFill, jaw]}>
+            <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+              <Path d={MOUTH_OPEN} fill={c.mouth} />
+              <Ellipse {...TONGUE} fill={c.tongue} />
+            </Svg>
+          </Animated.View>
+
+          <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
+            <Path d={MOUTH_LINE} stroke={c.edge} strokeWidth={3} strokeLinecap="round" fill="none" opacity={0.75} />
             {NOSTRILS.map((n) => (
-              <Circle key={`${n.cx}`} cx={n.cx} cy={n.cy} r={n.r} fill={c.edge} opacity={0.7} />
+              <Circle key={`${n.cx}`} cx={n.cx} cy={n.cy} r={n.r} fill={c.edge} opacity={0.65} />
             ))}
             {[EYE.near, EYE.far].map((e) => (
-              <Ellipse key={`${e.cx}`} cx={e.cx} cy={e.cy} rx={e.rx} ry={e.ry} fill={c.eyeWhite} />
-            ))}
-            {BROWS.map((d) => (
-              <Path key={d} d={d} stroke={c.edge} strokeWidth={4} strokeLinecap="round" fill="none" opacity={0.4} />
+              <Ellipse
+                key={`${e.cx}`}
+                cx={e.cx}
+                cy={e.cy}
+                rx={e.rx}
+                ry={e.ry}
+                fill={c.eyeWhite}
+                stroke={c.edge}
+                strokeWidth={2}
+                strokeOpacity={0.4}
+              />
             ))}
           </Svg>
 

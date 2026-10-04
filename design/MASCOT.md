@@ -60,13 +60,24 @@ It now has soft shading, because the pond it sits in is built the same way —
 the sky, the light and the water are all gradients — and a hard flat frog in
 front of them reads as a sticker on a photograph.
 
-**What it does, and only this.** It breathes with its whole body. It turns its
+**Every detail is cut to the part it belongs to.** Shading, dapples and brow
+ridges were laid on loose and landed on edges, over the eyes and outside the
+silhouette — reported as smudges and stray circles, which is what they were.
+Nudging coordinates does not fix that in general: a spot on the head is clipped
+by the head, shading on the body is clipped by the body, and the brows go on
+BEFORE the whites so a stray one cannot end up across an eye.
+
+**What it does, and only this.** It breathes — the body swells while the feet
+stay on the ground. The whole frog used to rise and fall, which reads as the
+picture being moved rather than as a creature filling its chest. It turns its
 head — about where the head meets the body, because a head that pivots on its
 own chin is a head on a spike. Its eyes travel inside that turn and a beat
 behind it, the way eyes lead and heads follow. It blinks. And it shifts its
-weight on the near haunch, slowest of all.
+weight on the near haunch, slowest of all. And every so often it shuts its
+mouth for a moment, hinged on the lip line, because a smile held without
+interruption is a photograph of a smile.
 
-None of the five divides into another, so it never returns to where it started
+None of the six divides into another, so it never returns to where it started
 at the same moment twice, which is the difference between alive and looping.
 The test for each is whether you would notice it while reading the figures. You
 should not.

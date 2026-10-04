@@ -57,11 +57,11 @@ export const TORSO =
 // The core shadow down the far side, and the light along the near one. Two
 // shapes, because a gradient alone gives a ball and not a body.
 export const SHADE =
-  'M 150 74 C 168 94, 173 126, 164 152 C 156 174, 136 183, 116 183 ' +
-  'C 142 170, 154 140, 152 112 C 151 94, 150 82, 150 74 Z';
+  'M 138 76 C 154 98, 157 130, 147 155 C 139 174, 123 182, 108 183 ' +
+  'C 132 168, 142 139, 140 111 C 139 95, 138 83, 138 76 Z';
 export const SHEEN =
-  'M 62 76 C 48 92, 41 112, 42 132 C 43 146, 47 158, 54 166 ' +
-  'C 45 146, 45 118, 54 98 C 58 88, 60 80, 62 76 Z';
+  'M 66 80 C 54 96, 48 114, 49 132 C 50 146, 54 158, 61 166 ' +
+  'C 52 148, 52 119, 60 100 C 63 90, 65 84, 66 80 Z';
 
 // The head, as its own mass so it can turn without the body going with it.
 export const HEAD =
@@ -80,9 +80,13 @@ export const EYE_BUMPS = [
 
 // A ridge over each eye. Small, and the thing that gives the face an
 // expression rather than two circles.
+// A ridge along the top rim of each eye bump — ON the bump, following it, not
+// floating above it. They used to be drawn after the whites and crossed them,
+// which is the "eyebrows over the eyes" that was reported. They go on before
+// the whites now, so even a stray one cannot land on an eye.
 export const BROWS = [
-  'M 38 34 C 46 18, 74 14, 85 26',
-  'M 118 28 C 128 17, 148 19, 155 32',
+  'M 32 33 Q 57 7, 83 31',
+  'M 110 37 Q 131 14, 153 37',
 ];
 
 // The muzzle: a lighter mass under the eyes, which is what makes the mouth sit
@@ -131,13 +135,37 @@ export const FRONT_TOES = [
   { cx: 144, cy: 179, r: 6 },
 ];
 
-export const SPOTS = [
-  { cx: 100 - TURN, cy: 24, rx: 5, ry: 4 },
-  { cx: 46, cy: 100, rx: 6, ry: 5 },
-  { cx: 156, cy: 104, rx: 5, ry: 4.5 },
-  { cx: 52, cy: 132, rx: 5.5, ry: 4.5 },
-  { cx: 148, cy: 140, rx: 4.5, ry: 4 },
-  { cx: 78 - TURN, cy: 26, rx: 3.5, ry: 3 },
+// Dapples belong to the part they are on and are cut to its shape. Scattered
+// over the whole drawing they landed on edges and on things that were not
+// there — the stray circles that were reported. Each list here is clipped to
+// its own piece, so a spot cannot leave the frog.
+export const SPOTS_HEAD = [
+  { cx: 92, cy: 23, rx: 4, ry: 3.2 },
+  { cx: 108, cy: 20, rx: 3, ry: 2.4 },
+  { cx: 46, cy: 66, rx: 3.4, ry: 2.8 },
+  { cx: 146, cy: 68, rx: 3, ry: 2.4 },
+];
+
+export const SPOTS_NEAR = [
+  { cx: 36, cy: 132, rx: 4.6, ry: 3.8 },
+  { cx: 26, cy: 155, rx: 3.6, ry: 3 },
+  { cx: 48, cy: 152, rx: 3.2, ry: 2.6 },
+];
+
+export const SPOTS_FAR = [
+  { cx: 162, cy: 138, rx: 4, ry: 3.2 },
+  { cx: 170, cy: 158, rx: 3.2, ry: 2.6 },
+];
+
+// Pale tips on the toes. Small, and the kind of thing that is only noticed
+// when it is missing.
+export const TOE_PADS = [
+  { cx: 14, cy: 177, r: 4 },
+  { cx: 29, cy: 184, r: 4.2 },
+  { cx: 47, cy: 185, r: 4 },
+  { cx: 34, cy: 173, r: 3 },
+  { cx: 46, cy: 178, r: 3.2 },
+  { cx: 58, cy: 177, r: 3 },
 ];
 
 export function palette(night) {
@@ -163,6 +191,7 @@ export function palette(night) {
       mouth: '#4A1E22',
       tongue: '#A05259',
       ground: '#02100C',
+      pad: '#E8D9A8',
     };
   }
   return {
@@ -186,5 +215,6 @@ export function palette(night) {
     mouth: '#6E2A2F',
     tongue: '#D97C84',
     ground: '#063029',
+    pad: '#FFF1C4',
   };
 }
