@@ -172,7 +172,34 @@ have meant drawing it twice.
       box scrolling inside a screen that scrolled, two gestures in one place
       and no way for the finger to tell which it had hold of. This is the
       screen scrolling, and nothing scrolls inside it.
-- [ ] **Lists.** Horizon, and the folder cards in the new system.
+
+      **The chosen day was a square**, which he caught. It is drawn twice —
+      by the library when the month is open, by WeekRow when it is folded —
+      and the two did not agree: the grid uses 32 across with a radius of 16,
+      the week row used 34 with a radius of 999. Every other round thing in
+      this app is drawn at exactly half its own width, and an oversized radius
+      is not reliably clamped on Android under Fabric, so the single outlier
+      was the single marker that came out square. Both now take their size and
+      radius from the same pair of numbers, and a test reads the library's own
+      stylesheet so a version bump that moves them fails rather than drifts.
+- [x] **Lists.** The horizon is on it and the whole screen is on the tokens.
+
+      It is the third screen to wear the switch, in the same place, on the
+      same water, and its icons went for the reason the calendar's went: a
+      control that differs from tab to tab reads as a different control
+      rather than the same one again.
+
+      The folder card keeps its height. Everything else moved onto the scale,
+      but 84 and the 10 under it stay plain numbers, because the drag
+      hit-test measures against the two of them added together and a card
+      whose height the arithmetic does not know about drops into the wrong
+      slot. They are changed together or not at all, and the code says so.
+
+      The three dots were a 19pt glyph with twelve points of padding around
+      it. They are the discoverable way into a folder's actions — the long
+      press does the same thing and nobody finds it — so they carry a 48
+      target now, as do the drag handle, the folder-name field and the two
+      filter chips.
 - [~] **Day and night crossing.** Built, in both directions and over 1.4
       seconds. The sun leaves on one side while the moon rises on the other
       into the place it left; the reflection dims while nothing is above it;

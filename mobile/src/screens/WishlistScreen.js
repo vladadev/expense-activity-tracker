@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   ScrollView,
   Alert,
@@ -16,6 +17,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
+import { ON_WATER, ON_WATER_DIM } from '../components/pond/onWater';
+import { space, radius, type, HIT } from '../theme/scale';
 import Screen from '../components/Screen';
 import StaleNotice from '../components/StaleNotice';
 import { tapLight } from '../utils/haptics';
@@ -441,24 +444,34 @@ export default function WishlistScreen({ navigation }) {
   const folderIcon = listType === 'wishlist' ? 'gift-outline' : 'checkbox-outline';
 
   return (
-    <Screen title={t('nav.wishlist')} showBack={false}>
+    <Screen title={t('nav.wishlist')} showBack={false} horizon>
       <View style={{ flex: 1 }}>
         <StaleNotice at={staleAt} />
-        <View style={styles.segmentRow}>
-          {[
-            { key: 'wishlist', label: t('wishlist.segmentWishlist'), icon: 'gift-outline' },
-            { key: 'todo', label: t('wishlist.segmentTodo'), icon: 'checkbox-outline' },
-          ].map((seg) => (
-            <TouchableOpacity
-              key={seg.key}
-              style={[styles.segment, listType === seg.key && { backgroundColor: theme.primary }]}
-              onPress={() => setListType(seg.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={seg.icon} size={15} color={listType === seg.key ? '#fff' : theme.textSecondary} />
-              <Text style={[styles.segmentText, listType === seg.key && styles.segmentTextActive]}>{seg.label}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* The third screen to wear this switch, and the third to wear it in
+            the same place on the same water. Icons gone, for the reason the
+            calendar's went: a control that differs between tabs reads as a
+            different control. */}
+        <View style={styles.switchRow}>
+          <View style={styles.track}>
+            {[
+              { key: 'wishlist', label: t('wishlist.segmentWishlist') },
+              { key: 'todo', label: t('wishlist.segmentTodo') },
+            ].map((seg) => {
+              const active = listType === seg.key;
+              return (
+                <Pressable
+                  key={seg.key}
+                  onPress={() => setListType(seg.key)}
+                  hitSlop={{ top: 3, bottom: 3 }}
+                  style={[styles.segment, active && styles.segmentActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{seg.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         {listType === 'todo' && (
@@ -657,68 +670,72 @@ export default function WishlistScreen({ navigation }) {
 
 function createStyles(theme) {
   return StyleSheet.create({
-    segmentRow: {
+    // The switch, on the water, in the place Money and the calendar keep it.
+    switchRow: { paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: space.sm },
+    track: {
       flexDirection: 'row',
-      backgroundColor: theme.surface,
-      borderRadius: 10,
-      padding: 3,
-      marginHorizontal: 16,
-      marginTop: 12,
+      borderRadius: radius.control + 4,
+      padding: 4,
+      backgroundColor: theme.isDark ? 'rgba(4, 15, 20, 0.5)' : 'rgba(7, 56, 47, 0.42)',
+      borderWidth: 1,
+      borderColor: 'rgba(244, 242, 236, 0.18)',
     },
     segment: {
       flex: 1,
-      flexDirection: 'row',
+      height: 42,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: radius.control,
     },
-    segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
-    segmentTextActive: { color: '#fff' },
-    addSection: { padding: 16 },
-    viewToggleRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+    segmentActive: { backgroundColor: theme.isDark ? theme.surface : ON_WATER },
+    segmentText: { ...type.bodyStrong, fontSize: 14, color: ON_WATER_DIM },
+    segmentTextActive: { color: theme.isDark ? theme.text : '#07382F' },
+
+    addSection: { padding: space.md },
+    viewToggleRow: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.md, paddingTop: space.sm + 4 },
     viewToggle: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 13,
-      paddingVertical: 7,
-      borderRadius: 999,
+      gap: space.sm - 2,
+      minHeight: HIT,
+      paddingHorizontal: space.md,
+      borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: theme.border,
+      backgroundColor: theme.surface,
     },
-    viewToggleText: { fontSize: 12, color: theme.textSecondary },
-    taskGroup: { marginTop: 16 },
-    taskGroupLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: theme.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 7,
-    },
+    viewToggleText: { ...type.secondary, color: theme.textSecondary },
+
+    taskGroup: { marginTop: space.md },
+    taskGroupLabel: { ...type.label, color: theme.textSecondary, marginBottom: space.sm - 1 },
     taskRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 11,
+      gap: space.sm + 2,
+      minHeight: HIT,
       backgroundColor: theme.surface,
-      borderRadius: 10,
-      paddingVertical: 13,
-      paddingHorizontal: 13,
-      marginBottom: 6,
+      borderRadius: radius.control,
+      paddingVertical: space.sm + 4,
+      paddingHorizontal: space.sm + 4,
+      marginBottom: space.sm - 2,
       borderLeftWidth: 4,
+      borderTopWidth: theme.isDark ? 1 : 0,
+      borderRightWidth: theme.isDark ? 1 : 0,
+      borderBottomWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
     },
-    taskPersonDot: { width: 9, height: 9, borderRadius: 5 },
+    taskPersonDot: { width: 9, height: 9, borderRadius: 4.5 },
     taskCheckbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 6,
+      width: 22,
+      height: 22,
+      borderRadius: radius.control - 3,
       borderWidth: 2,
       borderColor: theme.border,
     },
-    taskTitle: { flex: 1, fontSize: 14, color: theme.text },
-    moreButton: { paddingHorizontal: 6, paddingVertical: 8 },
+    taskTitle: { flex: 1, ...type.bodyStrong, color: theme.text },
+    // A 48 target around a 19pt glyph: the dots are the discoverable way into
+    // a folder's actions, and a thumb has to be able to land on them.
+    moreButton: { width: HIT - 10, minHeight: HIT, alignItems: 'center', justifyContent: 'center' },
     nestHint: { fontSize: 12, color: theme.primary, fontWeight: '700', marginTop: 2 },
     insertLine: {
       position: 'absolute',
@@ -729,61 +746,72 @@ function createStyles(theme) {
       backgroundColor: theme.primary,
       zIndex: 5,
     },
-    addRow: { flexDirection: 'row', gap: 8 },
+    addRow: { flexDirection: 'row', gap: space.sm },
     inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     input: {
+      flex: 1,
+      minHeight: HIT,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 10,
-      padding: 12,
-      fontSize: 15,
-      flex: 1,
+      borderRadius: radius.control,
+      paddingHorizontal: space.sm + 4,
+      paddingVertical: space.sm + 2,
+      ...type.body,
       backgroundColor: theme.surface,
       color: theme.text,
     },
     addButton: {
+      minWidth: HIT,
+      minHeight: HIT,
       backgroundColor: theme.primary,
-      borderRadius: 10,
-      paddingHorizontal: 14,
+      borderRadius: radius.control,
+      paddingHorizontal: space.md - 2,
+      alignItems: 'center',
       justifyContent: 'center',
     },
+    // FOLDER_HEIGHT and FOLDER_GAP stay plain numbers rather than tokens: the
+    // drag hit-test measures against STEP, which is the two of them added, and
+    // a card whose height the maths does not know about drops in the wrong
+    // slot. They are changed together or not at all.
     folderCard: {
       height: FOLDER_HEIGHT,
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: radius.card,
       marginBottom: FOLDER_GAP,
-      paddingRight: 4,
+      paddingRight: space.xs,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
     },
     folderTouchable: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       height: '100%',
-      paddingLeft: 14,
-      gap: 12,
+      paddingLeft: space.md - 2,
+      gap: space.sm + 4,
     },
     folderIconWrap: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: radius.control + 2,
       backgroundColor: hexToRgba(theme.primary, 0.12),
       alignItems: 'center',
       justifyContent: 'center',
     },
-    folderName: { fontSize: 15, fontWeight: '700', color: theme.text },
-    folderSummary: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    folderName: { ...type.bodyStrong, color: theme.text },
+    folderSummary: { ...type.secondary, fontSize: 12, color: theme.textSecondary, marginTop: 2 },
     progressTrack: {
       height: 4,
       borderRadius: 2,
       backgroundColor: hexToRgba(theme.primary, 0.15),
       overflow: 'hidden',
-      marginTop: 8,
-      marginRight: 8,
+      marginTop: space.sm,
+      marginRight: space.sm,
     },
     progressFill: { height: 4, borderRadius: 2, backgroundColor: theme.primary },
-    dragHandle: { paddingVertical: 12, paddingHorizontal: 10 },
-    emptyText: { color: theme.textSecondary, textAlign: 'center', marginTop: 40 },
+    dragHandle: { minHeight: HIT, paddingHorizontal: space.sm + 2, alignItems: 'center', justifyContent: 'center' },
+    emptyText: { ...type.secondary, color: theme.textSecondary, textAlign: 'center', marginTop: space.xl },
   });
 }

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { space, radius, type, HIT } from '../theme/scale';
+import { space, font, type, tabular, HIT } from '../theme/scale';
 
 // The month, collapsed to the week the chosen day is in.
 //
@@ -14,6 +14,18 @@ import { space, radius, type, HIT } from '../theme/scale';
 // Written here rather than reached for from the calendar library, because the
 // library's own collapsing calendar brings its own provider and its own theme
 // and would have to be taught the palette twice.
+//
+// The chosen day is drawn at exactly the size and radius the grid above draws
+// it, from the constants below, so folding and unfolding moves rows and
+// nothing else. It was 34 wide with a radius of 999, and that is the bug he
+// found: every other round thing in this app is drawn at half its own width,
+// and an oversized radius is not reliably clamped on Android under Fabric, so
+// the one outlier was the one marker that came out square.
+
+// What the calendar library draws a day in: 32 across, radius exactly half.
+// Changing either here without changing the grid's theme splits the two.
+export const DAY = 32;
+export const DAY_RADIUS = DAY / 2;
 
 // Monday first, the same as the grid above it.
 function startOfWeek(iso) {
@@ -81,14 +93,16 @@ function createStyles(theme) {
     cell: { flex: 1, alignItems: 'center', paddingVertical: space.xs, minHeight: HIT + 14 },
     heading: { ...type.secondary, fontSize: 11, color: theme.textSecondary },
     number: {
-      width: 34,
-      height: 34,
-      borderRadius: radius.full,
+      width: DAY,
+      height: DAY,
+      borderRadius: DAY_RADIUS,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 2,
     },
-    numberText: { ...type.amountSmall, fontSize: 16, color: theme.text },
+    // The grid's own day type, so the figure does not change size or face when
+    // the month folds around it.
+    numberText: { fontFamily: font.displayMedium, fontSize: 17, ...tabular, color: theme.text },
     dots: { flexDirection: 'row', gap: 3, height: 6, alignItems: 'center' },
     dot: { width: 5, height: 5, borderRadius: 3 },
   });
