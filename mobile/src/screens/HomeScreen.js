@@ -11,7 +11,7 @@ import { usePersonColor } from '../context/PersonColorsContext';
 import PondScene from '../components/pond/PondScene';
 import { ON_WATER, ON_WATER_DIM, useStatusBarOnWater } from '../components/pond/onWater';
 import DayNightToggle from '../components/pond/DayNightToggle';
-import MascotSlot, { MASCOT_SIZES } from '../components/pond/MascotSlot';
+import Frog from '../components/pond/Frog';
 import { SCENE, LEAF_VIEWBOX } from '../components/pond/geometry';
 import HouseholdChip from '../components/HouseholdChip';
 import NotificationBell from '../components/NotificationBell';
@@ -34,6 +34,10 @@ import { space, radius, type } from '../theme/scale';
 // the app, never behind a number.
 
 const SCENE_RATIO = 0.46;
+
+// Big enough to have a face at arm's length, small enough to leave the pad it
+// sits on visible in front of it.
+const FROG_SIZE = 96;
 
 function localDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -144,20 +148,15 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <PondScene width={width} height={sceneHeight} fadeTo={theme.background}>
-        {/* Sitting ON the pad, not beside it: centred on the perch and resting
-            its feet just past the pad's middle, so when the frog replaces the
-            box it is already standing where a frog would.
-
-            It used to be placed by eye, which put its foot through the stale
-            notice below and left a lily pad floating across its middle. */}
-        <MascotSlot
-          slot="scene"
+        {/* Sitting ON the pad, not beside it: centred on the perch and
+            resting its feet just past the pad's middle, which is where a frog
+            would be. */}
+        <Frog
+          size={FROG_SIZE}
           style={{
             position: 'absolute',
-            left: width * SCENE.perchX - MASCOT_SIZES.scene.width / 2,
-            // Standing on the pad's back third, so the front of the pad is
-            // still there to be seen under whatever ends up on it.
-            top: perch.top + perch.height * 0.35 - MASCOT_SIZES.scene.height,
+            left: width * SCENE.perchX - FROG_SIZE / 2,
+            top: perch.top + perch.height * 0.35 - FROG_SIZE,
           }}
         />
       </PondScene>

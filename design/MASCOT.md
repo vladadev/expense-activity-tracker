@@ -39,7 +39,44 @@ attention" — the dot on the bell, the banner for writes waiting on a
 connection. If the two start competing once the frog is real, the alert colour
 moves and the frog stays.
 
+## How it is made
+
+**Drawn in code, as SVG, not generated as a picture.** Decided on 4 October
+2026, after a generated frog was used as the reference for the look.
+
+The reason is the second half of what was asked for: it has to move. A picture
+can be slid about and scaled and nothing else. A frog built from named parts —
+body, haunches, eye whites, irises, lids — can blink, breathe and look around,
+and those three are most of what separates a character that is alive from one
+that is stuck on. It also comes in both themes from one source, renders at any
+size, and costs nothing to ship.
+
+`src/components/pond/frogShapes.js` holds the shapes and the two palettes;
+`Frog.js` holds the three movements. Nothing about the drawing is in the
+component and nothing about the animation is in the shapes.
+
+**The style moved too.** This file used to say flat, no gradients, no shading.
+It now has soft shading, because the pond it sits in is built the same way —
+the sky, the light and the water are all gradients — and a hard flat frog in
+front of them reads as a sticker on a photograph.
+
+**What it does, and only this.** It breathes with its whole body, about a
+fifteenth of its size. It blinks. Its eyes drift two points. All three are
+slow, small, and on counts that do not meet: a mascot that is always doing
+something is a distraction on a screen that also carries what you spent this
+month.
+
+**The proportions are the likeness.** The first attempt had every part in the
+right place and read as a ball, because a sitting frog is not round — it is a
+narrow head on a wide pair of haunches. Head about two thirds the width of the
+hips, eyes a fifth of the width each, belly well under half, and four feet that
+each clear the body: that silhouette is what makes it legible at 96 pixels, not
+the detail inside it.
+
 ## The prompt
+
+Kept for reference, and for anyone generating a pose to draw from rather than
+to ship.
 
 Step one, the character itself:
 

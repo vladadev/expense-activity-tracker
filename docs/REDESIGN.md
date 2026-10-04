@@ -157,25 +157,22 @@ have meant drawing it twice.
 
 - [ ] **Onboarding**: empty states that teach, one guided first expense, at
       most three coachmarks on the screens they belong to.
-- [~] **The mascot.** The brief is finished — four poses, their sizes, the
-      colours and the prompts are all in `design/MASCOT.md` — and the slots are
-      now reserved in code as well as on the canvas: `MascotSlot` draws the
-      hole at the real size, in the design build only, so it can be judged on
-      the real screen in both themes before anything is drawn. The first one is
-      on Home.
+- [~] **The mascot.** The frog exists and is on Home, sitting on its pad. It
+      is drawn in code rather than generated as a picture, because it has to
+      move: it breathes, it blinks and its eyes drift, all three slow and on
+      counts that do not meet. Both themes come from one source and it renders
+      at any size. See `design/MASCOT.md`, which also records that the style
+      moved from flat to softly shaded — the pond it sits in is made of
+      gradients, and a hard flat frog in front of them is a sticker.
 
-      **The character is being settled now, the poses later.** He asked for the
-      base frog early so the look is agreed before anything depends on it;
-      round one is four candidates on the canvas board "Maskota — kandidati",
-      each shown large and again at 96 and 48 over the water, because that is
-      the size the choice actually has to survive. Once one is chosen it goes
-      into Home's slot.
+      Canvas board: **"Maskota — nacrtana"**, beside the generated candidates
+      that settled the look.
 
-      The four poses wait for onboarding. Three of them do a job on screens
-      that do not exist yet — onboarding, empty states, a moment worth marking
-      — so drawing them now means drawing against guesses. It is also the one
-      piece that is art rather than code, so it never sits on the critical
-      path: it can be drawn while the screens are finished.
+      What is left: the three poses that do a job — waving for onboarding,
+      sitting for empty states, holding a lily pad over the figures in privacy
+      mode, arms up for a moment worth marking. They wait for the screens they
+      belong to, which do not exist yet.
+
 - [ ] **A name.** Pond is a working title he accepted quickly and wants to
       better. Nothing is published under it and nothing depends on it.
 
