@@ -60,11 +60,27 @@ It now has soft shading, because the pond it sits in is built the same way —
 the sky, the light and the water are all gradients — and a hard flat frog in
 front of them reads as a sticker on a photograph.
 
-**What it does, and only this.** It breathes with its whole body, about a
-fifteenth of its size. It blinks. Its eyes drift two points. All three are
-slow, small, and on counts that do not meet: a mascot that is always doing
-something is a distraction on a screen that also carries what you spent this
-month.
+**What it does, and only this.** It breathes with its whole body. It turns its
+head — about where the head meets the body, because a head that pivots on its
+own chin is a head on a spike. Its eyes travel inside that turn and a beat
+behind it, the way eyes lead and heads follow. It blinks. And it shifts its
+weight on the near haunch, slowest of all.
+
+None of the five divides into another, so it never returns to where it started
+at the same moment twice, which is the difference between alive and looping.
+The test for each is whether you would notice it while reading the figures. You
+should not.
+
+**Turned, not facing front.** A frog drawn square-on reads as a diagram of a
+frog. It is turned a few degrees: the far eye is smaller and tucked towards the
+middle, the near haunch is bigger and overlaps the body, the far one is mostly
+behind it. A face slid sideways is not a turn; foreshortening is.
+
+**Arms in front of the belly, and a contour on everything.** Arms behind the
+body are a change in the silhouette and nothing more — they could not be seen
+and were reported missing. Every part now carries a darker contour, which is
+what separates an arm from the body it is in front of, and it is most of what
+the reference had that the first drawings did not.
 
 **The proportions are the likeness.** The first attempt had every part in the
 right place and read as a ball, because a sitting frog is not round — it is a

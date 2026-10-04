@@ -1,21 +1,28 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Animated, Easing, StyleSheet } from 'react-native';
-import Svg, { Path, Circle, Ellipse, Defs, LinearGradient, RadialGradient, Stop, G } from 'react-native-svg';
+import Svg, { Path, Circle, Ellipse, Defs, RadialGradient, Stop, G } from 'react-native-svg';
 import {
   FROG_BOX,
   EYE,
-  HAUNCH_LEFT,
-  HAUNCH_RIGHT,
-  BODY,
+  GROUND,
+  HAUNCH_NEAR,
+  HAUNCH_FAR,
+  TORSO,
+  SHADE,
+  SHEEN,
+  HEAD,
   EYE_BUMPS,
-  BELLY,
-  MOUTH,
-  MOUTH_CORNERS,
+  BROWS,
+  MUZZLE,
+  MOUTH_OPEN,
+  MOUTH_LINE,
+  TONGUE,
   NOSTRILS,
-  ARM_LEFT,
-  ARM_RIGHT,
-  TOES,
-  BACK_FEET,
+  ARM_NEAR,
+  ARM_FAR,
+  BELLY,
+  BACK_TOES,
+  FRONT_TOES,
   SPOTS,
   palette,
 } from './frogShapes';
@@ -23,78 +30,45 @@ import { useTheme } from '../../context/ThemeContext';
 
 // The frog.
 //
-// Three movements, and no more. A mascot that is always doing something is a
-// distraction on a screen that also carries what you spent this month; one
-// that never moves is a sticker. So it breathes, it blinks, and its eyes drift
-// — all three slow, small, and on counts that do not meet.
+// Five movements, each on its own count, and the counts do not divide into
+// each other — so the frog never arrives back where it started at the same
+// moment twice, which is the whole difference between alive and looping.
 //
-// Breathing is the whole body, a fifteenth of its size, which is under the
-// threshold at which movement is consciously noticed and above the one at
-// which it is felt. Blinking is two lids over the eyes rather than anything
-// inside the drawing, because animating an attribute of an SVG element is how
-// you get a transform that silently does nothing. And the eyes drift by two
-// points, which is enough to read as looking about and not enough to read as
-// anything being wrong.
+// It breathes with its whole body. It turns its head. Its eyes travel inside
+// that turn, a beat behind it, the way eyes lead and heads follow. It blinks.
+// And it shifts its weight on the near haunch, slowest of all.
+//
+// None of it is large. A mascot that is always doing something is a
+// distraction on a screen that also carries what you spent this month; the
+// test of each of these is whether you would notice it if you were looking at
+// the figures instead. You should not.
 
 let frogSeq = 0;
 
 const BREATHE_MS = 3600;
-const LOOK_MS = 5400;
-// A blink is 140ms of lid; the rest of this is the frog not blinking.
-const BLINK_EVERY = 4800;
-const BLINK_MS = 140;
+const TURN_MS = 5200;
+const LOOK_MS = 4100;
+const SHIFT_MS = 7300;
+const BLINK_MS = 130;
+const BLINK_EVERY = 4300;
 
-function useBreath() {
+function useLoopValue(build, deps) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: BREATHE_MS, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: BREATHE_MS, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
+    const loop = Animated.loop(build(v));
     loop.start();
     return () => loop.stop();
-  }, [v]);
+  }, deps);
   return v;
 }
 
-function useLook() {
-  const v = useRef(new Animated.Value(0.5)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: LOOK_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.delay(900),
-        Animated.timing(v, { toValue: 0, duration: LOOK_MS * 1.3, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.delay(1400),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [v]);
-  return v;
-}
-
-// Shut, open, and then a long wait. Two in a row now and then would be better
-// still, but a single blink on an uneven count is already far from a metronome
-// at this duration.
-function useBlink(delay) {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(v, { toValue: 1, duration: BLINK_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: BLINK_MS * 1.4, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-        Animated.delay(BLINK_EVERY),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [v, delay]);
-  return v;
-}
+const swing = (v, ms, hold = 0) =>
+  Animated.sequence([
+    Animated.timing(v, { toValue: 1, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    Animated.delay(hold),
+    Animated.timing(v, { toValue: 0, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    Animated.delay(hold),
+  ]);
 
 const styles = StyleSheet.create({
   lid: { position: 'absolute' },
@@ -107,118 +81,204 @@ export default function Frog({ size = 100, style }) {
   // screen at once would wear each other's colours.
   const uid = useRef(`frog${(frogSeq += 1)}`).current;
 
-  const breath = useBreath();
-  const look = useLook();
-  const blink = useBlink(2100);
+  const breath = useLoopValue((v) => swing(v, BREATHE_MS), []);
+  const turn = useLoopValue((v) => swing(v, TURN_MS, 1100), []);
+  const look = useLoopValue((v) => swing(v, LOOK_MS, 700), []);
+  const shift = useLoopValue((v) => swing(v, SHIFT_MS, 1800), []);
+  const blink = useLoopValue(
+    (v) =>
+      Animated.sequence([
+        Animated.timing(v, { toValue: 1, duration: BLINK_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(v, { toValue: 0, duration: BLINK_MS * 1.5, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+        Animated.delay(BLINK_EVERY),
+      ]),
+    []
+  );
 
   const k = size / FROG_BOX;
   const at = (n) => n * k;
+  const box = { width: size, height: size };
 
   const body = {
     transform: [
-      { translateY: breath.interpolate({ inputRange: [0, 1], outputRange: [0, at(-2.5)] }) },
-      { scaleY: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) },
-      { scaleX: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 0.993] }) },
+      { translateY: breath.interpolate({ inputRange: [0, 1], outputRange: [0, at(-2.2)] }) },
+      { scaleY: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.022] }) },
+      { scaleX: breath.interpolate({ inputRange: [0, 1], outputRange: [1, 0.994] }) },
+    ],
+  };
+  // The head turns about where it meets the body, not about the middle of the
+  // picture — a head that pivots on its own chin is a head on a spike.
+  const head = {
+    transformOrigin: [at(98), at(112)],
+    transform: [
+      { rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['-4.5deg', '3.5deg'] }) },
+      { translateX: turn.interpolate({ inputRange: [0, 1], outputRange: [at(-1.5), at(1.5)] }) },
     ],
   };
   const eyes = {
-    transform: [{ translateX: look.interpolate({ inputRange: [0, 1], outputRange: [at(-2), at(2)] }) }],
+    transform: [
+      { translateX: look.interpolate({ inputRange: [0, 1], outputRange: [at(-2.4), at(2.4)] }) },
+      { translateY: look.interpolate({ inputRange: [0, 1], outputRange: [at(0.8), at(-0.6)] }) },
+    ],
   };
+  // Weight on and off the near leg. The slowest thing it does.
+  const leg = {
+    transformOrigin: [at(70), at(104)],
+    transform: [{ rotate: shift.interpolate({ inputRange: [0, 1], outputRange: ['-1.6deg', '2.2deg'] }) }],
+  };
+
   const lid = (eye) => ({
-    left: at(eye.cx - EYE.rx),
-    top: at(eye.cy - EYE.ry),
-    width: at(EYE.rx * 2),
-    height: at(EYE.ry * 2),
-    borderRadius: at(EYE.rx),
+    left: at(eye.cx - eye.rx),
+    top: at(eye.cy - eye.ry),
+    width: at(eye.rx * 2),
+    height: at(eye.ry * 2),
+    borderRadius: at(eye.rx),
     backgroundColor: c.lid,
+    borderBottomWidth: Math.max(1, at(2)),
+    borderBottomColor: c.edge,
     transformOrigin: 'top',
     transform: [{ scaleY: blink }],
   });
 
+  const dots = (list, fill) =>
+    list.map((t) => (
+      <Circle
+        key={`${t.cx}-${t.cy}`}
+        cx={t.cx}
+        cy={t.cy}
+        r={t.r}
+        fill={fill}
+        stroke={c.edge}
+        strokeWidth={2}
+        strokeOpacity={0.45}
+      />
+    ));
+
   return (
-    <View style={[{ width: size, height: size }, style]} pointerEvents="none">
+    <View style={[box, style]} pointerEvents="none">
       <Animated.View style={[StyleSheet.absoluteFill, body]}>
-        <Svg width={size} height={size} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+        {/* The ground and the far side: everything that does not move on its
+            own account. */}
+        <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
           <Defs>
-            {/* Light from above and slightly left, the same direction the pond
-                is lit from, so the frog belongs to the scene it sits in. */}
-            <LinearGradient {...{ id: `${uid}-body` }} x1="0.3" y1="0" x2="0.6" y2="1">
+            {/* Lit from above and to the near side, the same direction the
+                pond is lit from, so the frog belongs to the scene. */}
+            <RadialGradient {...{ id: `${uid}-body` }} cx="0.34" cy="0.22" r="0.92">
               <Stop offset="0" stopColor={c.bodyTop} />
               <Stop offset="1" stopColor={c.bodyLow} />
-            </LinearGradient>
-            <RadialGradient {...{ id: `${uid}-belly` }} cx="0.5" cy="0.34" r="0.78">
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-belly` }} cx="0.44" cy="0.3" r="0.8">
               <Stop offset="0" stopColor={c.bellyTop} />
               <Stop offset="1" stopColor={c.bellyLow} />
             </RadialGradient>
           </Defs>
 
-          <Path d={HAUNCH_LEFT} fill={c.haunch} />
-          <Path d={HAUNCH_RIGHT} fill={c.haunch} />
-          {BACK_FEET.map((f) => (
-            <Circle key={`${f.cx}`} cx={f.cx} cy={f.cy} r={f.r} fill={c.haunch} />
-          ))}
-
-          <Path d={ARM_LEFT} fill={c.bodyLow} />
-          <Path d={ARM_RIGHT} fill={c.bodyLow} />
-          {TOES.map((t) => (
-            <Circle key={`${t.cx}-${t.cy}`} cx={t.cx} cy={t.cy} r={t.r} fill={c.bodyLow} />
-          ))}
-
-          {EYE_BUMPS.map((b) => (
-            <Circle key={`${b.cx}`} cx={b.cx} cy={b.cy} r={b.r} fill={`url(#${uid}-body)`} />
-          ))}
-          <Path d={BODY} fill={`url(#${uid}-body)`} />
-
-          {SPOTS.map((s) => (
-            <Ellipse key={`${s.cx}-${s.cy}`} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={c.spot} opacity={0.65} />
-          ))}
-
-          <Ellipse cx={BELLY.cx} cy={BELLY.cy} rx={BELLY.rx} ry={BELLY.ry} fill={`url(#${uid}-belly)`} />
-
-          <Path d={MOUTH} stroke={c.edge} strokeWidth={4.5} strokeLinecap="round" fill="none" />
-          {MOUTH_CORNERS.map((m) => (
-            <Circle key={`${m.cx}`} cx={m.cx} cy={m.cy} r={m.r} fill={c.edge} />
-          ))}
-          {NOSTRILS.map((n) => (
-            <Circle key={`${n.cx}`} cx={n.cx} cy={n.cy} r={n.r} fill={c.edge} opacity={0.75} />
-          ))}
-
-          {[EYE.left, EYE.right].map((e) => (
-            <Ellipse key={`${e.cx}`} cx={e.cx} cy={e.cy} rx={EYE.rx} ry={EYE.ry} fill={c.eyeWhite} />
-          ))}
+          <Ellipse {...GROUND} fill={c.ground} opacity={0.28} />
+          <Path d={HAUNCH_FAR} fill={c.haunchFar} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.5} />
+          {dots(BACK_TOES.slice(3), c.haunchFar)}
         </Svg>
 
-        {/* The irises ride in their own layer so they can drift without the
-            whole face going with them. */}
-        <Animated.View style={[StyleSheet.absoluteFill, eyes]}>
-          <Svg width={size} height={size} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
-            <Defs>
-              <RadialGradient {...{ id: `${uid}-iris2` }} cx="0.42" cy="0.36" r="0.8">
-                <Stop offset="0" stopColor={c.iris} />
-                <Stop offset="1" stopColor={c.pupil} />
-              </RadialGradient>
-            </Defs>
-            {[EYE.left, EYE.right].map((e, i) => {
-              // Both irises turn in towards the middle, which is what stops a
-              // pair of eyes looking past you.
-              const dx = i === 0 ? EYE.irisDx : -EYE.irisDx;
-              return (
-                <G key={`${e.cx}`}>
-                  <Circle cx={e.cx + dx} cy={e.cy + EYE.irisDy} r={EYE.irisR} fill={`url(#${uid}-iris2)`} />
-                  <Circle cx={e.cx + dx} cy={e.cy + EYE.irisDy} r={EYE.pupilR} fill={c.pupil} />
-                  <Circle cx={e.cx + dx - 5} cy={e.cy + EYE.irisDy - 6} r={4.6} fill={c.glint} opacity={0.95} />
-                  <Circle cx={e.cx + dx + 6} cy={e.cy + EYE.irisDy + 5} r={2.2} fill={c.glint} opacity={0.55} />
-                </G>
-              );
-            })}
+        {/* The near leg, which takes the weight and gives it back. */}
+        <Animated.View style={[StyleSheet.absoluteFill, leg]}>
+          <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+            <Path d={HAUNCH_NEAR} fill={c.haunch} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.55} />
+            {dots(BACK_TOES.slice(0, 3), c.haunch)}
           </Svg>
         </Animated.View>
 
-        {/* Lids over the eyes, not inside the drawing. Animating an attribute
-            of an SVG element is how you get a transform that silently does
-            nothing on Android. */}
-        <Animated.View style={[styles.lid, lid(EYE.left)]} />
-        <Animated.View style={[styles.lid, lid(EYE.right)]} />
+        <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <RadialGradient {...{ id: `${uid}-body2` }} cx="0.34" cy="0.22" r="0.92">
+              <Stop offset="0" stopColor={c.bodyTop} />
+              <Stop offset="1" stopColor={c.bodyLow} />
+            </RadialGradient>
+            <RadialGradient {...{ id: `${uid}-belly2` }} cx="0.44" cy="0.3" r="0.8">
+              <Stop offset="0" stopColor={c.bellyTop} />
+              <Stop offset="1" stopColor={c.bellyLow} />
+            </RadialGradient>
+          </Defs>
+          <Path d={TORSO} fill={`url(#${uid}-body2)`} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.55} />
+          {/* A core shadow down the far side and a light along the near one.
+              A gradient on its own gives a ball; these give a body. */}
+          <Path d={SHADE} fill={c.shade} opacity={0.5} />
+          <Path d={SHEEN} fill={c.sheen} opacity={0.4} />
+          {SPOTS.map((s) => (
+            <Ellipse key={`${s.cx}-${s.cy}`} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={c.spot} opacity={0.5} />
+          ))}
+          <Ellipse {...BELLY} fill={`url(#${uid}-belly2)`} />
+          <Path d={ARM_FAR} fill={c.haunchFar} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.6} />
+          {dots(FRONT_TOES.slice(3), c.haunchFar)}
+          <Path d={ARM_NEAR} fill={c.limb} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.6} />
+          {dots(FRONT_TOES.slice(0, 3), c.limb)}
+        </Svg>
+
+        {/* The head, which turns as one piece and carries its eyes with it. */}
+        <Animated.View style={[StyleSheet.absoluteFill, head]}>
+          <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+            <Defs>
+              <RadialGradient {...{ id: `${uid}-head` }} cx="0.32" cy="0.2" r="0.95">
+                <Stop offset="0" stopColor={c.bodyTop} />
+                <Stop offset="1" stopColor={c.bodyLow} />
+              </RadialGradient>
+            </Defs>
+            {EYE_BUMPS.map((b) => (
+              <Circle
+                key={`${b.cx}`}
+                cx={b.cx}
+                cy={b.cy}
+                r={b.r}
+                fill={`url(#${uid}-head)`}
+                stroke={c.edge}
+                strokeWidth={2.6}
+                strokeOpacity={0.5}
+              />
+            ))}
+            <Path d={HEAD} fill={`url(#${uid}-head)`} stroke={c.edge} strokeWidth={2.6} strokeOpacity={0.5} />
+            <Ellipse {...MUZZLE} fill={c.muzzle} opacity={0.55} />
+            <Path d={MOUTH_OPEN} fill={c.mouth} />
+            <Ellipse {...TONGUE} fill={c.tongue} />
+            <Path d={MOUTH_LINE} stroke={c.edge} strokeWidth={3} strokeLinecap="round" fill="none" opacity={0.8} />
+            {NOSTRILS.map((n) => (
+              <Circle key={`${n.cx}`} cx={n.cx} cy={n.cy} r={n.r} fill={c.edge} opacity={0.7} />
+            ))}
+            {[EYE.near, EYE.far].map((e) => (
+              <Ellipse key={`${e.cx}`} cx={e.cx} cy={e.cy} rx={e.rx} ry={e.ry} fill={c.eyeWhite} />
+            ))}
+            {BROWS.map((d) => (
+              <Path key={d} d={d} stroke={c.edge} strokeWidth={4} strokeLinecap="round" fill="none" opacity={0.4} />
+            ))}
+          </Svg>
+
+          {/* The eyes travel inside the turn, and a beat behind it. */}
+          <Animated.View style={[StyleSheet.absoluteFill, eyes]}>
+            <Svg {...box} viewBox={`0 0 ${FROG_BOX} ${FROG_BOX}`}>
+              <Defs>
+                <RadialGradient {...{ id: `${uid}-iris` }} cx="0.4" cy="0.34" r="0.82">
+                  <Stop offset="0" stopColor={c.iris} />
+                  <Stop offset="1" stopColor={c.pupil} />
+                </RadialGradient>
+              </Defs>
+              {[EYE.near, EYE.far].map((e) => {
+                const cx = e.cx + EYE.irisDx;
+                const cy = e.cy + EYE.irisDy;
+                return (
+                  <G key={`${e.cx}`}>
+                    <Circle cx={cx} cy={cy} r={e.irisR} fill={`url(#${uid}-iris)`} />
+                    <Circle cx={cx} cy={cy} r={e.pupilR} fill={c.pupil} />
+                    <Circle cx={cx - e.irisR * 0.34} cy={cy - e.irisR * 0.42} r={e.irisR * 0.3} fill={c.glint} opacity={0.95} />
+                    <Circle cx={cx + e.irisR * 0.4} cy={cy + e.irisR * 0.34} r={e.irisR * 0.15} fill={c.glint} opacity={0.5} />
+                  </G>
+                );
+              })}
+            </Svg>
+          </Animated.View>
+
+          {/* Lids laid over the eyes rather than drawn inside them: animating
+              an attribute of an SVG element is how you get a transform that
+              silently does nothing on Android. */}
+          <Animated.View style={[styles.lid, lid(EYE.near)]} />
+          <Animated.View style={[styles.lid, lid(EYE.far)]} />
+        </Animated.View>
       </Animated.View>
     </View>
   );
