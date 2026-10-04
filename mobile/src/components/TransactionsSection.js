@@ -7,6 +7,7 @@ import { usePersonColor } from '../context/PersonColorsContext';
 import { matches } from '../utils/search';
 import { formatDayHeader } from '../i18n/dateFormat';
 import Money from './AmountText';
+import { space, radius, type, font, HIT } from '../theme/scale';
 
 const KINDS = ['expense', 'income', 'all'];
 const MAX_CHIPS = 8;
@@ -246,10 +247,14 @@ export default function TransactionsSection({
                 style={styles.dayHeaderTotal}
               />
             </View>
-            {group.items.map((row) => (
+            {/* One card per day, not a slab per row. A column of separately
+                floating rows reads as a list of unrelated things; a day is one
+                thing with entries in it. */}
+            <View style={styles.dayCard}>
+            {group.items.map((row, i) => (
               <TouchableOpacity
                 key={`${row.type}-${row.id}`}
-                style={[styles.row, { borderLeftColor: personColor(row.owner) }]}
+                style={[styles.row, { borderLeftColor: personColor(row.owner) }, i > 0 && styles.rowDivided]}
                 onPress={() => (row.type === 'expense' ? onEditExpense(row.raw) : onEditIncome(row.raw))}
                 onLongPress={() => confirmDelete(row)}
                 activeOpacity={0.7}
@@ -272,6 +277,7 @@ export default function TransactionsSection({
                 />
               </TouchableOpacity>
             ))}
+            </View>
           </View>
         ))
       )}
@@ -289,92 +295,104 @@ export default function TransactionsSection({
 
 function createStyles(theme) {
   return StyleSheet.create({
-    wrap: { marginTop: 28 },
+    wrap: { marginTop: space.lg + 4 },
     sectionBreak: {
       height: 1,
       backgroundColor: theme.border,
-      marginHorizontal: -16,
-      marginBottom: 22,
+      marginHorizontal: -space.md,
+      marginBottom: space.lg - 2,
     },
-    sectionTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.textSecondary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      marginBottom: 12,
-    },
+    sectionTitle: { ...type.label, color: theme.textSecondary, marginBottom: space.sm + 4 },
+
     segment: {
       flexDirection: 'row',
       backgroundColor: theme.surface,
-      borderRadius: 999,
+      borderRadius: radius.pill,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
       padding: 3,
-      marginBottom: 10,
+      marginBottom: space.sm + 2,
     },
-    segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
-    segmentText: { fontSize: 13, color: theme.textSecondary },
-    segmentTextActive: { color: '#fff', fontWeight: '700' },
+    segmentItem: { flex: 1, alignItems: 'center', justifyContent: 'center', height: HIT - 12, borderRadius: radius.pill },
+    segmentText: { ...type.secondary, color: theme.textSecondary },
+    segmentTextActive: { color: theme.isDark ? '#06201A' : '#FFFFFF', fontFamily: font.bodySemiBold },
+
     searchBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: space.sm,
       backgroundColor: theme.surface,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      height: 42,
+      borderRadius: radius.control + 2,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
+      paddingHorizontal: space.md - 4,
+      height: HIT,
     },
-    searchInput: { flex: 1, fontSize: 14, color: theme.text, padding: 0 },
+    searchInput: { ...type.body, flex: 1, color: theme.text, padding: 0 },
+
     hintBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 7,
-      marginTop: 8,
-      padding: 10,
-      borderRadius: 10,
+      gap: space.sm - 1,
+      marginTop: space.sm,
+      padding: space.sm + 2,
+      borderRadius: radius.control + 2,
       backgroundColor: theme.surface,
       borderLeftWidth: 3,
       borderLeftColor: theme.primary,
     },
-    hintText: { flex: 1, fontSize: 12, lineHeight: 17, color: theme.textSecondary },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+    hintText: { ...type.secondary, fontSize: 12, flex: 1, color: theme.textSecondary },
+
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs + 2, marginTop: space.sm + 2 },
     chip: {
-      paddingHorizontal: 11,
-      paddingVertical: 6,
-      borderRadius: 999,
+      justifyContent: 'center',
+      height: HIT - 14,
+      paddingHorizontal: space.sm + 4,
+      borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
       maxWidth: 150,
     },
-    chipText: { fontSize: 12, color: theme.textSecondary },
-    chipTextActive: { color: '#fff', fontWeight: '700' },
-    scopeLine: { fontSize: 11, color: theme.textSecondary, marginTop: 14, marginBottom: 4 },
+    chipText: { ...type.secondary, fontSize: 12, color: theme.textSecondary },
+    chipTextActive: { color: theme.isDark ? '#06201A' : '#FFFFFF', fontFamily: font.bodySemiBold },
+
+    scopeLine: { ...type.secondary, fontSize: 11, color: theme.textSecondary, marginTop: space.md - 2, marginBottom: space.xs },
+
     dayHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'baseline',
-      paddingTop: 12,
-      paddingBottom: 5,
+      paddingTop: space.md - 4,
+      paddingBottom: space.xs + 2,
       paddingHorizontal: 2,
     },
-    dayHeaderText: { fontSize: 11, color: theme.textSecondary },
-    dayHeaderTotal: { fontSize: 11, color: theme.textSecondary },
+    dayHeaderText: { ...type.label, color: theme.textSecondary },
+    dayHeaderTotal: { ...type.amountSmall, fontSize: 12, color: theme.textSecondary },
+
+    dayCard: {
+      backgroundColor: theme.surface,
+      borderRadius: radius.card,
+      borderWidth: theme.isDark ? 1 : 0,
+      borderColor: theme.border,
+      overflow: 'hidden',
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      backgroundColor: theme.surface,
-      borderRadius: 10,
+      gap: space.sm + 2,
       borderLeftWidth: 4,
-      paddingVertical: 11,
-      paddingHorizontal: 12,
-      marginBottom: 6,
+      minHeight: HIT,
+      paddingVertical: space.sm + 2,
+      paddingHorizontal: space.md - 4,
     },
-    rowTitle: { fontSize: 14, color: theme.text },
-    rowSubtitle: { fontSize: 11, color: theme.textSecondary, marginTop: 1 },
-    rowAmount: { fontSize: 14, fontWeight: '700' },
-    emptyText: { fontSize: 13, color: theme.textSecondary, paddingVertical: 14, textAlign: 'center' },
-    moreButton: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
-    moreButtonText: { fontSize: 13, color: theme.primary, fontWeight: '700' },
+    rowDivided: { borderTopWidth: 1, borderTopColor: theme.background },
+    rowTitle: { ...type.bodyStrong, color: theme.text },
+    rowSubtitle: { ...type.secondary, fontSize: 11, color: theme.textSecondary, marginTop: 1 },
+    rowAmount: { ...type.amountSmall, color: theme.text },
+
+    emptyText: { ...type.secondary, color: theme.textSecondary, paddingVertical: space.md - 2, textAlign: 'center' },
+    moreButton: { alignItems: 'center', justifyContent: 'center', height: HIT, marginTop: space.xs },
+    moreButtonText: { ...type.section, fontSize: 14, color: theme.primary },
   });
 }

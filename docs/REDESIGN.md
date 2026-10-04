@@ -122,8 +122,13 @@ have meant drawing it twice.
       two screens answer halves of one question and ought to look like they
       know that.
 
-      Still open on it: the transactions list underneath, which is the last
-      piece of the old screen, and the **Analiza** face.
+      The transactions list under it is done too: one card per day rather than
+      a column of separately floating rows, because a column of slabs reads as
+      a list of unrelated things while a day is one thing with entries in it.
+      Search, the kind filter and the category chips all sit on the tokens now
+      and every one of them clears 48 points.
+
+      Still open on it: the **Analiza** face.
 - [ ] **Calendar.** Horizon, and the day panel rebuilt: it fits barely two
       entries today and needs a precise tap on a small arrow to open.
 - [ ] **Lists.** Horizon, and the folder cards in the new system.
