@@ -149,11 +149,40 @@ have meant drawing it twice.
       detail. Its own screen is now in the right place; what it still lacks is
       the sentence. This is the fix for the screen he called the worst: it was
       never badly drawn, it had no question to answer.
-- [ ] **Settings itself.** Now that it is a pushed screen rather than a tab, it
-      is the one place in the design build still wearing the old look
-      end to end. It is also the least seen, so it waits.
 
-## After the screens
+## Then the screens behind the tabs
+
+The redesign has reached the tab roots and almost nothing else. There are **24
+screens**; two are drawn in the new system and the shared header touches the
+rest without changing what is under it. Opening anything from a tab still steps
+back a year.
+
+They are grouped by the tab they hang off, because that is how they are
+reached and how they should be judged — a day opened from the calendar has to
+feel like the calendar, not like a different app.
+
+- [ ] **The forms, as ONE job.** Ten screens hold a text field: add or edit an
+      expense, a plan, an income entry, a savings entry, a list item, a
+      category, a household, a password. Drawn one at a time they will end up
+      ten slightly different forms. Drawn once — field, label, error, keyboard
+      behaviour, the save button and where it sits — they are one pattern
+      applied ten times, and the tenth costs nothing.
+- [ ] **From Calendar**: the day itself, the day's spending breakdown, and the
+      agenda list.
+- [ ] **From Money**: savings, and the transactions list that sits under the
+      figures.
+- [ ] **From Lists**: a folder and its items.
+- [ ] **From the gear**: settings, the household, the activity log.
+- [ ] **Reached from anywhere**: notifications.
+- [ ] **Before the app**: the login screen, which is the first thing anyone
+      ever sees and is currently the last thing on this list.
+
+**Open question for these:** how much pond, if any, belongs on a screen you
+have pushed into rather than switched to. The horizon was settled for tab
+roots. A form is not a place you look at; it is a place you leave as fast as
+possible, and a sky behind it may be exactly wrong.
+
+## The rest, which is not screens
 
 - [ ] **Onboarding**: empty states that teach, one guided first expense, at
       most three coachmarks on the screens they belong to.
@@ -182,6 +211,14 @@ have meant drawing it twice.
 
 - [ ] **A name.** Pond is a working title he accepted quickly and wants to
       better. Nothing is published under it and nothing depends on it.
+
+## Not design, and on him
+
+- [ ] The Google Play developer account (25 USD, one off).
+- [ ] A list of 12 testers — Play requires them before a closed test can open.
+- [ ] GitHub Pages switched on, for the privacy policy URL Play asks for.
+
+None of this blocks the redesign, and all of it blocks shipping.
 
 ## Open questions
 
