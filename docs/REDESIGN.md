@@ -335,7 +335,35 @@ have meant drawing it twice.
       it. Data that cannot say which question it answers will eventually be
       shown under the wrong one.
 
-      Everything carries the query key now, the screen draws nothing it cannot
+      **It was not fixed by that alone, and the rest is worth writing down.**
+      Keying the data stopped the wrong figures appearing, but three more
+      faults were doing the rest of the damage:
+
+      The screen was not considered loaded until **both** requests had landed
+      — the period's figures and the previous period's one number for the
+      comparison — and they ran one after the other. The chart and the empty
+      message waited on a request neither of them uses, which on a slow
+      connection is two round trips of staring at nothing. They go out
+      together now and nothing waits on the comparison, which is seeded from
+      the cache besides, so it stops arriving a beat late and reading as the
+      figure correcting itself.
+
+      The empty message said **"no expenses logged yet this month"** whichever
+      of the three cards you were on, and said "this month" while you were
+      looking at a year. Three messages now, none of them naming a period it
+      cannot see.
+
+      And the day chart **silently dropped every day with a negative total** —
+      it took a maximum with a floor of zero and skipped the rest. Expenses
+      are never negative so it looked right for a year; savings has
+      withdrawals, so a month where more came out than went in drew an empty
+      chart with the days money left simply missing. Zero has its own line
+      now, bars go both ways from it, and a day where one person paid in while
+      the other took out shows both. `chartScale.js` holds the arithmetic and
+      has the test; verified by putting the old floor back and watching it
+      fail.
+
+      Everything carries the query key, the screen draws nothing it cannot
       attribute, and a response that comes back for a question nobody is
       asking any more is dropped — which also fixes the quieter half of it:
       three taps start three requests and they can return in any order, so

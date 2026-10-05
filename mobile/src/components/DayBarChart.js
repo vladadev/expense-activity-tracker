@@ -4,6 +4,7 @@ import Svg, { Line, Rect, G, Text as SvgText } from 'react-native-svg';
 import { BlurredText, CAN_BLUR } from './AmountText';
 import { useSettings } from '../context/SettingsContext';
 import { space, type, tabular } from '../theme/scale';
+import { scaleFor } from './chartScale';
 
 const HEIGHT = 190;
 const TOP_PAD = 30; // room for the value label above the tallest bar
@@ -62,9 +63,16 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
 
   const plotHeight = HEIGHT - TOP_PAD - BOTTOM_PAD;
   const plotWidth = width - LEFT_PAD;
-  const baselineY = TOP_PAD + plotHeight;
-  const maxValue = Math.max(...data.map((d) => d.value), 1);
-  const maxIndex = data.reduce((best, d, i, arr) => (d.value > arr[best].value ? i : best), 0);
+  // The scale spans what the data actually covers, which for savings includes
+  // withdrawals. It used to be a maximum with a floor of zero, and anything at
+  // or below zero was skipped outright — so a month where more came out than
+  // went in drew an empty chart, and the days money left were simply not
+  // there. A chart that omits the half of the data it finds awkward is worse
+  // than no chart.
+  const { highest, lowest, span, zeroY } = scaleFor(data.map((d) => d.value), plotHeight, TOP_PAD);
+
+  const maxIndex = data.reduce((best, d, i, arr) => (Math.abs(d.value) > Math.abs(arr[best].value) ? i : best), 0);
+  const peak = data[maxIndex]?.value || 0;
   const columnWidth = plotWidth / data.length;
   // Fat for twelve months, thin for thirty-one days, never invisible.
   const barWidth = clamp(columnWidth * 0.66, 3, 26);
@@ -72,8 +80,11 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
   const gridLines = [];
   for (let i = 0; i <= GRID_STEPS; i++) {
     const y = TOP_PAD + (plotHeight / GRID_STEPS) * i;
-    gridLines.push({ y, value: maxValue * (1 - i / GRID_STEPS), isBaseline: i === GRID_STEPS });
+    gridLines.push({ y, value: highest - (span / GRID_STEPS) * i, isBaseline: false });
   }
+  // Zero gets its own line, heavier than the rest: once there are bars below
+  // it, it is the thing every one of them is measured from.
+  gridLines.push({ y: zeroY, value: 0, isBaseline: true, isZero: lowest < 0 });
 
   const labelStep = Math.max(1, Math.ceil(data.length / MAX_LABELS));
   const maxCenterX = LEFT_PAD + maxIndex * columnWidth + columnWidth / 2;
@@ -100,37 +111,45 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
               y1={g.y}
               x2={width}
               y2={g.y}
-              stroke={theme.border}
+              stroke={g.isZero ? theme.textSecondary : theme.border}
               strokeWidth={g.isBaseline ? 1.5 : 1}
             />
           ))}
 
           {data.map((d, i) => {
-            if (!(d.value > 0)) return null;
+            if (!d.value) return null;
             const x = LEFT_PAD + i * columnWidth + (columnWidth - barWidth) / 2;
             const rx = Math.min(barWidth / 2, 5);
             const parts =
               d.segments && d.segments.length
-                ? d.segments.filter((s) => s.value > 0)
+                ? d.segments.filter((s) => s.value !== 0)
                 : [{ key: 'all', value: d.value, color: hexToRgba(theme.primary, i === maxIndex ? 1 : 0.55) }];
 
-            let cursor = 0;
-            return parts.map((s, n) => {
-              const h = (s.value / maxValue) * plotHeight;
-              const y = baselineY - cursor - h;
-              cursor += h;
-              const top = n === parts.length - 1;
+            // Stacked away from zero in both directions, so a day where one
+            // person paid in and the other took out shows both.
+            const ups = parts.filter((s) => s.value > 0);
+            const downs = parts.filter((s) => s.value < 0);
+            let up = 0;
+            let down = 0;
+
+            return parts.map((s) => {
+              const h = (Math.abs(s.value) / span) * plotHeight;
+              const positive = s.value > 0;
+              const y = positive ? zeroY - up - h : zeroY + down;
+              const outermost = positive ? s === ups[ups.length - 1] : s === downs[downs.length - 1];
+              if (positive) up += h;
+              else down += h;
               return (
                 // G and not a Fragment: react-native-svg walks real SVG
                 // elements, and a fragment in the middle of that walk is a
                 // place where children quietly fail to arrive.
                 <G key={`${i}-${s.key}`}>
-                  <Rect x={x} y={y} width={barWidth} height={Math.max(h, 1)} rx={top ? rx : 0} fill={s.color} />
-                  {/* Only the top of the whole bar is rounded — rounding each
-                      segment turns a stack into a string of beads. This fills
-                      the notch the rounding leaves behind it. */}
-                  {top && parts.length > 1 && h > rx && (
-                    <Rect x={x} y={y + h - rx} width={barWidth} height={rx} fill={s.color} />
+                  <Rect x={x} y={y} width={barWidth} height={Math.max(h, 1)} rx={outermost ? rx : 0} fill={s.color} />
+                  {/* Only the far end of the whole bar is rounded — rounding
+                      each segment turns a stack into a string of beads. This
+                      fills the notch the rounding leaves behind it. */}
+                  {outermost && parts.length > 1 && h > rx && (
+                    <Rect x={x} y={positive ? y + h - rx : y} width={barWidth} height={rx} fill={s.color} />
                   )}
                 </G>
               );
@@ -176,7 +195,7 @@ export default function DayBarChart({ data, width, theme, formatAmount, currency
           style={[styles.valueLabel, { color: theme.primary, left: labelLeft, width: LABEL_WIDTH }]}
           numberOfLines={1}
         >
-          {formatAmount(maxValue, currency)}
+          {formatAmount(peak, currency)}
         </BlurredText>
 
         <Pressable

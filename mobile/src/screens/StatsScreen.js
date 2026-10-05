@@ -29,6 +29,12 @@ const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
 const EMPTY_OBJECT = {};
 const EMPTY_ARRAY = [];
 
+const EMPTY_MESSAGE = {
+  expenses: 'stats.emptyExpenses',
+  income: 'stats.emptyIncome',
+  savings: 'stats.emptySavings',
+};
+
 const MONTHS_SHORT = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   sr: ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Avg', 'Sep', 'Okt', 'Nov', 'Dec'],
@@ -111,6 +117,34 @@ function computeSummary(list) {
 // used to go back to the network and show a skeleton for figures it had read
 // four seconds earlier. The first render starts from memory now, and the
 // refresh behind it is silent.
+// Entries to a total per currency. Written once because it is used twice —
+// on the answer that arrives from the network and on the copy already in
+// memory — and two copies of this would drift on the day withdrawals changed.
+function entriesToTotals(dataType, list) {
+  const totals = {};
+  for (const e of list || []) {
+    const v = dataType === 'savings' && e.direction === 'withdrawal' ? -e.amount : e.amount;
+    totals[e.currency] = (totals[e.currency] || 0) + v;
+  }
+  return totals;
+}
+
+// The period before this one, if we already hold it. The comparison is the
+// second half of the headline, and having it arrive a beat after the figure
+// reads as the number correcting itself.
+function prevFromCache(dataType, back) {
+  if (dataType === 'expenses') {
+    const data = peekCache(`/stats/range/${back.from}/${back.to}`);
+    if (!data) return null;
+    const totals = {};
+    for (const [cur, sum] of Object.entries(data.byCurrency || {})) totals[cur] = sum.total || 0;
+    return totals;
+  }
+  const data = peekCache(dataType === 'income' ? '/income' : '/savings', { from: back.from, to: back.to });
+  if (!data) return null;
+  return entriesToTotals(dataType, data.entries);
+}
+
 function seedFor(key, dataType, periodMode, monthOffset, yearOffset) {
   const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
   if (dataType === 'expenses') {
@@ -167,13 +201,18 @@ export default function StatsScreen({ navigation, embedded = false }) {
   const expenses = current?.expenses ?? null;
   // Income/savings entries when one of those data types is selected.
   const entries = current?.entries || EMPTY_ARRAY;
-  const prevTotals = prev && prev.key === queryKey ? prev.totals : EMPTY_OBJECT;
+  const prevTotals = useMemo(() => {
+    if (prev && prev.key === queryKey) return prev.totals;
+    const back = periodMode === 'month' ? monthRange(monthOffset - 1) : yearRange(yearOffset - 1);
+    return prevFromCache(dataType, back) || EMPTY_OBJECT;
+  }, [prev, queryKey, dataType, periodMode, monthOffset, yearOffset]);
 
-  const [loading, setLoading] = useState(true);
-  // Distinguishes "this really is empty" from "I could not find out".
-  const [loadFailed, setLoadFailed] = useState(false);
-  // Set when the screen is showing its last good copy instead of live data.
-  const [staleAt, setStaleAt] = useState(null);
+  // These belong to a query as much as the figures do. They used to be loose
+  // state, so a failed Prihodi read left its error banner over Štednja, and a
+  // stale notice from one period sat above another's numbers.
+  const [outcome, setOutcome] = useState(null);
+  const loadFailed = outcome && outcome.key === queryKey ? outcome.failed : false;
+  const staleAt = outcome && outcome.key === queryKey ? outcome.staleAt : null;
   // Which currency is shown in full. Null until the data says which one this
   // household actually spends in.
   const [currencyPick, setCurrencyPick] = useState(null);
@@ -206,62 +245,66 @@ export default function StatsScreen({ navigation, embedded = false }) {
   const latest = useRef(queryKey);
   latest.current = queryKey;
 
+  // The figures for a period, and the one number from the period before it.
+  //
+  // These used to run one after the other, and the screen was not considered
+  // loaded until BOTH had landed — so the chart and the empty message waited
+  // on a request they do not use, and on a slow connection that is two round
+  // trips of staring at nothing. They go out together now, and the comparison
+  // arrives whenever it arrives: a headline without "12% less than last month"
+  // is still a headline.
   const load = useCallback(async () => {
     const key = queryKeyFor(dataType, periodMode, monthOffset, yearOffset);
-    setLoading(true);
     const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
-    try {
-      if (dataType === 'expenses') {
-        const res = await cachedGet(`/stats/range/${from}/${to}`);
-        if (latest.current !== key) return;
-        setStaleAt(res.stale ? res.at : null);
-        setStore({
-          key,
-          byDay: res.data.byDay,
-          byCurrency: res.data.byCurrency,
-          expenses: res.data.expenses || null,
-          entries: [],
-        });
-      } else {
-        const res = await cachedGet(dataType === 'income' ? '/income' : '/savings', { params: { from, to } });
-        if (latest.current !== key) return;
-        setStaleAt(res.stale ? res.at : null);
-        setStore({ key, byDay: {}, byCurrency: {}, expenses: null, entries: res.data.entries || [] });
-      }
-      setLoadFailed(false);
-    } catch (err) {
-      if (latest.current !== key) return;
-      console.log('Failed to load stats:', err.message);
-      setLoadFailed(true);
-    }
+    const back = periodMode === 'month' ? monthRange(monthOffset - 1) : yearRange(yearOffset - 1);
+    const path = dataType === 'income' ? '/income' : '/savings';
 
-    // The period before this one, for the comparison line, in a try of its
-    // own: a headline without "12% less than last month" is still a headline,
-    // and failing to reach last month must not blank out this one.
-    try {
-      const back = periodMode === 'month' ? monthRange(monthOffset - 1) : yearRange(yearOffset - 1);
-      const totals = {};
-      if (dataType === 'expenses') {
-        const res = await cachedGet(`/stats/range/${back.from}/${back.to}`);
-        for (const [cur, sum] of Object.entries(res.data.byCurrency || {})) totals[cur] = sum.total || 0;
-      } else {
-        const res = await cachedGet(dataType === 'income' ? '/income' : '/savings', {
-          params: { from: back.from, to: back.to },
-        });
-        for (const e of res.data.entries || []) {
-          const v = dataType === 'savings' && e.direction === 'withdrawal' ? -e.amount : e.amount;
-          totals[e.currency] = (totals[e.currency] || 0) + v;
+    const main = (async () => {
+      try {
+        const res =
+          dataType === 'expenses'
+            ? await cachedGet(`/stats/range/${from}/${to}`)
+            : await cachedGet(path, { params: { from, to } });
+        if (latest.current !== key) return;
+        setStore(
+          dataType === 'expenses'
+            ? {
+                key,
+                byDay: res.data.byDay,
+                byCurrency: res.data.byCurrency,
+                expenses: res.data.expenses || null,
+                entries: [],
+              }
+            : { key, byDay: {}, byCurrency: {}, expenses: null, entries: res.data.entries || [] }
+        );
+        setOutcome({ key, failed: false, staleAt: res.stale ? res.at : null });
+      } catch (err) {
+        if (latest.current !== key) return;
+        console.log('Failed to load stats:', err.message);
+        setOutcome({ key, failed: true, staleAt: null });
+      }
+    })();
+
+    const comparison = (async () => {
+      try {
+        const totals = {};
+        if (dataType === 'expenses') {
+          const res = await cachedGet(`/stats/range/${back.from}/${back.to}`);
+          for (const [cur, sum] of Object.entries(res.data.byCurrency || {})) totals[cur] = sum.total || 0;
+        } else {
+          const res = await cachedGet(path, { params: { from: back.from, to: back.to } });
+          Object.assign(totals, entriesToTotals(dataType, res.data.entries));
         }
+        if (latest.current !== key) return;
+        setPrev({ key, totals });
+      } catch (err) {
+        if (latest.current !== key) return;
+        console.log('No previous period to compare against:', err.message);
+        setPrev({ key, totals: {} });
       }
-      if (latest.current !== key) return;
-      setPrev({ key, totals });
-    } catch (err) {
-      if (latest.current !== key) return;
-      console.log('No previous period to compare against:', err.message);
-      setPrev({ key, totals: {} });
-    }
+    })();
 
-    if (latest.current === key) setLoading(false);
+    await Promise.all([main, comparison]);
   }, [dataType, periodMode, monthOffset, yearOffset]);
 
   useFocusEffect(
@@ -302,7 +345,9 @@ export default function StatsScreen({ navigation, embedded = false }) {
   // same order every day and the eye can follow one band across the month.
   function segmentsOf(by) {
     return Object.entries(by)
-      .filter(([, v]) => v > 0)
+      // Not `v > 0`: a savings withdrawal is negative, and dropping it here
+      // left the chart with nothing to draw on the days money left.
+      .filter(([, v]) => v !== 0)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([name, value]) => ({ key: name, value, color: personColor(name) }));
   }
@@ -500,7 +545,7 @@ export default function StatsScreen({ navigation, embedded = false }) {
     owners = Object.entries(summary.byOwner || {});
   }
 
-  const hasBars = bars.some((d) => d.value > 0);
+  const hasBars = bars.some((d) => d.value !== 0);
   const legend = chipPersons.map((name) => ({ key: name, name, color: personColor(name) }));
 
   return (
@@ -519,12 +564,14 @@ export default function StatsScreen({ navigation, embedded = false }) {
               onPress={() => {
                 if (dataType !== seg.key) {
                   setDataType(seg.key);
-                  // Both filters belong to the data they were chosen in. A
+                  // Every choice here belongs to the data it was made in. A
                   // person who appears in the expenses may have no savings at
                   // all, and carrying their name across reads as an empty
-                  // month rather than as a filter still being on.
+                  // month rather than as a filter still being on; a currency
+                  // picked on one card may not exist on the next.
                   setTypeFilter('all');
                   setPersonFilter('all');
+                  setCurrencyPick(null);
                   animateContent();
                 }
               }}
@@ -653,7 +700,7 @@ export default function StatsScreen({ navigation, embedded = false }) {
               </View>
             )}
 
-            {!loading && hasBars && (
+            {hasBars && (
               <View style={styles.sectionWrap}>
                 {/* The period in the heading, because the numbers along the
                     bottom are days of it and nothing else said so. */}
@@ -720,7 +767,16 @@ export default function StatsScreen({ navigation, embedded = false }) {
           </Animated.View>
         )}
 
-        {!loading && !hasData && (loadFailed ? <LoadFailed onRetry={load} /> : <Text style={styles.emptyText}>{t('stats.noneYet')}</Text>)}
+        {/* We are past the early return, so `current` is an answer, not a
+            guess — `!hasData` means this period really is empty rather than
+            not read yet. The message says which of the three is empty: it used
+            to say "no expenses logged" whichever card you were on. */}
+        {!hasData &&
+          (loadFailed ? (
+            <LoadFailed onRetry={load} />
+          ) : (
+            <Text style={styles.emptyText}>{t(EMPTY_MESSAGE[dataType])}</Text>
+          ))}
       </ScrollView>
     </Screen>
   );

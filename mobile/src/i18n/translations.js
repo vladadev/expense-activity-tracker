@@ -154,6 +154,9 @@ export const translations = {
     'eventForm.deleteConfirm': 'Delete this activity/plan?',
 
     'stats.thisMonth': 'This Month',
+    'stats.emptyExpenses': 'Nothing spent in this period.',
+    'stats.emptyIncome': 'No income in this period.',
+    'stats.emptySavings': 'No savings entries in this period.',
     'stats.noneYet': 'No expenses logged yet this month.',
     'stats.categoryBreakdown': 'Category breakdown',
     'stats.byDay': 'Day by day',
@@ -585,6 +588,9 @@ export const translations = {
     'eventForm.deleteConfirm': 'Obrisati ovu aktivnost/plan?',
 
     'stats.thisMonth': 'Ovaj Mesec',
+    'stats.emptyExpenses': 'Nema troškova u ovom periodu.',
+    'stats.emptyIncome': 'Nema prihoda u ovom periodu.',
+    'stats.emptySavings': 'Nema unosa štednje u ovom periodu.',
     'stats.noneYet': 'Još uvek nema unetih troškova ovog meseca.',
     'stats.categoryBreakdown': 'Pregled po kategorijama',
     'stats.byDay': 'Po danima',
