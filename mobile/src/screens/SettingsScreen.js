@@ -9,6 +9,7 @@ import { CURRENCIES } from '../config/categories';
 import Screen from '../components/Screen';
 import { IS_DESIGN } from '../theme/variant';
 import { isErrorReportingEnabled, sendTestEvent } from '../utils/errorReporting';
+import { checkForUpdateNow } from '../utils/useAppUpdates';
 import Frog from '../components/pond/Frog';
 import ThemePicker from '../components/pond/ThemePicker';
 import { useHouseholds } from '../context/HouseholdContext';
@@ -27,6 +28,32 @@ export default function SettingsScreen({ navigation }) {
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [testing, setTesting] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // A tester has to be able to answer "am I running the thing that was just
+  // published?" without being told to close the app twice and hope. The id
+  // below says which bundle this is; this says whether it is the latest.
+  async function handleCheckUpdate() {
+    if (checking) return;
+    setChecking(true);
+    const result = await checkForUpdateNow();
+    setChecking(false);
+    if (result.state === 'ready') {
+      // useAppUpdates reloads the design build on its own once the bundle is
+      // down; say so rather than leaving a silent pause.
+      Alert.alert(t('settings.checkUpdate'), t('settings.updateReady'));
+      await Updates.reloadAsync();
+      return;
+    }
+    Alert.alert(
+      t('settings.checkUpdate'),
+      result.state === 'current'
+        ? t('settings.updateCurrent')
+        : result.state === 'disabled'
+          ? t('settings.updateDisabled')
+          : t('settings.updateFailed', { reason: result.reason })
+    );
+  }
 
   function handleLogout() {
     Alert.alert(t('settings.logoutConfirmTitle'), t('settings.logoutConfirmMessage'), [
@@ -130,6 +157,12 @@ export default function SettingsScreen({ navigation }) {
 
         <TouchableOpacity style={styles.activityButton} onPress={() => navigation.navigate('ActivityLog')}>
           <Text style={styles.activityButtonText}>{t('settings.activityHistory')}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.activityButton} onPress={handleCheckUpdate} disabled={checking}>
+          <Text style={styles.activityButtonText}>
+            {checking ? `${t('settings.checkUpdate')}...` : t('settings.checkUpdate')}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

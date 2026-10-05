@@ -18,6 +18,7 @@ import { HouseholdProvider } from './src/context/HouseholdContext';
 import { PersonColorsProvider } from './src/context/PersonColorsContext';
 import { initErrorReporting, reportError } from './src/utils/errorReporting';
 import DuoSplash from './src/components/duo/DuoSplash';
+import useAppUpdates from './src/utils/useAppUpdates';
 
 // Started before the tree renders so a crash during startup is still caught.
 // No-ops safely when the DSN is unset or the native module isn't in this build.
@@ -39,6 +40,11 @@ function ThemedStatusBar() {
 }
 
 export default function App() {
+  // Before anything else: make sure the app running is the app that was
+  // published. Without this it launched whatever it already had and applied
+  // the new bundle one cold start later — see useAppUpdates.
+  useAppUpdates();
+
   // The splash plays once per launch and hands over when it finishes.
   // Outfit is the face that gets noticed — titles, and above all amounts.
   // Plex Sans is the one that gets read. A family named in the tokens but not

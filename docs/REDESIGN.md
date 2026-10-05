@@ -319,6 +319,28 @@ have meant drawing it twice.
       are the same thing to the person holding the phone. It is gone, and both
       breakdowns stand on their own.
 
+## Getting the app onto the phone
+
+- [x] **The app had no code for applying an update.** No check, no fetch, no
+      reload — `updates` in app.json was a URL and nothing else. Expo's default
+      is then to launch the bundle it already has and download the new one
+      behind it, applied on the NEXT cold start. So every session ran one
+      publish behind, and a phone that was backgrounded rather than closed
+      could sit several behind indefinitely.
+
+      This is worse than an ordinary bug, because it hides every other one:
+      days of "I see no improvement" were spent on changes that were never
+      being run, and nothing shipped could be judged. It should have been the
+      first thing checked the first time he said a fix had not landed.
+
+      `useAppUpdates` now checks on launch and on return to the foreground.
+      The design build applies it at once — being the newest thing is the only
+      reason that build exists. The real app fetches and lets the next launch
+      apply it, because reloading under somebody halfway through typing an
+      expense is not a kindness. Settings has a button that forces the check
+      and says which of the three answers it got, beside the bundle id that
+      was already there.
+
 ## Speed
 
 - [x] **Analysis showed one question's figures under another's heading.** His
