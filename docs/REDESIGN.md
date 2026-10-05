@@ -321,6 +321,29 @@ have meant drawing it twice.
 
 ## Speed
 
+- [x] **Analysis showed one question's figures under another's heading.** His
+      report: switching between Troškovi, Prihodi and Štednja sometimes said
+      there was nothing this month, sometimes showed the wrong numbers, and
+      put itself right several seconds later.
+
+      The screen draws four things at once — a headline, a breakdown, a chart
+      and a comparison — and all four belong to one question: which data type,
+      over which period, how far back. That question was being asked by four
+      controls and answered into four loose pieces of state with nothing tying
+      them to it, so switching left the previous answer standing until the new
+      request came back, and the screen cheerfully built its sections out of
+      it. Data that cannot say which question it answers will eventually be
+      shown under the wrong one.
+
+      Everything carries the query key now, the screen draws nothing it cannot
+      attribute, and a response that comes back for a question nobody is
+      asking any more is dropped — which also fixes the quieter half of it:
+      three taps start three requests and they can return in any order, so
+      without that the slowest one won. The person filter resets with the data
+      type too; a name that appears in the expenses may have no savings at
+      all, and carrying it across reads as an empty month rather than as a
+      filter still being on.
+
 It was not one screen. Every read in the app went to the network first, and the
 disk cache underneath was only ever reached for when a request failed — it was
 an offline fallback wearing the word cache. So walking from Money to Analysis
@@ -398,15 +421,16 @@ feel like the calendar, not like a different app.
         would be a lie and sending the person back to a form they have already
         filled in would be worse.
 
-      Wearing it: **add/edit an expense, income, savings, and change your
-      password.** The expense form went from 192 lines to 134 and the income
-      form from 163 to 83, which is the point — the pattern is in one place
-      now, so the next one is cheap.
+      Wearing it: **an expense, an income entry, a savings entry, the plan, a
+      list item, and changing your password.** Six screens, 1308 lines down to
+      997, with the pattern itself in one place — which is the point, because
+      the plan and a list item both needed a switch row and a reminder and
+      both got them from the same two files.
 
-      Still to wear it: the plan (`EventForm`), a list item, a category, the
-      household, and signing in and registering. Plus the inline add-rows
-      inside Lists and a wishlist folder, which are forms without being
-      screens.
+      Still on their own: **a category, the household, and signing in and
+      registering.** Those are a different shape — a list with a row for
+      adding to it, rather than a screen you push into and fill — and they are
+      worth drawing as that rather than forced into this one.
 
       Caught on the way past: `savings.direction` and the singular labels for
       the password eye existed in one language and not the other. The

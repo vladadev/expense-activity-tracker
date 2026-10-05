@@ -1,13 +1,19 @@
-import React, { useMemo, useRef, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch, Platform } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Text, Pressable, StyleSheet, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useWishlistItems } from '../context/WishlistItemsContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
-import Screen from '../components/Screen';
-import FormError from '../components/FormError';
+import FormScreen from '../components/form/FormScreen';
+import Field from '../components/form/Field';
+import TextField from '../components/form/TextField';
+import ChipGroup from '../components/form/ChipGroup';
+import SwitchRow from '../components/form/SwitchRow';
+import useFormSubmit from '../components/form/useFormSubmit';
+import { space, radius, type, HIT } from '../theme/scale';
 
 export default function WishlistItemFormScreen({ route, navigation }) {
   const { folder, item } = route.params;
@@ -34,89 +40,88 @@ export default function WishlistItemFormScreen({ route, navigation }) {
   // Android has no combined date+time picker — show date, then time.
   const [pickerStep, setPickerStep] = useState(null); // null | 'date' | 'time' | 'datetime'
   const [titleError, setTitleError] = useState('');
-  const [formError, setFormError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef(null);
 
-  async function handleSave() {
+  // addItem and updateItem apply the change to the list before the request and
+  // revert it only if the write was NOT queued — see the offline-write notes.
+  const run = useCallback(async () => {
+    const payload = {
+      category: folder._id,
+      title: title.trim(),
+      price: price ? parseFloat(price) : null,
+      currency: price ? currency : null,
+      link,
+      notes,
+      reminderEnabled,
+      reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
+    };
+    if (isEditing) await updateItem(item._id, payload);
+    else await addItem(payload);
+  }, [folder, title, price, currency, link, notes, reminderEnabled, reminderAt, isEditing, item, addItem, updateItem]);
+
+  const { submitting, submit } = useFormSubmit({
+    run,
+    success: isEditing ? t('toast.itemSaved') : t('toast.itemAdded'),
+    navigation,
+    errorMessage: t('expenseForm.saveError'),
+  });
+
+  function handleSave() {
     if (!title.trim()) {
       setTitleError(t('validation.titleRequired'));
       titleRef.current?.focus();
       return;
     }
     setTitleError('');
-    setFormError('');
-
-    setSubmitting(true);
-    try {
-      const payload = {
-        category: folder._id,
-        title: title.trim(),
-        price: price ? parseFloat(price) : null,
-        currency: price ? currency : null,
-        link,
-        notes,
-        reminderEnabled,
-        reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
-      };
-      if (isEditing) {
-        await updateItem(item._id, payload);
-      } else {
-        await addItem(payload);
-      }
-      navigation.goBack();
-    } catch (err) {
-      setFormError(err.response?.data?.error || t('expenseForm.saveError'));
-    } finally {
-      setSubmitting(false);
-    }
+    submit();
   }
 
   return (
-    <Screen title={isEditing ? t('expenseForm.saveChanges') : t(isTodo ? 'todo.addItem' : 'wishlist.addItem')}>
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>{t('wishlist.itemTitle')}</Text>
-      <TextInput
+    <FormScreen
+      title={isEditing ? t('expenseForm.saveChanges') : t(isTodo ? 'todo.addItem' : 'wishlist.addItem')}
+      onSave={handleSave}
+      submitting={submitting}
+      saveLabel={isEditing ? t('expenseForm.saveChanges') : t('common.add')}
+      savingLabel={t('expenseForm.saving')}
+    >
+      <TextField
         ref={titleRef}
-        style={[styles.input, !!titleError && styles.inputError]}
-        placeholder={t(isTodo ? 'todo.itemTitlePlaceholder' : 'wishlist.itemTitlePlaceholder')}
-        placeholderTextColor={theme.textSecondary}
+        label={t('wishlist.itemTitle')}
+        placeholder={t('wishlist.itemTitlePlaceholder')}
         value={title}
-        onChangeText={(v) => {
-          setTitle(v);
-          if (titleError) setTitleError('');
-        }}
+        onChangeText={setTitle}
+        onClearError={() => titleError && setTitleError('')}
+        error={titleError}
+        returnKeyType="next"
       />
-      <FormError message={titleError} />
 
+      {/* A task has no price and nowhere to buy it. */}
       {!isTodo && (
         <>
-          <Text style={styles.label}>{t('wishlist.price')}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="0.00"
-            placeholderTextColor={theme.textSecondary}
+          <TextField
+            label={t('wishlist.price')}
+            placeholder="0"
             keyboardType="decimal-pad"
             value={price}
             onChangeText={setPrice}
           />
 
+          {/* Only once there is a price: a currency chosen for nothing is a
+              choice the form asked for and will throw away. */}
           {!!price && (
-            <View style={styles.chipRow}>
-              {CURRENCIES.map((c) => (
-                <TouchableOpacity key={c} style={[styles.chip, currency === c && styles.chipActive]} onPress={() => setCurrency(c)}>
-                  <Text style={[styles.chipText, currency === c && styles.chipTextActive]}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ChipGroup
+              label={t('expenseForm.currency')}
+              options={CURRENCIES}
+              value={currency}
+              onPick={setCurrency}
+            />
           )}
 
-          <Text style={styles.label}>{t('wishlist.link')}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="https://..."
-            placeholderTextColor={theme.textSecondary}
+          <TextField
+            label={t('wishlist.link')}
+            placeholder="https://"
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="url"
             value={link}
             onChangeText={setLink}
@@ -124,28 +129,28 @@ export default function WishlistItemFormScreen({ route, navigation }) {
         </>
       )}
 
-      <Text style={styles.label}>{t('wishlist.notes')}</Text>
-      <TextInput
-        style={styles.input}
+      <TextField
+        label={t('wishlist.notes')}
         placeholder={t('eventForm.notesPlaceholder')}
-        placeholderTextColor={theme.textSecondary}
         value={notes}
         onChangeText={setNotes}
         multiline
       />
 
-      <View style={styles.reminderRow}>
-        <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>{t('eventForm.reminder')}</Text>
-        <Switch value={reminderEnabled} onValueChange={setReminderEnabled} />
-      </View>
+      <SwitchRow label={t('eventForm.reminder')} value={reminderEnabled} onValueChange={setReminderEnabled} />
 
       {reminderEnabled && (
-        <TouchableOpacity
-          style={styles.input}
-          onPress={() => setPickerStep(Platform.OS === 'ios' ? 'datetime' : 'date')}
-        >
-          <Text style={{ color: theme.text }}>{formatShortDateTime(reminderAt, language)}</Text>
-        </TouchableOpacity>
+        <Field>
+          <Pressable
+            style={styles.reminderRow}
+            onPress={() => setPickerStep(Platform.OS === 'ios' ? 'datetime' : 'date')}
+            accessibilityRole="button"
+          >
+            <Ionicons name="alarm-outline" size={19} color={theme.textSecondary} />
+            <Text style={styles.reminderText}>{formatShortDateTime(reminderAt, language)}</Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </Pressable>
+        </Field>
       )}
 
       {pickerStep && (
@@ -163,7 +168,7 @@ export default function WishlistItemFormScreen({ route, navigation }) {
               return;
             }
             if (pickerStep === 'date') {
-              // Keep the previously chosen time-of-day, just swap the date part.
+              // Keep the time-of-day already chosen, swap only the date part.
               const next = new Date(reminderAt);
               next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
               setReminderAt(next);
@@ -175,62 +180,23 @@ export default function WishlistItemFormScreen({ route, navigation }) {
           }}
         />
       )}
-
-      <FormError message={formError} style={{ marginTop: 20 }} />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={submitting}>
-        <Text style={styles.saveButtonText}>
-          {submitting ? t('expenseForm.saving') : isEditing ? t('expenseForm.saveChanges') : t('common.add')}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
-    </Screen>
+    </FormScreen>
   );
 }
 
 function createStyles(theme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background, padding: 16 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginTop: 16, marginBottom: 8 },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 10,
-      padding: 14,
-      fontSize: 16,
-      color: theme.text,
-      backgroundColor: theme.surface,
-    },
-    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
     reminderRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: 20,
-      marginBottom: 8,
-    },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-    chip: {
+      gap: space.sm + 4,
+      minHeight: HIT,
+      paddingHorizontal: space.sm + 4,
+      borderRadius: radius.control,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      marginRight: 8,
-      marginBottom: 8,
       backgroundColor: theme.surface,
     },
-    chipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: 14 },
-    chipTextActive: { color: '#fff', fontWeight: '600' },
-    saveButton: {
-      backgroundColor: theme.primary,
-      borderRadius: 10,
-      padding: 16,
-      alignItems: 'center',
-      marginTop: 28,
-      marginBottom: 40,
-    },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    reminderText: { flex: 1, ...type.body, color: theme.text },
   });
 }

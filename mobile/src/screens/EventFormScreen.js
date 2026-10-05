@@ -1,5 +1,5 @@
-import React, { useMemo, useEffect, useRef, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, Platform } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
@@ -7,12 +7,18 @@ import { cachedGet } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
+import { useDataEvents } from '../context/DataEventsContext';
 import { formatShortDateTime } from '../i18n/dateFormat';
 import Screen from '../components/Screen';
 import { SkeletonBlock } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import { useDataEvents } from '../context/DataEventsContext';
-import FormError from '../components/FormError';
+import FormScreen from '../components/form/FormScreen';
+import Field from '../components/form/Field';
+import TextField from '../components/form/TextField';
+import ChipGroup from '../components/form/ChipGroup';
+import SwitchRow from '../components/form/SwitchRow';
+import useFormSubmit from '../components/form/useFormSubmit';
+import { space, radius, type, HIT } from '../theme/scale';
 
 export default function EventFormScreen({ route, navigation }) {
   const { date, eventId } = route.params;
@@ -31,7 +37,6 @@ export default function EventFormScreen({ route, navigation }) {
   const [startTime, setStartTime] = useState(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [titleError, setTitleError] = useState('');
-  const [formError, setFormError] = useState('');
   const titleRef = useRef(null);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderAt, setReminderAt] = useState(new Date(date + 'T09:00:00'));
@@ -39,7 +44,6 @@ export default function EventFormScreen({ route, navigation }) {
   // time — there's no combined "datetime" mode like on iOS. Passing
   // mode="datetime" on Android crashes, so we show date then time in sequence.
   const [pickerStep, setPickerStep] = useState(null); // null | 'date' | 'time'
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEditing);
 
   useEffect(() => {
@@ -56,44 +60,43 @@ export default function EventFormScreen({ route, navigation }) {
     });
   }, [isEditing, eventId]);
 
-  async function handleSave() {
+  const run = useCallback(async () => {
+    const payload = {
+      title: title.trim(),
+      type,
+      notes,
+      date,
+      startTime,
+      reminderEnabled,
+      reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
+    };
+    if (isEditing) {
+      const updated = await client.put(`/events/${eventId}`, payload);
+      emit('event', 'update', updated.data.event);
+    } else {
+      const created = await client.post('/events', payload);
+      emit('event', 'create', created.data.event);
+    }
+  }, [title, type, notes, date, startTime, reminderEnabled, reminderAt, isEditing, eventId, emit]);
+
+  const { submitting, submit } = useFormSubmit({
+    run,
+    success: isEditing ? t('toast.eventSaved') : t('toast.eventAdded'),
+    navigation,
+    errorMessage: t('eventForm.saveError'),
+  });
+
+  function handleSave() {
     if (!title.trim()) {
       setTitleError(t('validation.titleRequired'));
       titleRef.current?.focus();
       return;
     }
     setTitleError('');
-    setFormError('');
-
-    setSubmitting(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        type,
-        notes,
-        date,
-        startTime,
-        reminderEnabled,
-        reminderAt: reminderEnabled ? reminderAt.toISOString() : null,
-      };
-      if (isEditing) {
-        const updated = await client.put(`/events/${eventId}`, payload);
-        emit('event', 'update', updated.data.event);
-        toast.success(t('toast.eventSaved'));
-      } else {
-        const created = await client.post('/events', payload);
-        emit('event', 'create', created.data.event);
-        toast.success(t('toast.eventAdded'));
-      }
-      navigation.goBack();
-    } catch (err) {
-      setFormError(err.response?.data?.error || t('eventForm.saveError'));
-    } finally {
-      setSubmitting(false);
-    }
+    submit();
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     Alert.alert(t('common.delete'), t('eventForm.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
@@ -114,7 +117,7 @@ export default function EventFormScreen({ route, navigation }) {
   if (loading) {
     return (
       <Screen title={screenTitle}>
-        <View style={styles.container}>
+        <View style={{ padding: space.md }}>
           <SkeletonBlock width={'70%'} height={22} radius={8} y={40} />
         </View>
       </Screen>
@@ -122,45 +125,50 @@ export default function EventFormScreen({ route, navigation }) {
   }
 
   return (
-    <Screen title={screenTitle}>
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>{t('eventForm.titleLabel')}</Text>
-      <TextInput
+    <FormScreen
+      title={screenTitle}
+      onSave={handleSave}
+      submitting={submitting}
+      saveLabel={isEditing ? t('eventForm.saveChanges') : t('eventForm.add')}
+      savingLabel={t('eventForm.saving')}
+    >
+      <TextField
         ref={titleRef}
-        style={[styles.input, !!titleError && styles.inputError]}
+        label={t('eventForm.titleLabel')}
         placeholder={t('eventForm.titlePlaceholder')}
-        placeholderTextColor={theme.textSecondary}
         value={title}
-        onChangeText={(v) => {
-          setTitle(v);
-          if (titleError) setTitleError('');
-        }}
+        onChangeText={setTitle}
+        onClearError={() => titleError && setTitleError('')}
+        error={titleError}
+        returnKeyType="next"
       />
-      <FormError message={titleError} />
 
-      <Text style={styles.label}>{t('eventForm.time')}</Text>
-      <View style={styles.timeRow}>
-        <TouchableOpacity
-          style={[styles.timeOption, !startTime && styles.timeOptionActive]}
-          onPress={() => setStartTime(null)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="sunny-outline" size={15} color={!startTime ? '#fff' : theme.textSecondary} />
-          <Text style={[styles.timeOptionText, !startTime && styles.timeOptionTextActive]}>
-            {t('eventForm.allDay')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.timeOption, !!startTime && styles.timeOptionActive]}
-          onPress={() => setShowTimePicker(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="time-outline" size={15} color={startTime ? '#fff' : theme.textSecondary} />
-          <Text style={[styles.timeOptionText, !!startTime && styles.timeOptionTextActive]}>
-            {startTime || t('eventForm.pickTime')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* All day, or at a time. Two halves of one answer, so they are one
+          control rather than a toggle with a field hiding behind it. */}
+      <Field label={t('eventForm.time')}>
+        <View style={styles.timeRow}>
+          <Pressable
+            style={[styles.timeOption, !startTime && styles.timeOptionOn]}
+            onPress={() => setStartTime(null)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !startTime }}
+          >
+            <Ionicons name="sunny-outline" size={16} color={!startTime ? '#fff' : theme.textSecondary} />
+            <Text style={[styles.timeText, !startTime && styles.timeTextOn]}>{t('eventForm.allDay')}</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.timeOption, !!startTime && styles.timeOptionOn]}
+            onPress={() => setShowTimePicker(true)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !!startTime }}
+          >
+            <Ionicons name="time-outline" size={16} color={startTime ? '#fff' : theme.textSecondary} />
+            <Text style={[styles.timeText, !!startTime && styles.timeTextOn]}>
+              {startTime || t('eventForm.pickTime')}
+            </Text>
+          </Pressable>
+        </View>
+      </Field>
 
       {showTimePicker && (
         <DateTimePicker
@@ -187,44 +195,44 @@ export default function EventFormScreen({ route, navigation }) {
         />
       )}
 
-      <Text style={styles.label}>{t('eventForm.category')}</Text>
-      <View style={styles.chipRow}>
-        {eventCategories.map((c) => (
-          <TouchableOpacity
-            key={c._id}
-            style={[styles.chip, type === c.name && styles.chipActive]}
-            onPress={() => setType(c.name)}
+      <ChipGroup
+        label={t('eventForm.category')}
+        options={eventCategories.map((c) => ({ key: c.name, label: c.name }))}
+        value={type}
+        onPick={setType}
+        footer={
+          <Pressable
+            onPress={() => navigation.navigate('ManageCategories', { initialTab: 'event' })}
+            style={styles.manage}
+            accessibilityRole="button"
           >
-            <Text style={[styles.chipText, type === c.name && styles.chipTextActive]}>{c.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <TouchableOpacity onPress={() => navigation.navigate('ManageCategories', { initialTab: 'event' })}>
-        <Text style={styles.manageLink}>{t('expenseForm.manageCategories')}</Text>
-      </TouchableOpacity>
+            <Text style={styles.manageText}>{t('expenseForm.manageCategories')}</Text>
+          </Pressable>
+        }
+      />
 
-      <Text style={styles.label}>{t('eventForm.notes')}</Text>
-      <TextInput
-        style={styles.input}
+      <TextField
+        label={t('eventForm.notes')}
         placeholder={t('eventForm.notesPlaceholder')}
-        placeholderTextColor={theme.textSecondary}
         value={notes}
         onChangeText={setNotes}
         multiline
       />
 
-      <View style={styles.reminderRow}>
-        <Text style={styles.label}>{t('eventForm.reminder')}</Text>
-        <Switch value={reminderEnabled} onValueChange={setReminderEnabled} />
-      </View>
+      <SwitchRow label={t('eventForm.reminder')} value={reminderEnabled} onValueChange={setReminderEnabled} />
 
       {reminderEnabled && (
-        <TouchableOpacity
-          style={styles.input}
-          onPress={() => setPickerStep(Platform.OS === 'ios' ? 'datetime' : 'date')}
-        >
-          <Text style={{ color: theme.text }}>{formatShortDateTime(reminderAt, language)}</Text>
-        </TouchableOpacity>
+        <Field>
+          <Pressable
+            style={styles.reminderRow}
+            onPress={() => setPickerStep(Platform.OS === 'ios' ? 'datetime' : 'date')}
+            accessibilityRole="button"
+          >
+            <Ionicons name="alarm-outline" size={19} color={theme.textSecondary} />
+            <Text style={styles.reminderText}>{formatShortDateTime(reminderAt, language)}</Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </Pressable>
+        </Field>
       )}
 
       {pickerStep && (
@@ -255,79 +263,63 @@ export default function EventFormScreen({ route, navigation }) {
         />
       )}
 
-      <FormError message={formError} style={{ marginTop: 20 }} />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={submitting}>
-        <Text style={styles.saveButtonText}>
-          {submitting ? t('eventForm.saving') : isEditing ? t('eventForm.saveChanges') : t('eventForm.add')}
-        </Text>
-      </TouchableOpacity>
-
       {isEditing && (
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>{t('common.delete')}</Text>
-        </TouchableOpacity>
+        <Pressable onPress={handleDelete} style={styles.delete} accessibilityRole="button">
+          <Ionicons name="trash-outline" size={18} color={theme.danger} />
+          <Text style={styles.deleteText}>{t('common.delete')}</Text>
+        </Pressable>
       )}
-    </ScrollView>
-    </Screen>
+    </FormScreen>
   );
 }
 
 function createStyles(theme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background, padding: 16 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginTop: 16, marginBottom: 8 },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 10,
-      padding: 14,
-      fontSize: 16,
-      color: theme.text,
-      backgroundColor: theme.surface,
-    },
-    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
-    timeRow: { flexDirection: 'row', gap: 8 },
+    timeRow: { flexDirection: 'row', gap: space.sm },
     timeOption: {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 12,
-      borderRadius: 10,
-      borderWidth: 1.5,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-    },
-    timeOptionActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    timeOptionText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
-    timeOptionTextActive: { color: '#fff' },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
-    chip: {
+      gap: space.sm - 2,
+      minHeight: HIT,
+      borderRadius: radius.control,
       borderWidth: 1,
       borderColor: theme.border,
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      marginRight: 8,
-      marginBottom: 8,
       backgroundColor: theme.surface,
     },
-    chipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: 14 },
-    chipTextActive: { color: '#fff', fontWeight: '600' },
-    manageLink: { color: theme.primary, fontSize: 13, marginTop: 4 },
-    reminderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 },
-    saveButton: {
-      backgroundColor: theme.primary,
-      borderRadius: 10,
-      padding: 16,
+    timeOptionOn: { backgroundColor: theme.primary, borderColor: theme.primary },
+    timeText: { ...type.body, fontSize: 14, color: theme.text },
+    timeTextOn: { color: '#fff', fontWeight: '600' },
+
+    manage: { minHeight: 38, justifyContent: 'center', marginTop: space.xs },
+    manageText: { ...type.secondary, color: theme.primary },
+
+    reminderRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 28,
+      gap: space.sm + 4,
+      minHeight: HIT,
+      paddingHorizontal: space.sm + 4,
+      borderRadius: radius.control,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
     },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    deleteButton: { padding: 16, alignItems: 'center', marginBottom: 40 },
-    deleteButtonText: { color: theme.danger, fontSize: 15, fontWeight: '600' },
+    reminderText: { flex: 1, ...type.body, color: theme.text },
+
+    // Not in the bottom bar: that bar is for the two answers to the form's own
+    // question, and deleting is a different question entirely.
+    delete: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space.sm - 2,
+      minHeight: HIT,
+      marginTop: space.sm,
+      borderRadius: radius.control,
+      backgroundColor: theme.dangerLight,
+    },
+    deleteText: { ...type.bodyStrong, fontSize: 14, color: theme.danger },
   });
 }

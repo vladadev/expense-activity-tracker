@@ -20,9 +20,14 @@ import { useDeferredSkeleton } from '../components/Skeleton';
 import { formatMonthYear } from '../i18n/dateFormat';
 import { usePersonColor } from '../context/PersonColorsContext';
 import { space, radius, type, HIT } from '../theme/scale';
+import { queryKeyFor } from './statsQuery';
 
 const CATEGORY_COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280'];
 const CURRENCY_ORDER = ['RSD', 'EUR', 'USD'];
+
+// Shared empties: a fresh {} every render makes every memo below it miss.
+const EMPTY_OBJECT = {};
+const EMPTY_ARRAY = [];
 
 const MONTHS_SHORT = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -106,16 +111,16 @@ function computeSummary(list) {
 // used to go back to the network and show a skeleton for figures it had read
 // four seconds earlier. The first render starts from memory now, and the
 // refresh behind it is silent.
-function seedFor(dataType, periodMode, monthOffset, yearOffset) {
+function seedFor(key, dataType, periodMode, monthOffset, yearOffset) {
   const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
   if (dataType === 'expenses') {
     const data = peekCache(`/stats/range/${from}/${to}`);
     if (!data) return null;
-    return { byDay: data.byDay, byCurrency: data.byCurrency, expenses: data.expenses || null, entries: [] };
+    return { key, byDay: data.byDay, byCurrency: data.byCurrency, expenses: data.expenses || null, entries: [] };
   }
   const data = peekCache(dataType === 'income' ? '/income' : '/savings', { from, to });
   if (!data) return null;
-  return { byDay: {}, byCurrency: {}, expenses: null, entries: data.entries || [] };
+  return { key, byDay: {}, byCurrency: {}, expenses: null, entries: data.entries || [] };
 }
 
 // `embedded` means this screen is a face of Money rather than a destination of
@@ -131,28 +136,44 @@ export default function StatsScreen({ navigation, embedded = false }) {
   const [periodMode, setPeriodMode] = useState('month'); // 'month' | 'year'
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset, setYearOffset] = useState(0);
-  // Read once, on mount, and only to decide what the first frame shows.
-  const seed = useRef(undefined);
-  if (seed.current === undefined) seed.current = seedFor('expenses', 'month', 0, 0);
+  // What is being asked for. Four controls decide it, and everything the
+  // screen draws belongs to exactly one of its answers.
+  const queryKey = queryKeyFor(dataType, periodMode, monthOffset, yearOffset);
 
-  const [byDay, setByDay] = useState(() => seed.current?.byDay || {});
-  const [byCurrency, setByCurrency] = useState(() => seed.current?.byCurrency || {});
+  // The data, carrying the question it answers.
+  //
+  // It used to be four loose pieces of state with nothing tying them to the
+  // query that produced them, and switching from Troškovi to Prihodi left the
+  // old ones standing until the new request came back. So the screen built its
+  // sections out of them: sometimes "nothing this month" because the entry
+  // list was empty, sometimes savings figures under the Income heading,
+  // corrected several seconds later when the answer landed. Data that cannot
+  // say which question it answers will eventually be shown under the wrong one.
+  const [store, setStore] = useState(null);
+  const [prev, setPrev] = useState(null);
+
+  // What can be drawn for THIS query right now: what the last load left for
+  // it, or whatever the memory cache already holds. Null means we genuinely
+  // do not know yet, and the screen says so instead of guessing.
+  const current = useMemo(() => {
+    if (store && store.key === queryKey) return store;
+    return seedFor(queryKey, dataType, periodMode, monthOffset, yearOffset);
+  }, [store, queryKey, dataType, periodMode, monthOffset, yearOffset]);
+
+  const byDay = current?.byDay || EMPTY_OBJECT;
+  const byCurrency = current?.byCurrency || EMPTY_OBJECT;
   // Raw expenses from the range endpoint; null while the deployed backend
   // predates the field (person filtering is hidden in that case).
-  const [expenses, setExpenses] = useState(() => seed.current?.expenses ?? null);
+  const expenses = current?.expenses ?? null;
   // Income/savings entries when one of those data types is selected.
-  const [entries, setEntries] = useState(() => seed.current?.entries || []);
+  const entries = current?.entries || EMPTY_ARRAY;
+  const prevTotals = prev && prev.key === queryKey ? prev.totals : EMPTY_OBJECT;
+
   const [loading, setLoading] = useState(true);
-  // First load only: a filter change already has a page to change, so redrawing
-  // it as placeholders would be a step backwards.
-  const [everLoaded, setEverLoaded] = useState(() => seed.current != null);
   // Distinguishes "this really is empty" from "I could not find out".
   const [loadFailed, setLoadFailed] = useState(false);
   // Set when the screen is showing its last good copy instead of live data.
   const [staleAt, setStaleAt] = useState(null);
-  // The same period one step back, by currency: the one comparison this screen
-  // exists to make, and the one it never made.
-  const [prevTotals, setPrevTotals] = useState({});
   // Which currency is shown in full. Null until the data says which one this
   // household actually spends in.
   const [currencyPick, setCurrencyPick] = useState(null);
@@ -179,25 +200,37 @@ export default function StatsScreen({ navigation, embedded = false }) {
     animateContent();
   }
 
+  // Which query the screen is on, readable from inside a request that started
+  // before the last tap. Three taps in a row start three requests and they can
+  // come back in any order; without this the slowest wins.
+  const latest = useRef(queryKey);
+  latest.current = queryKey;
+
   const load = useCallback(async () => {
+    const key = queryKeyFor(dataType, periodMode, monthOffset, yearOffset);
     setLoading(true);
     const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
     try {
       if (dataType === 'expenses') {
         const res = await cachedGet(`/stats/range/${from}/${to}`);
-        setByDay(res.data.byDay);
+        if (latest.current !== key) return;
         setStaleAt(res.stale ? res.at : null);
-        setByCurrency(res.data.byCurrency);
-        setExpenses(res.data.expenses || null);
-      } else if (dataType === 'income') {
-        const res = await cachedGet('/income', { params: { from, to } });
-        setEntries(res.data.entries);
+        setStore({
+          key,
+          byDay: res.data.byDay,
+          byCurrency: res.data.byCurrency,
+          expenses: res.data.expenses || null,
+          entries: [],
+        });
       } else {
-        const res = await cachedGet('/savings', { params: { from, to } });
-        setEntries(res.data.entries);
+        const res = await cachedGet(dataType === 'income' ? '/income' : '/savings', { params: { from, to } });
+        if (latest.current !== key) return;
+        setStaleAt(res.stale ? res.at : null);
+        setStore({ key, byDay: {}, byCurrency: {}, expenses: null, entries: res.data.entries || [] });
       }
       setLoadFailed(false);
     } catch (err) {
+      if (latest.current !== key) return;
       console.log('Failed to load stats:', err.message);
       setLoadFailed(true);
     }
@@ -220,14 +253,15 @@ export default function StatsScreen({ navigation, embedded = false }) {
           totals[e.currency] = (totals[e.currency] || 0) + v;
         }
       }
-      setPrevTotals(totals);
+      if (latest.current !== key) return;
+      setPrev({ key, totals });
     } catch (err) {
+      if (latest.current !== key) return;
       console.log('No previous period to compare against:', err.message);
-      setPrevTotals({});
+      setPrev({ key, totals: {} });
     }
 
-    setLoading(false);
-    setEverLoaded(true);
+    if (latest.current === key) setLoading(false);
   }, [dataType, periodMode, monthOffset, yearOffset]);
 
   useFocusEffect(
@@ -408,9 +442,12 @@ export default function StatsScreen({ navigation, embedded = false }) {
     animateContent();
   }
 
-  const showSkeleton = useDeferredSkeleton(loading && !everLoaded);
+  // There is nothing to draw for this query yet. The deferred skeleton holds
+  // off for 200ms first, so a switch answered out of the memory cache — which
+  // is most of them — never flashes placeholders on its way to the figures.
+  const showSkeleton = useDeferredSkeleton(!current);
 
-  if (!everLoaded) {
+  if (!current) {
     return (
       <Screen title={t('nav.stats')} showBack={false} showPrivacyToggle bare={embedded}>
         {showSkeleton ? <StatsSkeleton /> : <View />}
@@ -482,7 +519,12 @@ export default function StatsScreen({ navigation, embedded = false }) {
               onPress={() => {
                 if (dataType !== seg.key) {
                   setDataType(seg.key);
+                  // Both filters belong to the data they were chosen in. A
+                  // person who appears in the expenses may have no savings at
+                  // all, and carrying their name across reads as an empty
+                  // month rather than as a filter still being on.
                   setTypeFilter('all');
+                  setPersonFilter('all');
                   animateContent();
                 }
               }}
