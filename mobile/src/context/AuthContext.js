@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import client, { TOKEN_KEY } from '../api/client';
+import client, { TOKEN_KEY, setAuthToken, clearAuthToken } from '../api/client';
 import { identifyUser, clearUser } from '../utils/errorReporting';
 import { clearOfflineCache } from '../api/cachedGet';
 
@@ -27,6 +27,7 @@ export function AuthProvider({ children }) {
 
   async function restoreSession() {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
+    setAuthToken(token);
     if (!token) {
       setLoading(false);
       return;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }) {
       const rejected = err.response?.status === 401 || err.response?.status === 403;
       if (rejected) {
         await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+        clearAuthToken();
       } else {
         const cached = await AsyncStorage.getItem(USER_KEY);
         if (cached) setUser(JSON.parse(cached));
@@ -59,6 +61,7 @@ export function AuthProvider({ children }) {
       [TOKEN_KEY, res.data.token],
       [USER_KEY, JSON.stringify(res.data.user)],
     ]);
+    setAuthToken(res.data.token);
     setUser(res.data.user);
   }
 
@@ -68,6 +71,7 @@ export function AuthProvider({ children }) {
       [TOKEN_KEY, res.data.token],
       [USER_KEY, JSON.stringify(res.data.user)],
     ]);
+    setAuthToken(res.data.token);
     setUser(res.data.user);
     return res.data.user;
   }
@@ -89,6 +93,7 @@ export function AuthProvider({ children }) {
     // Logging out deliberately clears the cached account too, or the next
     // launch would restore it from storage.
     await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+    clearAuthToken();
     await clearOfflineCache();
     setUser(null);
   }

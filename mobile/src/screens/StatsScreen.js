@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Press
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import client from '../api/client';
-import { cachedGet } from '../api/cachedGet';
+import { cachedGet, peekCache } from '../api/cachedGet';
 import { useSettings } from '../context/SettingsContext';
 import { useHouseholds } from '../context/HouseholdContext';
 import { useTheme } from '../context/ThemeContext';
@@ -99,6 +99,25 @@ function computeSummary(list) {
   return s;
 }
 
+// What this screen already knows the moment it mounts.
+//
+// Money renders one of its two faces at a time, so every switch between Sada
+// and Analiza unmounts this screen and builds it again from nothing — and it
+// used to go back to the network and show a skeleton for figures it had read
+// four seconds earlier. The first render starts from memory now, and the
+// refresh behind it is silent.
+function seedFor(dataType, periodMode, monthOffset, yearOffset) {
+  const { from, to } = periodMode === 'month' ? monthRange(monthOffset) : yearRange(yearOffset);
+  if (dataType === 'expenses') {
+    const data = peekCache(`/stats/range/${from}/${to}`);
+    if (!data) return null;
+    return { byDay: data.byDay, byCurrency: data.byCurrency, expenses: data.expenses || null, entries: [] };
+  }
+  const data = peekCache(dataType === 'income' ? '/income' : '/savings', { from, to });
+  if (!data) return null;
+  return { byDay: {}, byCurrency: {}, expenses: null, entries: data.entries || [] };
+}
+
 // `embedded` means this screen is a face of Money rather than a destination of
 // its own: it draws its body, and the title, the eye and the gear belong to the
 // screen above it. See MoneyScreen.
@@ -112,17 +131,21 @@ export default function StatsScreen({ navigation, embedded = false }) {
   const [periodMode, setPeriodMode] = useState('month'); // 'month' | 'year'
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset, setYearOffset] = useState(0);
-  const [byDay, setByDay] = useState({});
-  const [byCurrency, setByCurrency] = useState({});
+  // Read once, on mount, and only to decide what the first frame shows.
+  const seed = useRef(undefined);
+  if (seed.current === undefined) seed.current = seedFor('expenses', 'month', 0, 0);
+
+  const [byDay, setByDay] = useState(() => seed.current?.byDay || {});
+  const [byCurrency, setByCurrency] = useState(() => seed.current?.byCurrency || {});
   // Raw expenses from the range endpoint; null while the deployed backend
   // predates the field (person filtering is hidden in that case).
-  const [expenses, setExpenses] = useState(null);
+  const [expenses, setExpenses] = useState(() => seed.current?.expenses ?? null);
   // Income/savings entries when one of those data types is selected.
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries] = useState(() => seed.current?.entries || []);
   const [loading, setLoading] = useState(true);
   // First load only: a filter change already has a page to change, so redrawing
   // it as placeholders would be a step backwards.
-  const [everLoaded, setEverLoaded] = useState(false);
+  const [everLoaded, setEverLoaded] = useState(() => seed.current != null);
   // Distinguishes "this really is empty" from "I could not find out".
   const [loadFailed, setLoadFailed] = useState(false);
   // Set when the screen is showing its last good copy instead of live data.
@@ -133,10 +156,6 @@ export default function StatsScreen({ navigation, embedded = false }) {
   // Which currency is shown in full. Null until the data says which one this
   // household actually spends in.
   const [currencyPick, setCurrencyPick] = useState(null);
-  // The two breakdowns under the chart are the working, not the answer.
-  // They open on a row you can see, which is the same bargain the calendar
-  // struck with its month: hidden is fine as long as the handle is not.
-  const [detailOpen, setDetailOpen] = useState(false);
   // typeFilter: 'all' | 'personal' | 'together'; personFilter: 'all' | owner name.
   const [typeFilter, setTypeFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
@@ -144,7 +163,7 @@ export default function StatsScreen({ navigation, embedded = false }) {
 
   function animateContent() {
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 1, duration: 150, useNativeDriver: true }).start();
   }
 
   function changeTypeFilter(next) {
@@ -594,7 +613,11 @@ export default function StatsScreen({ navigation, embedded = false }) {
 
             {!loading && hasBars && (
               <View style={styles.sectionWrap}>
-                <Text style={styles.sectionTitle}>{t('stats.byDay')}</Text>
+                {/* The period in the heading, because the numbers along the
+                    bottom are days of it and nothing else said so. */}
+                <Text style={styles.sectionTitle}>
+                  {periodMode === 'month' ? t('stats.byDay') : t('stats.byMonth')} · {heading}
+                </Text>
                 <View style={styles.chartCard}>
                   <DayBarChart
                     data={bars}
@@ -602,26 +625,15 @@ export default function StatsScreen({ navigation, embedded = false }) {
                     theme={theme}
                     formatAmount={formatAmount}
                     currency={active.currency}
-                    onBarPress={handleBarPress}
+                    onBarPress={dataType === 'expenses' ? handleBarPress : undefined}
                     legend={personFilter === 'all' ? legend : null}
+                    caption={dataType === 'expenses' ? t('stats.tapForDetail') : null}
                   />
                 </View>
               </View>
             )}
 
-            {(splitParts.length === 2 || (personFilter === 'all' && owners.length > 1)) && (
-              <Pressable
-                onPress={() => setDetailOpen((v) => !v)}
-                style={styles.detailToggle}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: detailOpen }}
-              >
-                <Text style={styles.detailToggleText}>{t('stats.moreDetail')}</Text>
-                <Ionicons name={detailOpen ? 'chevron-up' : 'chevron-down'} size={17} color={theme.primary} />
-              </Pressable>
-            )}
-
-            {detailOpen && splitParts.length === 2 && (
+            {splitParts.length === 2 && (
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>{t('stats.personalVsTogether')}</Text>
                 <SplitBar
@@ -633,7 +645,7 @@ export default function StatsScreen({ navigation, embedded = false }) {
               </View>
             )}
 
-            {detailOpen && personFilter === 'all' && owners.length > 1 && (
+            {personFilter === 'all' && owners.length > 1 && (
               <View style={styles.sectionWrap}>
                 <Text style={styles.sectionTitle}>{t('stats.byPerson')}</Text>
                 {owners.map(([name, breakdown]) => {
@@ -764,17 +776,6 @@ function createStyles(theme) {
     ownerBreakdownLabel: { ...type.secondary, fontSize: 12, color: theme.textSecondary },
     ownerBreakdownValue: { ...type.amountSmall, fontSize: 14, color: theme.text, marginTop: 2 },
 
-    detailToggle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: space.xs + 2,
-      minHeight: HIT,
-      marginTop: space.md,
-      borderRadius: radius.control,
-      backgroundColor: hexToRgba(theme.primary, 0.1),
-    },
-    detailToggleText: { ...type.bodyStrong, fontSize: 14, color: theme.primary },
     emptyText: { ...type.secondary, color: theme.textSecondary, textAlign: 'center', marginTop: space.lg },
   });
 }

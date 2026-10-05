@@ -296,8 +296,65 @@ have meant drawing it twice.
       row, because both are "how wide am I looking" and each was taking one
       of its own.
 
-      The two breakdowns under the chart open on a handle you can see — the
-      same bargain the calendar struck with its month.
+      **Three things he found after the first version shipped**, all mine:
+
+      The chart drew nothing at all. The bars were wrapped in a clip rectangle
+      that was meant to wipe upward, and an Animated value inside a `<ClipPath>`
+      is resolved once and never updated — so the clip stayed at the zero
+      height it started at and took every bar with it. Nothing animates now. A
+      chart that appears is worth more than a chart that grows, and this is the
+      second time an SVG attribute has quietly refused to animate in this
+      project.
+
+      The day numbers along the bottom were being laid out as views, one per
+      column, and a column is nine points wide across a month — so "11" wrapped
+      onto two lines and came out as a 1 above a 1. They are drawn into the SVG
+      now, which does not wrap, and the heading carries the month so the
+      numbers read as days of it. The caption says they can be touched, and the
+      whole plot is one target that snaps to the nearest column, because a nine
+      point column is not something a thumb can hit.
+
+      The "more detail" handle was reported as broken. Whether it failed or
+      simply revealed its content below the fold does not much matter: those
+      are the same thing to the person holding the phone. It is gone, and both
+      breakdowns stand on their own.
+
+## Speed
+
+It was not one screen. Every read in the app went to the network first, and the
+disk cache underneath was only ever reached for when a request failed — it was
+an offline fallback wearing the word cache. So walking from Money to Analysis
+and back paid a full round trip each way, with a skeleton over it, for figures
+that had not changed in ten seconds. Nineteen files read through that one
+function, which is also why the fix is in that one function.
+
+- [x] **An answer the app already has is not worth asking for.** `memoryCache`
+      holds the last answer for forty-five seconds and `cachedGet` hands it
+      straight back — no request, no skeleton, no wait. Anything that writes
+      drops the whole cache rather than working out which entries it touched,
+      because that bookkeeping is what goes wrong six months later; it costs
+      one round trip on the next screen and cannot be wrong. Signing out drops
+      it first and outside the try, since leaving one account's figures in
+      memory for the next person is the one outcome that must not be possible.
+- [x] **The first frame starts from what is known.** Money renders one face at
+      a time, so every switch between Sada and Analiza rebuilt Analysis from
+      nothing. It seeds its state from the cache now, so the first render is
+      already the answer and the refresh behind it is silent.
+- [x] **The token stopped going to disk on every request.** Each call read it
+      out of AsyncStorage first — a bridge round trip to SQLite, four times
+      over for a screen making four calls, for a string that changes twice in
+      the life of an install. It lives in memory and the sign-in path keeps it
+      in step.
+- [x] **The content fade went from 300ms to 150.** It is native-driven and
+      cheap, but it was delaying the answer by a third of a second on every
+      filter tap, and the complaint was that the app felt slow.
+
+      Still open: the first visit to a screen in a session is still one round
+      trip, because serving the disk copy first would mean showing figures that
+      might be a day old without saying so. That wants stale-then-update, where
+      the screen renders the old answer immediately and swaps when the new one
+      lands — worth doing, and worth doing deliberately rather than as part of
+      this.
 
 ## Then the screens behind the tabs
 

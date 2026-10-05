@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import client from './client';
 import { getActiveHouseholdId } from './activeHousehold';
+import { readMemory, writeMemory, dropMemory, FRESH_MS } from './memoryCache';
 
 // A GET that remembers its last good answer.
 //
@@ -24,10 +25,27 @@ function keyFor(url, params) {
   return `${PREFIX}${household}:${url}${suffix}`;
 }
 
+// What we already know, right now, without waiting for anything. A screen can
+// render its first frame from this instead of a skeleton.
+export function peekCache(url, params) {
+  const hit = readMemory(keyFor(url, params));
+  return hit ? hit.data : null;
+}
+
 export async function cachedGet(url, config) {
   const key = keyFor(url, config?.params);
+
+  // Young enough to answer with. No request, no skeleton, no wait. Writes
+  // clear this cache wholesale, so the only thing this can be behind is a
+  // change made on somebody else's phone in the last few seconds.
+  const hit = readMemory(key);
+  if (hit && Date.now() - hit.at < FRESH_MS) {
+    return { data: hit.data, stale: false, at: hit.at, fromMemory: true };
+  }
+
   try {
     const res = await client.get(url, config);
+    writeMemory(key, res.data);
     // Written without awaiting: a slow disk must not delay the screen, and a
     // failed write only costs this one entry.
     AsyncStorage.setItem(key, JSON.stringify({ at: Date.now(), data: res.data })).catch(() => {});
@@ -38,6 +56,7 @@ export async function cachedGet(url, config) {
     if (!raw) throw err;
     try {
       const cached = JSON.parse(raw);
+      writeMemory(key, cached.data);
       return { data: cached.data, stale: true, at: cached.at };
     } catch (parseErr) {
       throw err;
@@ -48,6 +67,10 @@ export async function cachedGet(url, config) {
 // Two people share a phone during testing, and one account's data must never
 // surface under the other's. Clearing on logout is the simplest guarantee.
 export async function clearOfflineCache() {
+  // Memory first, and outside the try: the disk sweep can fail, and leaving
+  // one account's figures in memory for the next person to sign in is the one
+  // outcome that must not be possible.
+  dropMemory();
   try {
     const keys = await AsyncStorage.getAllKeys();
     const ours = keys.filter((k) => k.startsWith(PREFIX));

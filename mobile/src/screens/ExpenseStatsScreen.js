@@ -78,7 +78,7 @@ export default function ExpenseStatsScreen({ route, navigation }) {
 
   function animateContent() {
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 1, duration: 150, useNativeDriver: true }).start();
   }
 
   function changeTypeFilter(next) {

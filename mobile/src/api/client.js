@@ -4,13 +4,36 @@ import { API_BASE_URL } from '../config/env';
 import { reportError } from '../utils/errorReporting';
 import { offerToQueue } from './offlineHooks';
 import { getActiveHouseholdId, HOUSEHOLD_HEADER } from './activeHousehold';
+import { dropMemory } from './memoryCache';
 
 export const TOKEN_KEY = 'auth_token';
+
+// The token, in memory.
+//
+// Every single request used to read it off the disk first. AsyncStorage is a
+// round trip over the bridge to SQLite, so a screen that makes four calls paid
+// for four of them before any of its own work started — for a string that
+// changes twice in the life of an install. `undefined` means nobody has looked
+// yet; `null` means we looked and there is none.
+let memToken;
+
+export function setAuthToken(token) {
+  memToken = token || null;
+}
+
+export function clearAuthToken() {
+  memToken = null;
+}
+
+async function authToken() {
+  if (memToken === undefined) memToken = await AsyncStorage.getItem(TOKEN_KEY);
+  return memToken;
+}
 
 const client = axios.create({ baseURL: API_BASE_URL });
 
 client.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem(TOKEN_KEY);
+  const token = await authToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -35,8 +58,21 @@ client.interceptors.request.use(async (config) => {
 //
 //   skipped: no connection, timeouts, 401 (expired session), 4xx (validation)
 //   sent:    5xx server faults and anything genuinely unexpected
+// Anything that changed data on the server makes every cached answer suspect.
+// Working out which entries a given write touched is bookkeeping that goes
+// wrong six months later; dropping the lot costs one round trip on the next
+// screen and cannot be wrong. Exported because it is the whole rule, and a
+// rule worth a comment is worth a test.
+export function shouldDropCache(method) {
+  const m = (method || '').toLowerCase();
+  return m !== '' && m !== 'get' && m !== 'head';
+}
+
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (shouldDropCache(response.config?.method)) dropMemory();
+    return response;
+  },
   (error) => {
     const status = error.response?.status;
     const isServerFault = status >= 500;
