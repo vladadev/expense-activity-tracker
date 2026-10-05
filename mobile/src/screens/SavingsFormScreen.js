@@ -1,29 +1,26 @@
-import React, { useMemo, useEffect, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import React, { useCallback, useEffect, useState } from 'react';
 import client from '../api/client';
 import { cachedGet } from '../api/cachedGet';
 import { CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useHouseholds } from '../context/HouseholdContext';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import Screen from '../components/Screen';
-import FormError from '../components/FormError';
-import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
-import { formatLongDate } from '../i18n/dateFormat';
+import FormScreen from '../components/form/FormScreen';
+import AmountField from '../components/form/AmountField';
+import ChipGroup from '../components/form/ChipGroup';
+import SegmentGroup from '../components/form/SegmentGroup';
+import DateField from '../components/form/DateField';
+import TextField from '../components/form/TextField';
+import useFormSubmit from '../components/form/useFormSubmit';
 
 export default function SavingsFormScreen({ route, navigation }) {
   const { isSolo } = useHouseholds();
   const { entry } = route.params || {};
   const isEditing = !!entry;
-  const { t, language, currency: defaultCurrency } = useSettings();
-  const toast = useToast();
+  const { t, currency: defaultCurrency } = useSettings();
   const { emit } = useDataEvents();
   const { user } = useAuth();
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [type, setType] = useState(entry?.type || 'personal');
   const [owner, setOwner] = useState(entry?.owner?._id || user?.id);
@@ -33,206 +30,110 @@ export default function SavingsFormScreen({ route, navigation }) {
   const [currency, setCurrency] = useState(entry?.currency || defaultCurrency);
   const [description, setDescription] = useState(entry?.description || '');
   const [date, setDate] = useState(entry?.date ? new Date(entry.date) : new Date());
-  const [showPicker, setShowPicker] = useState(false);
   const [amountError, setAmountError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     cachedGet('/auth/users').then((res) => setUsers(res.data.users));
   }, []);
 
-  async function handleSave() {
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+  const run = useCallback(async () => {
+    const payload = {
+      type,
+      owner: type === 'personal' ? owner : undefined,
+      direction,
+      amount: parseFloat(amount),
+      currency,
+      description,
+      date: date.toISOString(),
+    };
+    if (isEditing) {
+      const updated = await client.put(`/savings/${entry._id}`, payload);
+      emit('savings', 'update', updated.data.entry);
+    } else {
+      const created = await client.post('/savings', payload);
+      emit('savings', 'create', created.data.entry);
+    }
+  }, [type, owner, direction, amount, currency, description, date, isEditing, entry, emit]);
+
+  const { submitting, submit } = useFormSubmit({
+    run,
+    success: isEditing ? t('toast.savingsSaved') : t('toast.savingsAdded'),
+    navigation,
+    errorMessage: t('savings.saveError'),
+  });
+
+  function handleSave() {
+    const parsed = parseFloat(amount);
+    if (!amount || isNaN(parsed) || parsed <= 0) {
       setAmountError(t('expenseForm.invalidAmountMessage'));
       return;
     }
     setAmountError('');
-
-    setSubmitting(true);
-    try {
-      const payload = {
-        type,
-        owner: type === 'personal' ? owner : undefined,
-        direction,
-        amount: parsedAmount,
-        currency,
-        description,
-        date: date.toISOString(),
-      };
-      if (isEditing) {
-        const updated = await client.put(`/savings/${entry._id}`, payload);
-        emit('savings', 'update', updated.data.entry);
-        toast.success(t('toast.savingsSaved'));
-      } else {
-        const created = await client.post('/savings', payload);
-        emit('savings', 'create', created.data.entry);
-        toast.success(t('toast.savingsAdded'));
-      }
-      navigation.goBack();
-    } catch (err) {
-      if (err.queued) {
-        // Saved locally and waiting for a connection — not a failure.
-        toast.success(t('toast.offline'));
-        navigation.goBack();
-        return;
-      }
-      toast.error(err.response?.data?.error || t('savings.saveError'), handleSave);
-    } finally {
-      setSubmitting(false);
-    }
+    submit();
   }
 
   return (
-    <Screen title={isEditing ? t('expenseForm.saveChanges') : t('nav.addSavingsEntry')}>
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      {/* Alone, saving is neither personal nor shared — it is just saving. */}
-      {!isSolo && (
-        <>
-          <Text style={styles.label}>{t('savings.entryType')}</Text>
-          <View style={styles.chipRow}>
-            <TouchableOpacity
-              style={[styles.chip, type === 'personal' && styles.chipActive]}
-              onPress={() => setType('personal')}
-            >
-              <Text style={[styles.chipText, type === 'personal' && styles.chipTextActive]}>{t('savings.personal')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.chip, type === 'together' && styles.chipActive]}
-              onPress={() => setType('together')}
-            >
-              <Text style={[styles.chipText, type === 'together' && styles.chipTextActive]}>{t('savings.together')}</Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-
-      {type === 'personal' && users.length > 1 && (
-        <>
-          <Text style={styles.label}>{t('dayDetail.personal')}</Text>
-          <View style={styles.chipRow}>
-            {users.map((u) => (
-              <TouchableOpacity
-                key={u._id}
-                style={[styles.chip, owner === u._id && styles.chipActive]}
-                onPress={() => setOwner(u._id)}
-              >
-                <Text style={[styles.chipText, owner === u._id && styles.chipTextActive]}>{u.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      )}
-
-      <Text style={styles.label}>{t('savings.deposit')} / {t('savings.withdrawal')}</Text>
-      <View style={styles.chipRow}>
-        <TouchableOpacity
-          style={[styles.chip, direction === 'deposit' && styles.chipActive]}
-          onPress={() => setDirection('deposit')}
-        >
-          <Text style={[styles.chipText, direction === 'deposit' && styles.chipTextActive]}>{t('savings.deposit')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, direction === 'withdrawal' && styles.chipActive]}
-          onPress={() => setDirection('withdrawal')}
-        >
-          <Text style={[styles.chipText, direction === 'withdrawal' && styles.chipTextActive]}>{t('savings.withdrawal')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.label}>{t('finance.date')}</Text>
-      <TouchableOpacity style={styles.input} onPress={() => setShowPicker(true)}>
-        <Text style={{ color: theme.text }}>{formatLongDate(date.toISOString().slice(0, 10), language)}</Text>
-      </TouchableOpacity>
-      {showPicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, selected) => {
-            setShowPicker(false);
-            if (selected) setDate(selected);
-          }}
-        />
-      )}
-
-      <Text style={styles.label}>{t('savings.amount')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="0.00"
-        placeholderTextColor={theme.textSecondary}
-        keyboardType="decimal-pad"
+    <FormScreen
+      title={isEditing ? t('expenseForm.saveChanges') : t('nav.addSavingsEntry')}
+      onSave={handleSave}
+      submitting={submitting}
+      saveLabel={isEditing ? t('expenseForm.saveChanges') : t('common.add')}
+      savingLabel={t('expenseForm.saving')}
+    >
+      <AmountField
+        label={t('finance.amount')}
         value={amount}
         onChangeText={(v) => {
           setAmount(v);
           if (amountError) setAmountError('');
         }}
+        error={amountError}
+        currency={currency}
+        currencies={CURRENCIES}
+        onPickCurrency={setCurrency}
       />
-      <FormError message={amountError} />
 
-      <Text style={styles.label}>{t('expenseForm.currency')}</Text>
-      <View style={styles.chipRow}>
-        {CURRENCIES.map((c) => (
-          <TouchableOpacity key={c} style={[styles.chip, currency === c && styles.chipActive]} onPress={() => setCurrency(c)}>
-            <Text style={[styles.chipText, currency === c && styles.chipTextActive]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SegmentGroup
+        label={t('savings.direction')}
+        options={[
+          { key: 'deposit', label: t('savings.deposit') },
+          { key: 'withdrawal', label: t('savings.withdrawal') },
+        ]}
+        value={direction}
+        onPick={setDirection}
+      />
 
-      <Text style={styles.label}>{t('savings.description')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={t('savings.descriptionPlaceholder')}
-        placeholderTextColor={theme.textSecondary}
+      {/* Alone, saving is neither personal nor shared — it is just saving. */}
+      {!isSolo && (
+        <SegmentGroup
+          label={t('savings.entryType')}
+          options={[
+            { key: 'personal', label: t('savings.personal') },
+            { key: 'together', label: t('savings.together') },
+          ]}
+          value={type}
+          onPick={setType}
+        />
+      )}
+
+      {type === 'personal' && users.length > 1 && (
+        <ChipGroup
+          label={t('dayDetail.personal')}
+          options={users.map((u) => ({ key: u._id, label: u.name }))}
+          value={owner}
+          onPick={setOwner}
+        />
+      )}
+
+      <DateField label={t('finance.date')} value={date} onChange={setDate} />
+
+      <TextField
+        label={t('finance.description')}
+        placeholder={t('finance.descriptionPlaceholder')}
         value={description}
         onChangeText={setDescription}
+        returnKeyType="done"
       />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={submitting}>
-        <Text style={styles.saveButtonText}>
-          {submitting ? t('expenseForm.saving') : isEditing ? t('expenseForm.saveChanges') : t('common.add')}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
-    </Screen>
+    </FormScreen>
   );
-}
-
-function createStyles(theme) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background, padding: 16 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginTop: 16, marginBottom: 8 },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 10,
-      padding: 14,
-      fontSize: 16,
-      color: theme.text,
-      backgroundColor: theme.surface,
-    },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      marginRight: 8,
-      marginBottom: 8,
-      backgroundColor: theme.surface,
-    },
-    chipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: 14 },
-    chipTextActive: { color: '#fff', fontWeight: '600' },
-    saveButton: {
-      backgroundColor: theme.primary,
-      borderRadius: 10,
-      padding: 16,
-      alignItems: 'center',
-      marginTop: 28,
-      marginBottom: 40,
-    },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  });
 }

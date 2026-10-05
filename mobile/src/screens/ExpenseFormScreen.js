@@ -1,21 +1,24 @@
-import React, { useMemo, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Text, Pressable, StyleSheet } from 'react-native';
 import client from '../api/client';
 import { EXPENSE_TYPES, CURRENCIES } from '../config/categories';
 import { useSettings } from '../context/SettingsContext';
 import { useHouseholds } from '../context/HouseholdContext';
 import { useCategories } from '../context/CategoriesContext';
 import { useTheme } from '../context/ThemeContext';
-import Screen from '../components/Screen';
-import FormError from '../components/FormError';
-import { useToast } from '../components/Toast';
 import { useDataEvents } from '../context/DataEventsContext';
+import FormScreen from '../components/form/FormScreen';
+import AmountField from '../components/form/AmountField';
+import ChipGroup from '../components/form/ChipGroup';
+import SegmentGroup from '../components/form/SegmentGroup';
+import TextField from '../components/form/TextField';
+import useFormSubmit from '../components/form/useFormSubmit';
+import { space, type } from '../theme/scale';
 
 export default function ExpenseFormScreen({ route, navigation }) {
   const { isSolo } = useHouseholds();
   const { date, expense } = route.params;
   const { t, currency: defaultCurrency } = useSettings();
-  const toast = useToast();
   const { emit } = useDataEvents();
   const { expenseCategories } = useCategories();
   const { theme } = useTheme();
@@ -24,169 +27,105 @@ export default function ExpenseFormScreen({ route, navigation }) {
 
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
   const [category, setCategory] = useState(expense?.category || expenseCategories[0]?.name || '');
-  const [type, setType] = useState(expense?.type || 'personal');
+  const [type_, setType] = useState(expense?.type || 'personal');
   const [currency, setCurrency] = useState(expense?.currency || defaultCurrency);
   const [description, setDescription] = useState(expense?.description || '');
   const [amountError, setAmountError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSave() {
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+  const run = useCallback(async () => {
+    const payload = { amount: parseFloat(amount), category, type: type_, currency, description, date };
+    if (isEditing) {
+      const updated = await client.put(`/expenses/${expense._id}`, payload);
+      emit('expense', 'update', updated.data.expense);
+    } else {
+      const created = await client.post('/expenses', payload);
+      emit('expense', 'create', created.data.expense);
+    }
+  }, [amount, category, type_, currency, description, date, isEditing, expense, emit]);
+
+  const { submitting, submit } = useFormSubmit({
+    run,
+    success: isEditing ? t('toast.expenseSaved') : t('toast.expenseAdded'),
+    navigation,
+    errorMessage: t('expenseForm.saveError'),
+  });
+
+  function handleSave() {
+    const parsed = parseFloat(amount);
+    if (!amount || isNaN(parsed) || parsed <= 0) {
       setAmountError(t('expenseForm.invalidAmountMessage'));
       return;
     }
     setAmountError('');
-
-    setSubmitting(true);
-    try {
-      const payload = { amount: parsedAmount, category, type, currency, description, date };
-      if (isEditing) {
-        const updated = await client.put(`/expenses/${expense._id}`, payload);
-        emit('expense', 'update', updated.data.expense);
-        toast.success(t('toast.expenseSaved'));
-      } else {
-        const created = await client.post('/expenses', payload);
-        emit('expense', 'create', created.data.expense);
-        toast.success(t('toast.expenseAdded'));
-      }
-      navigation.goBack();
-    } catch (err) {
-      if (err.queued) {
-        // Saved locally and waiting for a connection — not a failure.
-        toast.success(t('toast.offline'));
-        navigation.goBack();
-        return;
-      }
-      toast.error(err.response?.data?.error || t('expenseForm.saveError'), handleSave);
-    } finally {
-      setSubmitting(false);
-    }
+    submit();
   }
 
   return (
-    <Screen title={isEditing ? t('expenseForm.saveChanges') : t('nav.addExpense')}>
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>{t('expenseForm.amount')}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="0.00"
-        placeholderTextColor={theme.textSecondary}
-        keyboardType="decimal-pad"
+    <FormScreen
+      title={isEditing ? t('expenseForm.saveChanges') : t('nav.addExpense')}
+      onSave={handleSave}
+      submitting={submitting}
+      saveLabel={isEditing ? t('expenseForm.saveChanges') : t('expenseForm.addExpense')}
+      savingLabel={t('expenseForm.saving')}
+    >
+      <AmountField
+        label={t('expenseForm.amount')}
         value={amount}
         onChangeText={(v) => {
           setAmount(v);
           if (amountError) setAmountError('');
         }}
+        error={amountError}
+        currency={currency}
+        currencies={CURRENCIES}
+        onPickCurrency={setCurrency}
       />
-      <FormError message={amountError} />
 
-      <Text style={styles.label}>{t('expenseForm.currency')}</Text>
-      <View style={styles.chipRow}>
-        {CURRENCIES.map((c) => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.chip, currency === c && styles.chipActive]}
-            onPress={() => setCurrency(c)}
+      <ChipGroup
+        label={t('expenseForm.category')}
+        options={expenseCategories.map((c) => ({ key: c.name, label: c.name }))}
+        value={category}
+        onPick={setCategory}
+        footer={
+          <Pressable
+            onPress={() => navigation.navigate('ManageCategories', { initialTab: 'expense' })}
+            style={styles.manage}
+            accessibilityRole="button"
           >
-            <Text style={[styles.chipText, currency === c && styles.chipTextActive]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.label}>{t('expenseForm.category')}</Text>
-      <View style={styles.chipRow}>
-        {expenseCategories.map((c) => (
-          <TouchableOpacity
-            key={c._id}
-            style={[styles.chip, category === c.name && styles.chipActive]}
-            onPress={() => setCategory(c.name)}
-          >
-            <Text style={[styles.chipText, category === c.name && styles.chipTextActive]}>{c.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <TouchableOpacity onPress={() => navigation.navigate('ManageCategories', { initialTab: 'expense' })}>
-        <Text style={styles.manageLink}>{t('expenseForm.manageCategories')}</Text>
-      </TouchableOpacity>
+            <Text style={styles.manageText}>{t('expenseForm.manageCategories')}</Text>
+          </Pressable>
+        }
+      />
 
       {/* Alone there is no "ours", so the choice is not offered and every
           expense stays personal. The field remains on the record, so nothing
           needs migrating if somebody joins later. */}
       {!isSolo && (
-        <>
-          <Text style={styles.label}>{t('expenseForm.type')}</Text>
-          <View style={styles.chipRow}>
-            {EXPENSE_TYPES.map((typeOption) => (
-              <TouchableOpacity
-                key={typeOption}
-                style={[styles.chip, type === typeOption && styles.chipActive]}
-                onPress={() => setType(typeOption)}
-              >
-                <Text style={[styles.chipText, type === typeOption && styles.chipTextActive]}>
-                  {typeOption === 'personal' ? t('dayDetail.personal') : t('dayDetail.together')}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
+        <SegmentGroup
+          label={t('expenseForm.type')}
+          options={EXPENSE_TYPES.map((o) => ({
+            key: o,
+            label: o === 'personal' ? t('dayDetail.personal') : t('dayDetail.together'),
+          }))}
+          value={type_}
+          onPick={setType}
+        />
       )}
 
-      <Text style={styles.label}>{t('expenseForm.description')}</Text>
-      <TextInput
-        style={styles.input}
+      <TextField
+        label={t('expenseForm.description')}
         placeholder={t('expenseForm.descriptionPlaceholder')}
-        placeholderTextColor={theme.textSecondary}
         value={description}
         onChangeText={setDescription}
+        returnKeyType="done"
       />
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={submitting}>
-        <Text style={styles.saveButtonText}>
-          {submitting ? t('expenseForm.saving') : isEditing ? t('expenseForm.saveChanges') : t('expenseForm.addExpense')}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
-    </Screen>
+    </FormScreen>
   );
 }
 
 function createStyles(theme) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.background, padding: 16 },
-    label: { fontSize: 14, fontWeight: '600', color: theme.textSecondary, marginTop: 16, marginBottom: 8 },
-    input: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 10,
-      padding: 14,
-      fontSize: 16,
-      color: theme.text,
-      backgroundColor: theme.surface,
-    },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 20,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      marginRight: 8,
-      marginBottom: 8,
-      backgroundColor: theme.surface,
-    },
-    chipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
-    chipText: { color: theme.text, fontSize: 14 },
-    chipTextActive: { color: '#fff', fontWeight: '600' },
-    manageLink: { color: theme.primary, fontSize: 13, marginTop: 4 },
-    saveButton: {
-      backgroundColor: theme.primary,
-      borderRadius: 10,
-      padding: 16,
-      alignItems: 'center',
-      marginTop: 28,
-      marginBottom: 40,
-    },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    manage: { minHeight: 38, justifyContent: 'center', marginTop: space.xs },
+    manageText: { ...type.secondary, color: theme.primary },
   });
 }

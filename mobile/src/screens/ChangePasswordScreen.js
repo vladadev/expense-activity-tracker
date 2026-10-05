@@ -1,37 +1,51 @@
-import React, { useMemo, useRef, useState  } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useRef, useState } from 'react';
 import client from '../api/client';
 import { useSettings } from '../context/SettingsContext';
-import { useTheme } from '../context/ThemeContext';
-import Screen from '../components/Screen';
-import { useToast } from '../components/Toast';
-import FormError from '../components/FormError';
+import FormScreen from '../components/form/FormScreen';
+import TextField from '../components/form/TextField';
+import useFormSubmit from '../components/form/useFormSubmit';
 
 const MIN_LENGTH = 8;
 
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useSettings();
-  const { theme } = useTheme();
-  const toast = useToast();
-  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [show, setShow] = useState(false);
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
 
   const currentRef = useRef(null);
   const nextRef = useRef(null);
   const confirmRef = useRef(null);
 
   function clearError(field) {
-    if (errors[field] || errors.form) {
-      setErrors((prev) => ({ ...prev, [field]: undefined, form: undefined }));
-    }
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
   }
+
+  const run = useCallback(async () => {
+    try {
+      await client.post('/auth/change-password', { currentPassword: current, newPassword: next });
+    } catch (err) {
+      // A wrong current password belongs on that field, not on a toast and not
+      // in a banner at the top of a form the person has to scroll back up to.
+      if (err.response?.status === 401) {
+        setErrors({ current: err.response?.data?.error || t('password.failed') });
+        currentRef.current?.focus();
+        // Swallowed on purpose: the field is now saying it, and the submit
+        // hook would otherwise say it again on a toast.
+        return;
+      }
+      throw err;
+    }
+  }, [current, next, t]);
+
+  const { submitting, submit } = useFormSubmit({
+    run,
+    success: t('toast.passwordChanged'),
+    navigation,
+    errorMessage: t('password.failed'),
+  });
 
   function validate() {
     const found = {};
@@ -48,99 +62,55 @@ export default function ChangePasswordScreen({ navigation }) {
     return Object.keys(found).length === 0;
   }
 
-  async function handleSubmit() {
+  function handleSave() {
     if (!validate()) return;
-    setSubmitting(true);
-    try {
-      await client.post('/auth/change-password', { currentPassword: current, newPassword: next });
-      toast.success(t('toast.passwordChanged'));
-      navigation.goBack();
-    } catch (err) {
-      const message = err.response?.data?.error || t('password.failed');
-      // A wrong current password belongs on that field, not in a generic banner.
-      if (err.response?.status === 401) {
-        setErrors({ current: message });
-        currentRef.current?.focus();
-      } else {
-        setErrors({ form: message });
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function renderField(label, value, setValue, field, ref, nextRefToFocus, placeholder) {
-    return (
-      <>
-        <Text style={styles.label}>{label}</Text>
-        <View style={[styles.inputWrap, !!errors[field] && styles.inputError]}>
-          <TextInput
-            ref={ref}
-            style={styles.input}
-            placeholder={placeholder}
-            placeholderTextColor={theme.textSecondary}
-            secureTextEntry={!show}
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={value}
-            onChangeText={(v) => {
-              setValue(v);
-              clearError(field);
-            }}
-            returnKeyType={nextRefToFocus ? 'next' : 'done'}
-            onSubmitEditing={() => (nextRefToFocus ? nextRefToFocus.current?.focus() : handleSubmit())}
-          />
-        </View>
-        <FormError message={errors[field]} />
-      </>
-    );
+    submit();
   }
 
   return (
-    <Screen title={t('password.title')}>
-      <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-        <Text style={styles.intro}>{t('password.intro')}</Text>
+    <FormScreen
+      title={t('settings.changePassword')}
+      onSave={handleSave}
+      submitting={submitting}
+      saveLabel={t('password.save')}
+      savingLabel={t('password.saving')}
+    >
+      <TextField
+        ref={currentRef}
+        label={t('password.current')}
+        secure
+        value={current}
+        onChangeText={setCurrent}
+        onClearError={() => clearError('current')}
+        error={errors.current}
+        returnKeyType="next"
+        onSubmitEditing={() => nextRef.current?.focus()}
+      />
 
-        {renderField(t('password.current'), current, setCurrent, 'current', currentRef, nextRef, '••••••••')}
-        {renderField(t('password.new'), next, setNext, 'next', nextRef, confirmRef, t('password.newHint'))}
-        {renderField(t('password.confirm'), confirm, setConfirm, 'confirm', confirmRef, null, '••••••••')}
+      <TextField
+        ref={nextRef}
+        label={t('password.new')}
+        hint={t('password.newHint')}
+        secure
+        value={next}
+        onChangeText={setNext}
+        onClearError={() => clearError('next')}
+        error={errors.next}
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
+      />
 
-        <TouchableOpacity style={styles.showRow} onPress={() => setShow((s) => !s)} activeOpacity={0.7}>
-          <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={18} color={theme.textSecondary} />
-          <Text style={styles.showText}>{show ? t('password.hide') : t('password.show')}</Text>
-        </TouchableOpacity>
-
-        <FormError message={errors.form} style={{ marginTop: 12 }} />
-
-        <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
-          <Text style={styles.buttonText}>{submitting ? t('password.saving') : t('password.save')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </Screen>
+      <TextField
+        ref={confirmRef}
+        label={t('password.confirm')}
+        secure
+        value={confirm}
+        onChangeText={setConfirm}
+        onClearError={() => clearError('confirm')}
+        error={errors.confirm}
+        returnKeyType="done"
+        onSubmitEditing={handleSave}
+      />
+    </FormScreen>
   );
-}
-
-function createStyles(theme) {
-  return StyleSheet.create({
-    intro: { fontSize: 13, color: theme.textSecondary, lineHeight: 19, marginBottom: 20 },
-    label: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginBottom: 6, marginTop: 14 },
-    inputWrap: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
-    },
-    inputError: { borderColor: theme.danger, borderWidth: 1.5 },
-    input: { padding: 14, fontSize: 15, color: theme.text },
-    showRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 14 },
-    showText: { fontSize: 13, color: theme.textSecondary, fontWeight: '600' },
-    button: {
-      backgroundColor: theme.primary,
-      borderRadius: 12,
-      padding: 16,
-      alignItems: 'center',
-      marginTop: 12,
-    },
-    buttonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  });
 }

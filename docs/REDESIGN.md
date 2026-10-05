@@ -367,12 +367,52 @@ They are grouped by the tab they hang off, because that is how they are
 reached and how they should be judged — a day opened from the calendar has to
 feel like the calendar, not like a different app.
 
-- [ ] **The forms, as ONE job.** Ten screens hold a text field: add or edit an
-      expense, a plan, an income entry, a savings entry, a list item, a
-      category, a household, a password. Drawn one at a time they will end up
-      ten slightly different forms. Drawn once — field, label, error, keyboard
-      behaviour, the save button and where it sits — they are one pattern
-      applied ten times, and the tenth costs nothing.
+- [~] **The forms, as ONE job.** The pattern is built and four screens wear
+      it. What was wrong was never any one form — it was that each had been
+      drawn on its own: a label at 14 here and 12 there, an error under the
+      field on one screen and at the foot of another, and a save button that
+      was the last item in the scroll, so a long form made you scroll past
+      everything you had just filled in to reach it while a short one left it
+      marooned in the middle of an empty screen.
+
+      The vocabulary now lives in `components/form` and is decided once:
+
+      - **`FormScreen`** — what scrolls scrolls, and the bar at the bottom
+        does not. It carries both answers to the question the form asked:
+        save, and the way out. Leaving used to be the back arrow, which is a
+        navigation gesture, not an answer.
+      - **`AmountField`** — the figure the screen exists for, at the size it
+        deserves, with the currency beside it instead of in a row and a set of
+        pills of its own. It was in the same 16pt box as the optional note.
+      - **`ChipGroup`** for a list that grows, **`SegmentGroup`** for a set
+        that does not, **`DateField`** for a row that opens the picker and
+        looks like it opens something, **`TextField`** for everything else —
+        and the eye for a password lives in it, so the screen that asks you to
+        type one twice can finally show you what you typed.
+      - **`Field`** underneath all of them: label, control, and the error
+        under the field it belongs to. An error you have to scroll to find is
+        an error you argue with.
+      - **`useFormSubmit`** — saving, and its three endings. The middle one is
+        the one that gets forgotten: a write that got no response is already
+        in the offline queue and IS going to be sent, so reporting a failure
+        would be a lie and sending the person back to a form they have already
+        filled in would be worse.
+
+      Wearing it: **add/edit an expense, income, savings, and change your
+      password.** The expense form went from 192 lines to 134 and the income
+      form from 163 to 83, which is the point — the pattern is in one place
+      now, so the next one is cheap.
+
+      Still to wear it: the plan (`EventForm`), a list item, a category, the
+      household, and signing in and registering. Plus the inline add-rows
+      inside Lists and a wishlist folder, which are forms without being
+      screens.
+
+      Caught on the way past: `savings.direction` and the singular labels for
+      the password eye existed in one language and not the other. The
+      translations test already guarded that and said so — it checks that every
+      key the app asks for is defined in **both** languages, with matching
+      placeholders and no blanks.
 - [ ] **From Calendar**: the day itself, the day's spending breakdown, and the
       agenda list.
 - [ ] **From Money**: savings, and the transactions list that sits under the
