@@ -17,7 +17,14 @@ mobile/web-build/
 mobile/expo-env.d.ts
 mobile/.kotlin/
 mobile/*.orig.*
+# The signing key, and the file that holds its passwords. The key itself is
+# kept on the EAS servers; a copy downloaded with `eas credentials` lands
+# here, and credentials.json carries the keystore password in clear text.
+# Committing it would hand anyone who can read the repo the ability to sign
+# releases as us.
+mobile/credentials.json
 mobile/*.jks
+mobile/*.keystore
 mobile/*.p8
 mobile/*.p12
 mobile/*.key
