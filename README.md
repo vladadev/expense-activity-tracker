@@ -6,6 +6,12 @@ Personal MERN + Expo (React Native) app for tracking shared/personal expenses an
 - `backend/` — Express + Mongoose API (JWT auth, expenses, events, stats)
 - `mobile/` — Expo (React Native) app
 
+## Setting up a new machine
+
+From a blank Windows to a machine that can run this: **[docs/SETUP.md](docs/SETUP.md)**.
+The secrets it needs are not in this repository — they are in the backup folder,
+beside its own restore guide.
+
 ## Running locally
 
 ### Backend
